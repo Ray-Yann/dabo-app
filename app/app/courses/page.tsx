@@ -2,20 +2,47 @@
 
 import { useEffect, useState } from "react";
 import { useHousehold } from "@/lib/use-household";
-import { Header } from "@/components/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
 import { relativeDate } from "@/lib/utils";
-import { Check, Plus, Trash2, MessageCircle, X } from "lucide-react";
+import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+
+type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string };
+const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "" };
+
+function ItemFormFields({
+  form,
+  setForm,
+  members,
+}: {
+  form: ItemForm;
+  setForm: (f: ItemForm) => void;
+  members: { id: string; first_name: string }[];
+}) {
+  return (
+    <>
+      <input autoFocus placeholder="Nom de l'article" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      <input placeholder="Quantité (facultatif)" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
+        <option value="">Non assigné</option>
+        {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
+      </select>
+      <label className="flex items-center gap-2 text-sm text-ink">
+        <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
+        Marquer comme urgent
+      </label>
+    </>
+  );
+}
 
 export default function CoursesPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newQty, setNewQty] = useState("");
-  const [newUrgent, setNewUrgent] = useState(false);
+  const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<ItemForm>(EMPTY_FORM);
   const [openComments, setOpenComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -32,14 +59,42 @@ export default function CoursesPage() {
   }, [household]);
 
   async function addItem() {
-    if (!newName.trim() || !household) return;
-    await supabase.from("shopping_items").insert({ household_id: household.id, name: newName.trim(), quantity: newQty || null, urgent: newUrgent });
-    setNewName("");
-    setNewQty("");
-    setNewUrgent(false);
+    if (!addForm.name.trim() || !household) return;
+    await supabase.from("shopping_items").insert({
+      household_id: household.id,
+      name: addForm.name.trim(),
+      quantity: addForm.quantity || null,
+      urgent: addForm.urgent,
+      assigned_to: addForm.assignedTo || null,
+    });
+    setAddForm(EMPTY_FORM);
     setShowAdd(false);
     loadItems();
   }
+
+  function startEdit(item: ShoppingItem) {
+    setOpenComments(null);
+    setEditingId(item.id);
+    setEditForm({
+      name: item.name,
+      quantity: item.quantity || "",
+      urgent: item.urgent,
+      assignedTo: item.assigned_to || "",
+    });
+  }
+
+  async function saveEdit(id: string) {
+    if (!editForm.name.trim()) return;
+    await supabase.from("shopping_items").update({
+      name: editForm.name.trim(),
+      quantity: editForm.quantity || null,
+      urgent: editForm.urgent,
+      assigned_to: editForm.assignedTo || null,
+    }).eq("id", id);
+    setEditingId(null);
+    loadItems();
+  }
+
   async function toggle(item: ShoppingItem) {
     const status = item.status === "bought" ? "to_buy" : "bought";
     await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
@@ -50,6 +105,7 @@ export default function CoursesPage() {
     loadItems();
   }
   async function openItemComments(id: string) {
+    setEditingId(null);
     setOpenComments(id);
     const { data } = await supabase.from("comments").select("*").eq("shopping_item_id", id).order("created_at", { ascending: true });
     setComments((data as Comment[]) || []);
@@ -78,24 +134,19 @@ export default function CoursesPage() {
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} articles restants</div>
           <h1 className="font-serif text-2xl text-ink">Courses</h1>
         </div>
-        <button onClick={() => setShowAdd(true)} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
+        <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
           Ajouter
         </button>
       </div>
 
-      <IntroTip id="courses" text="Ajoutez vos articles, marquez-les urgents si besoin, et cochez-les une fois achetés — visible par tout le foyer." />
+      <IntroTip id="courses" text="Ajoutez vos articles, assignez-les, marquez-les urgents si besoin, et cochez-les une fois achetés — visible par tout le foyer." />
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <input autoFocus placeholder="Nom de l'article" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-          <input placeholder="Quantité (facultatif)" value={newQty} onChange={(e) => setNewQty(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" checked={newUrgent} onChange={(e) => setNewUrgent(e.target.checked)} />
-            Marquer comme urgent
-          </label>
+          <ItemFormFields form={addForm} setForm={setAddForm} members={members} />
           <div className="flex gap-2">
             <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Ajouter</button>
-            <button onClick={() => setShowAdd(false)} className="px-4 text-sm text-muted">Annuler</button>
+            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">Annuler</button>
           </div>
         </div>
       )}
@@ -106,18 +157,29 @@ export default function CoursesPage() {
         <div className="space-y-1 mb-6">
           {toBuy.map((item) => (
             <div key={item.id} className="border-b border-borderLight py-3">
-              <div className="flex items-center gap-3">
-                <div onClick={() => toggle(item)} className="w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer" />
-                <div className="flex-1 min-w-0" onClick={() => toggle(item)}>
-                  <div className="text-sm text-ink cursor-pointer flex items-center gap-1.5">
-                    {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgent" />}
-                    {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
+              {editingId === item.id ? (
+                <div className="bg-white2 rounded-xl p-3 space-y-2">
+                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} />
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(item.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Enregistrer</button>
+                    <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">Annuler</button>
                   </div>
-                  <div className="text-[11px] text-muted">{relativeDate(item.created_at)}{memberName(item.assigned_to) ? ` · ${memberName(item.assigned_to)}` : ""}</div>
                 </div>
-                <button onClick={() => openItemComments(item.id)} className="text-muted"><MessageCircle size={16} /></button>
-                <button onClick={() => remove(item.id)} className="text-muted"><Trash2 size={16} /></button>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div onClick={() => toggle(item)} className="w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer" />
+                  <div className="flex-1 min-w-0" onClick={() => toggle(item)}>
+                    <div className="text-sm text-ink cursor-pointer flex items-center gap-1.5">
+                      {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgent" />}
+                      {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
+                    </div>
+                    <div className="text-[11px] text-muted">{relativeDate(item.created_at)}{memberName(item.assigned_to) ? ` · ${memberName(item.assigned_to)}` : ""}</div>
+                  </div>
+                  <button onClick={() => startEdit(item)} className="text-muted"><Pencil size={16} /></button>
+                  <button onClick={() => openItemComments(item.id)} className="text-muted"><MessageCircle size={16} /></button>
+                  <button onClick={() => remove(item.id)} className="text-muted"><Trash2 size={16} /></button>
+                </div>
+              )}
               {openComments === item.id && (
                 <div className="mt-2 ml-8 bg-white2 rounded-xl p-3">
                   {comments.length === 0 && <p className="text-xs text-muted italic">Aucun commentaire.</p>}
