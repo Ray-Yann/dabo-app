@@ -1,0 +1,13 @@
+{
+  "name": "Dabo",
+  "short_name": "Dabo",
+  "description": "L'équilibre du foyer, enfin visible.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0EFE6",
+  "theme_color": "#22301F",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
