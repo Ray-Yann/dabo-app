@@ -4,13 +4,29 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
-import { Copy, LogOut } from "lucide-react";
+import { Copy, LogOut, Bell } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+import { enableNotifications } from "@/lib/notifications";
 
 export default function SettingsPage() {
   const { loading, household, me, members, supabase, refresh } = useHousehold();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [notifError, setNotifError] = useState("");
+
+  async function handleEnableNotifications() {
+    if (!me) return;
+    setNotifStatus("loading");
+    setNotifError("");
+    try {
+      await enableNotifications(supabase, me.id);
+      setNotifStatus("done");
+    } catch (e: unknown) {
+      setNotifError(e instanceof Error ? e.message : "Une erreur est survenue.");
+      setNotifStatus("error");
+    }
+  }
 
   async function toggleEquity() {
     if (!household) return;
@@ -95,6 +111,21 @@ export default function SettingsPage() {
           >
             <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${household.equity_score_enabled ? "left-5" : "left-0.5"}`} />
           </button>
+        </div>
+
+        <div className="bg-white2 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-sm text-ink font-medium flex items-center gap-2"><Bell size={15} /> Notifications</div>
+          </div>
+          <p className="text-xs text-muted mb-3">
+            {notifStatus === "done" ? "Activées sur cet appareil." : "Reçois un signal quand un membre du foyer termine quelque chose. Sur iPhone, installe d'abord Dabo sur l'écran d'accueil pour que ça fonctionne."}
+          </p>
+          {notifStatus !== "done" && (
+            <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
+              {notifStatus === "loading" ? "..." : "Activer les notifications"}
+            </button>
+          )}
+          {notifStatus === "error" && <p className="text-xs text-red-700 mt-2">{notifError}</p>}
         </div>
 
         <button onClick={leaveHousehold} className="w-full border border-border rounded-xl py-3 text-sm text-muted flex items-center justify-center gap-2 mt-4">

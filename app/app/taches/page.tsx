@@ -5,6 +5,7 @@ import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, DURATION_PRESETS } from "@/lib/types";
 import { relativeDate } from "@/lib/utils";
+import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 
@@ -139,6 +140,9 @@ export default function TasksPage() {
 
   async function completeTask(task: Task) {
     await supabase.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", task.id);
+    if (household && me) {
+      notifyHousehold(household.id, me.id, "Dabo", `${me.first_name} a terminé « ${task.name} »`);
+    }
 
     if (task.routine_id) {
       const { data: routine } = await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle();

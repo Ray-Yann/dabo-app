@@ -5,6 +5,7 @@ import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
 import { relativeDate } from "@/lib/utils";
+import { notifyHousehold } from "@/lib/notifications";
 import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 
@@ -98,6 +99,9 @@ export default function CoursesPage() {
   async function toggle(item: ShoppingItem) {
     const status = item.status === "bought" ? "to_buy" : "bought";
     await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
+    if (status === "bought" && household && me) {
+      notifyHousehold(household.id, me.id, "Dabo", `${me.first_name} a acheté ${item.name}`);
+    }
     loadItems();
   }
   async function remove(id: string) {
