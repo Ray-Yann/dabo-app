@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { genInviteCode } from "@/lib/utils";
-import { CheckSquare, Home as HomeIcon, KeyRound } from "lucide-react";
+import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
 
 type Phase = "loading" | "auth" | "setup";
 type AuthMode = "signup" | "login";
@@ -26,6 +26,7 @@ export default function OnboardingPage() {
   const [inviteCode, setInviteCode] = useState("");
 
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -185,13 +186,22 @@ export default function OnboardingPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 focus:border-ink outline-none"
               />
-              <input
-                type="password"
-                placeholder="Mot de passe"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 focus:border-ink outline-none"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Mot de passe"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border border-border rounded-xl px-4 py-3 pr-11 text-sm bg-white2 focus:border-ink outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
             </div>
 
             {error && <p className="text-sm text-red-700 mt-3">{error}</p>}

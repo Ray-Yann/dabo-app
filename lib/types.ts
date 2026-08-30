@@ -24,6 +24,7 @@ export type ShoppingItem = {
   quantity: string | null;
   assigned_to: string | null;
   status: "to_buy" | "bought";
+  urgent: boolean;
   bought_at: string | null;
   created_at: string;
 };
