@@ -1,6 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #F0EFE6;
+  --color-ink: #22301F;
+  --color-mustard: #B98A2E;
+  --color-mustardBg: #F3E9D2;
+  --color-muted: #8A8672;
+  --color-border: #DCD8CB;
+  --color-borderLight: #E4E1D5;
+  --color-white2: #FFFFFF;
+
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-plex-mono), monospace;
+}
 
 * {
   -webkit-tap-highlight-color: transparent;
