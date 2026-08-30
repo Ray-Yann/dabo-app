@@ -37,6 +37,7 @@ export type Task = {
   weight_points: number;
   assigned_to: string | null;
   status: "pending" | "done";
+  urgent: boolean;
   due_date: string | null;
   completed_at: string | null;
   created_at: string;
