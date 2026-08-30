@@ -7,6 +7,7 @@ import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem } from "@/lib/types";
 import { ShoppingBag, Info } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -57,6 +58,7 @@ export default function TodayPage() {
     <div>
       <Header eyebrow={household.name} title={`Bonjour, ${me.first_name}`} />
       <IntroTip id="today" text="C'est ton tableau de bord : ce qui doit être fait aujourd'hui, courses et tâches confondues." />
+      <InstallPrompt />
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
