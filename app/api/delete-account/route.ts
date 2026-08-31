@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { createAdminClient, transferCreatorAndRemove } from "@/lib/supabase-admin";
 
 // Supprime définitivement le compte de la personne qui fait la demande.
 // L'identité est vérifiée ici, côté serveur, à partir du jeton envoyé —
@@ -18,11 +18,14 @@ export async function POST(req: NextRequest) {
 
   const userId = userData.user.id;
 
-  // Retire la personne de tout foyer dont elle est membre. Les tâches et
-  // courses qui lui étaient assignées repassent automatiquement en
-  // "non assigné" (déjà configuré ainsi dans la base), ses commentaires
-  // sont supprimés avec elle (contrainte déjà connue et acceptée).
-  await admin.from("members").delete().eq("user_id", userId);
+  // Retire la personne de tout foyer dont elle est membre, en transmettant
+  // d'abord le rôle de créateur si nécessaire (voir transferCreatorAndRemove).
+  // Les tâches et courses qui lui étaient assignées repassent automatiquement
+  // en "non assigné", ses commentaires sont supprimés avec elle.
+  const { data: memberships } = await admin.from("members").select("id").eq("user_id", userId);
+  for (const m of memberships || []) {
+    await transferCreatorAndRemove(admin, m.id);
+  }
 
   // Supprime le compte d'authentification lui-même — email, mot de passe,
   // tout. Cette action est irréversible.
