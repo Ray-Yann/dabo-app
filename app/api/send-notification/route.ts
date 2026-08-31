@@ -27,11 +27,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message non autorisé" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  const authClient = createAdminClient();
+  const { data: userData, error: userErr } = await authClient.auth.getUser(token);
   if (userErr || !userData.user) {
     return NextResponse.json({ error: "Session invalide" }, { status: 401 });
   }
+
+  // Client neuf, jamais utilisé pour vérifier un jeton — pour éviter que la
+  // vérification d'identité ci-dessus ne fasse perdre au client ses pleins
+  // pouvoirs pour les requêtes suivantes (piège documenté par Supabase).
+  const admin = createAdminClient();
 
   // Vérifie que la personne qui déclenche la notification est bien elle-même
   // membre de ce foyer précis — jamais de foyer arbitraire fourni par le client.

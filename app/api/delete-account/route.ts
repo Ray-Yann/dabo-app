@@ -10,13 +10,17 @@ export async function POST(req: NextRequest) {
   const token = authHeader?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const admin = createAdminClient();
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  const authClient = createAdminClient();
+  const { data: userData, error: userErr } = await authClient.auth.getUser(token);
   if (userErr || !userData.user) {
     return NextResponse.json({ error: "Session invalide" }, { status: 401 });
   }
 
   const userId = userData.user.id;
+
+  // Client neuf pour les opérations sur la base de données — voir la même
+  // note dans send-notification/route.ts sur ce piège Supabase documenté.
+  const admin = createAdminClient();
 
   // Retire la personne de tout foyer dont elle est membre, en transmettant
   // d'abord le rôle de créateur si nécessaire (voir transferCreatorAndRemove).
