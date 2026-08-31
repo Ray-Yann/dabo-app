@@ -56,6 +56,8 @@ export default function CoursesPage() {
   const [openComments, setOpenComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
 
   async function loadItems() {
@@ -128,18 +130,31 @@ export default function CoursesPage() {
     await supabase.from("shopping_items").delete().eq("id", id);
     loadItems();
   }
+  async function reloadComments(itemId: string) {
+    const { data } = await supabase.from("comments").select("*").eq("shopping_item_id", itemId).order("created_at", { ascending: true });
+    setComments((data as Comment[]) || []);
+  }
   async function openItemComments(id: string) {
     setEditingId(null);
     setOpenComments(id);
-    const { data } = await supabase.from("comments").select("*").eq("shopping_item_id", id).order("created_at", { ascending: true });
-    setComments((data as Comment[]) || []);
+    reloadComments(id);
   }
   async function addComment() {
     if (!newComment.trim() || !openComments || !me) return;
     await supabase.from("comments").insert({ household_id: household!.id, author_id: me.id, shopping_item_id: openComments, text: newComment.trim() });
     setNewComment("");
-    const { data } = await supabase.from("comments").select("*").eq("shopping_item_id", openComments).order("created_at", { ascending: true });
-    setComments((data as Comment[]) || []);
+    reloadComments(openComments);
+  }
+  async function saveEditComment(id: string) {
+    if (!editCommentText.trim() || !openComments) return;
+    await supabase.from("comments").update({ text: editCommentText.trim() }).eq("id", id);
+    setEditingCommentId(null);
+    reloadComments(openComments);
+  }
+  async function deleteComment(id: string) {
+    if (!confirm(t("confirm_delete_comment")) || !openComments) return;
+    await supabase.from("comments").delete().eq("id", id);
+    reloadComments(openComments);
   }
 
   if (loading || !household) return <div className="p-8 text-center text-muted">Chargement…</div>;
@@ -211,7 +226,26 @@ export default function CoursesPage() {
                 <div className="mt-2 ml-8 bg-white2 rounded-xl p-3">
                   {comments.length === 0 && <p className="text-xs text-muted italic">{t("comments_none")}</p>}
                   {comments.map((c) => (
-                    <div key={c.id} className="text-xs mb-1"><span className="font-medium text-ink">{memberName(members.find(m=>m.id===c.author_id)?.id || "")}</span> <span className="text-muted">{c.text}</span></div>
+                    <div key={c.id} className="text-xs mb-1.5">
+                      {editingCommentId === c.id ? (
+                        <div className="flex gap-1.5">
+                          <input value={editCommentText} onChange={(e) => setEditCommentText(e.target.value)} className="flex-1 border border-border rounded-lg px-2 py-1 text-xs outline-none" />
+                          <button onClick={() => saveEditComment(c.id)} className="text-ink font-medium">{t("save")}</button>
+                          <button onClick={() => setEditingCommentId(null)} className="text-muted">{t("cancel")}</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-ink">{memberName(members.find(m=>m.id===c.author_id)?.id || "")}</span>
+                          <span className="text-muted flex-1">{c.text}</span>
+                          {c.author_id === me?.id && (
+                            <>
+                              <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.text); }} className="text-muted"><Pencil size={11} /></button>
+                              <button onClick={() => deleteComment(c.id)} className="text-muted"><Trash2 size={11} /></button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ))}
                   <div className="flex gap-2 mt-2">
                     <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={t("comment_placeholder")} className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs outline-none" />

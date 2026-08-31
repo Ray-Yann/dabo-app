@@ -99,6 +99,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     comments_none: "Aucun commentaire.",
     comment_placeholder: "Ajouter un commentaire…",
+    confirm_delete_comment: "Supprimer ce commentaire ?",
 
     intro_today: "C'est ton tableau de bord : ce qui doit être fait aujourd'hui, courses et tâches confondues.",
     intro_courses: "Ajoutez vos articles, assignez-les, marquez-les urgents si besoin, et cochez-les une fois achetés — visible par tout le foyer.",
@@ -209,6 +210,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     comments_none: "Nog geen reactie.",
     comment_placeholder: "Reactie toevoegen…",
+    confirm_delete_comment: "Deze reactie verwijderen?",
 
     intro_today: "Dit is je dashboard: wat er vandaag moet gebeuren, boodschappen en taken samen.",
     intro_courses: "Voeg artikelen toe, wijs ze toe, markeer ze dringend indien nodig, en vink ze af zodra gekocht — zichtbaar voor het hele huishouden.",
@@ -319,6 +321,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     comments_none: "No comments yet.",
     comment_placeholder: "Add a comment…",
+    confirm_delete_comment: "Delete this comment?",
 
     intro_today: "This is your dashboard: what needs doing today, groceries and tasks together.",
     intro_courses: "Add your items, assign them, mark them urgent if needed, and check them off once bought — visible to the whole household.",
