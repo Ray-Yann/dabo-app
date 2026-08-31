@@ -7,7 +7,7 @@ import { genInviteCode } from "@/lib/utils";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
 
 type Phase = "loading" | "auth" | "setup";
-type AuthMode = "signup" | "login";
+type AuthMode = "signup" | "login" | "forgot";
 type SetupMode = "choice" | "create" | "join";
 
 export default function OnboardingPage() {
@@ -27,6 +27,21 @@ export default function OnboardingPage() {
 
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  async function handleForgotPassword() {
+    setBusy(true);
+    setError("");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setForgotSent(true);
+  }
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -36,12 +51,12 @@ export default function OnboardingPage() {
         setPhase("auth");
         return;
       }
-      const { data: member } = await supabase
+      const { data: members } = await supabase
         .from("members")
         .select("id")
         .eq("user_id", data.session.user.id)
-        .maybeSingle();
-      if (member) {
+        .limit(1);
+      if (members && members.length > 0) {
         router.replace("/app");
         return;
       }
@@ -70,12 +85,12 @@ export default function OnboardingPage() {
     // Après connexion, vérifier si un foyer existe déjà
     const { data } = await supabase.auth.getSession();
     if (data.session) {
-      const { data: member } = await supabase
+      const { data: members } = await supabase
         .from("members")
         .select("id")
         .eq("user_id", data.session.user.id)
-        .maybeSingle();
-      if (member) {
+        .limit(1);
+      if (members && members.length > 0) {
         router.replace("/app");
         return;
       }
@@ -173,7 +188,7 @@ export default function OnboardingPage() {
           <CheckSquare size={28} color="#F0EFE6" strokeWidth={2} />
         </div>
 
-        {phase === "auth" && (
+        {phase === "auth" && authMode !== "forgot" && (
           <>
             <h1 className="font-serif text-2xl text-ink mb-1">Bienvenue sur Dabo</h1>
             <p className="text-sm text-muted mb-6">L&apos;équilibre du foyer, enfin visible.</p>
@@ -218,7 +233,44 @@ export default function OnboardingPage() {
               className="text-sm text-muted mt-4"
               onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
             >
-              {authMode === "signup" ? "J'ai déjà un compte" : "Créer un compte"}
+              {authMode === "signup" ? "J&apos;ai déjà un compte" : "Créer un compte"}
+            </button>
+
+            {authMode === "login" && (
+              <button className="text-sm text-muted mt-2 block mx-auto" onClick={() => { setAuthMode("forgot"); setError(""); setForgotSent(false); }}>
+                Mot de passe oublié ?
+              </button>
+            )}
+          </>
+        )}
+
+        {phase === "auth" && authMode === "forgot" && (
+          <>
+            <h1 className="font-serif text-2xl text-ink mb-1">Mot de passe oublié</h1>
+            {!forgotSent ? (
+              <>
+                <p className="text-sm text-muted mb-6">On t&apos;envoie un lien pour en choisir un nouveau.</p>
+                <input
+                  type="email"
+                  placeholder="Ton email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 focus:border-ink outline-none"
+                />
+                {error && <p className="text-sm text-red-700 mt-3">{error}</p>}
+                <button
+                  disabled={!email || busy}
+                  onClick={handleForgotPassword}
+                  className="w-full bg-ink text-paper rounded-xl py-3 mt-4 font-medium disabled:opacity-50"
+                >
+                  {busy ? "..." : "Envoyer le lien"}
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-muted mb-2">Vérifie tes emails (et tes spams) — un lien vient de t&apos;être envoyé.</p>
+            )}
+            <button className="text-sm text-muted mt-4" onClick={() => setAuthMode("login")}>
+              Retour
             </button>
           </>
         )}

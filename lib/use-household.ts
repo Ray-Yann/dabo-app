@@ -19,11 +19,13 @@ export function useHousehold() {
       router.replace("/");
       return;
     }
-    const { data: myMember } = await supabase
+    const { data: myMembers } = await supabase
       .from("members")
       .select("*")
       .eq("user_id", sessionData.session.user.id)
-      .maybeSingle();
+      .order("created_at", { ascending: true })
+      .limit(1);
+    const myMember = myMembers?.[0];
 
     if (!myMember) {
       router.replace("/");
