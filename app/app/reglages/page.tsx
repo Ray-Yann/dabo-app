@@ -90,6 +90,11 @@ export default function SettingsPage() {
     await supabase.from("households").update({ equity_score_enabled: !household.equity_score_enabled }).eq("id", household.id);
     refresh();
   }
+  async function toggleDarkMode() {
+    if (!me) return;
+    await supabase.from("members").update({ dark_mode: !me.dark_mode }).eq("id", me.id);
+    refresh();
+  }
   async function changeType(type: string) {
     if (!household) return;
     await supabase.from("households").update({ household_type: type }).eq("id", household.id);
@@ -266,6 +271,19 @@ export default function SettingsPage() {
         </CollapsibleSection>
 
         <CollapsibleSection title={t("settings_section_preferences")}>
+          <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-sm text-ink font-medium">{t("settings_dark_mode")}</div>
+              <div className="text-xs text-muted">{t("settings_dark_mode_desc")}</div>
+            </div>
+            <button
+              onClick={toggleDarkMode}
+              className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${me.dark_mode ? "bg-ink" : "bg-border"}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${me.dark_mode ? "left-5" : "left-0.5"}`} />
+            </button>
+          </div>
+
           <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
             <div>
               <div className="text-sm text-ink font-medium">{t("settings_equity_toggle")}</div>

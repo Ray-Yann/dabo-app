@@ -16,6 +16,7 @@ export type Member = {
   rotation_order: number;
   avatar_color: string | null;
   language: "fr" | "nl" | "en";
+  dark_mode: boolean;
   created_at: string;
 };
 

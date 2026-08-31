@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Home, ShoppingBag, ListChecks, Scale, Settings, Tag } from "lucide-react";
 import { useHousehold } from "@/lib/use-household";
 import { LanguageProvider, useT } from "@/lib/language-context";
@@ -46,6 +47,14 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { me } = useHousehold();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", !!me?.dark_mode);
+    return () => {
+      document.documentElement.classList.remove("dark");
+    };
+  }, [me?.dark_mode]);
+
   return (
     <LanguageProvider lang={me?.language || "fr"}>
       <AppShell>{children}</AppShell>

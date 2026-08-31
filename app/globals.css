@@ -5,7 +5,7 @@
   --color-ink: #22301F;
   --color-mustard: #B98A2E;
   --color-mustardBg: #F3E9D2;
-  --color-muted: #8A8672;
+  --color-muted: #6E6A5A;
   --color-border: #DCD8CB;
   --color-borderLight: #E4E1D5;
   --color-white2: #FFFFFF;
@@ -13,6 +13,20 @@
   --font-serif: var(--font-fraunces), Georgia, serif;
   --font-sans: var(--font-inter), sans-serif;
   --font-mono: var(--font-plex-mono), monospace;
+}
+
+/* Mode sombre — les mêmes noms de rôle changent de valeur, sans toucher
+   au code des pages : bg-paper, text-ink, etc. s'adaptent automatiquement
+   dès que cette classe est posée sur <html>. */
+.dark {
+  --color-paper: #1C1B17;
+  --color-ink: #EDEAE0;
+  --color-mustard: #D8A94A;
+  --color-mustardBg: #3A2E18;
+  --color-muted: #A79F8C;
+  --color-border: #3A382F;
+  --color-borderLight: #2E2C26;
+  --color-white2: #26251F;
 }
 
 * {
