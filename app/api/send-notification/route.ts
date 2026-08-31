@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   // Vérifie que la personne qui déclenche la notification est bien elle-même
   // membre de ce foyer précis — jamais de foyer arbitraire fourni par le client.
-  const { data: callerMember } = await admin
+  const { data: callerMember, error: callerErr } = await admin
     .from("members")
     .select("id")
     .eq("id", excludeMemberId)
@@ -44,7 +44,22 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!callerMember) {
-    return NextResponse.json({ error: "Non autorisé pour ce foyer" }, { status: 403 });
+    console.error("send-notification: échec de vérification", {
+      householdId,
+      excludeMemberId,
+      userId: userData.user.id,
+      callerErr,
+    });
+    return NextResponse.json(
+      {
+        error: "Non autorisé pour ce foyer",
+        debug: callerErr?.message || null,
+        householdId,
+        excludeMemberId,
+        userId: userData.user.id,
+      },
+      { status: 403 }
+    );
   }
 
   const { data: members } = await admin
