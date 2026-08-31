@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const t = useT();
   const [copied, setCopied] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error" | "checking">("checking");
   const [notifError, setNotifError] = useState("");
   const [firstName, setFirstName] = useState(me?.first_name || "");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -71,6 +71,20 @@ export default function SettingsPage() {
     await supabase.from("members").update({ language: lang }).eq("id", me.id);
     refresh();
   }
+
+  useEffect(() => {
+    (async () => {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || Notification.permission !== "granted") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setNotifStatus("idle");
+        return;
+      }
+      const registration = await navigator.serviceWorker.getRegistration();
+      const existingSubscription = await registration?.pushManager.getSubscription();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNotifStatus(existingSubscription ? "done" : "idle");
+    })();
+  }, []);
 
   async function handleEnableNotifications() {
     if (!me) return;
@@ -302,9 +316,9 @@ export default function SettingsPage() {
               <div className="text-sm text-ink font-medium flex items-center gap-2"><Bell size={15} /> {t("settings_notifications")}</div>
             </div>
             <p className="text-xs text-muted mb-3">
-              {notifStatus === "done" ? t("settings_notifications_done") : t("settings_notifications_desc")}
+              {notifStatus === "checking" ? "" : notifStatus === "done" ? t("settings_notifications_done") : t("settings_notifications_desc")}
             </p>
-            {notifStatus !== "done" && (
+            {notifStatus !== "done" && notifStatus !== "checking" && (
               <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
                 {notifStatus === "loading" ? "..." : t("settings_notifications_enable")}
               </button>
