@@ -9,10 +9,19 @@ import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 
+function dueDateLabel(dateStr: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  if (dateStr === today) return "aujourd'hui";
+  if (dateStr === tomorrow) return "demain";
+  if (dateStr < today) return `en retard (${dateStr})`;
+  return dateStr;
+}
+
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type TaskForm = { name: string; durationLabel: string; assignedTo: string; recurrence: "none" | "weekly" | "monthly"; urgent: boolean };
-const EMPTY_FORM: TaskForm = { name: "", durationLabel: DURATION_PRESETS[1].label, assignedTo: "", recurrence: "none", urgent: false };
+type TaskForm = { name: string; durationLabel: string; assignedTo: string; recurrence: "none" | "weekly" | "monthly"; urgent: boolean; dueDate: string };
+const EMPTY_FORM: TaskForm = { name: "", durationLabel: DURATION_PRESETS[1].label, assignedTo: "", recurrence: "none", urgent: false, dueDate: "" };
 
 function TaskFormFields({
   form,
@@ -46,6 +55,10 @@ function TaskFormFields({
         <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
         Marquer comme urgente
       </label>
+      <div>
+        <label className="text-xs text-muted block mb-1">Échéance (facultatif)</label>
+        <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      </div>
     </>
   );
 }
@@ -106,6 +119,7 @@ export default function TasksPage() {
       weight_points: duration.points,
       assigned_to: finalAssignee,
       urgent: addForm.urgent,
+      due_date: addForm.dueDate || null,
     });
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
@@ -122,6 +136,7 @@ export default function TasksPage() {
       assignedTo: task.assigned_to || "",
       recurrence: "none",
       urgent: task.urgent,
+      dueDate: task.due_date || "",
     });
   }
 
@@ -133,6 +148,7 @@ export default function TasksPage() {
       weight_points: duration.points,
       assigned_to: editForm.assignedTo || null,
       urgent: editForm.urgent,
+      due_date: editForm.dueDate || null,
     }).eq("id", id);
     setEditingId(null);
     loadTasks();
@@ -151,12 +167,16 @@ export default function TasksPage() {
         const currentIdx = sortedMembers.findIndex((m) => m.id === routine.last_assigned_member);
         const next = sortedMembers[(currentIdx + 1) % sortedMembers.length] || sortedMembers[0];
         await supabase.from("routines").update({ last_assigned_member: next?.id }).eq("id", routine.id);
+        const nextDue = new Date();
+        if (routine.frequency === "monthly") nextDue.setMonth(nextDue.getMonth() + 1);
+        else nextDue.setDate(nextDue.getDate() + 7);
         await supabase.from("tasks").insert({
           household_id: household!.id,
           routine_id: routine.id,
           name: routine.name,
           weight_points: routine.weight_points,
           assigned_to: next?.id || null,
+          due_date: nextDue.toISOString().slice(0, 10),
         });
       }
     }
@@ -244,6 +264,7 @@ export default function TasksPage() {
                     </div>
                     <div className="text-[11px] text-muted flex items-center gap-1">
                       {t.routine_id && <Repeat size={10} />} {memberName(t.assigned_to)}
+                      {t.due_date && ` · ${dueDateLabel(t.due_date)}`}
                     </div>
                   </div>
                   <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{t.weight_points} pts</span>
