@@ -4,19 +4,10 @@ import { useEffect, useState } from "react";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, DURATION_PRESETS } from "@/lib/types";
-import { relativeDate } from "@/lib/utils";
+import { relativeDate, dueDateLabel } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
-
-function dueDateLabel(dateStr: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  if (dateStr === today) return "aujourd'hui";
-  if (dateStr === tomorrow) return "demain";
-  if (dateStr < today) return `en retard (${dateStr})`;
-  return dateStr;
-}
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 

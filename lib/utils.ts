@@ -25,3 +25,12 @@ export function startOfWeek(): Date {
   d.setDate(d.getDate() - day);
   return d;
 }
+
+export function dueDateLabel(dateStr: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  if (dateStr === today) return "aujourd'hui";
+  if (dateStr === tomorrow) return "demain";
+  if (dateStr < today) return `en retard (${dateStr})`;
+  return dateStr;
+}

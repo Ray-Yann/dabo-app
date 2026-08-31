@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
-import { relativeDate } from "@/lib/utils";
+import { relativeDate, dueDateLabel } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 
-type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string };
-const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "" };
+type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
+const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
 
 function ItemFormFields({
   form,
@@ -33,6 +33,10 @@ function ItemFormFields({
         <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
         Marquer comme urgent
       </label>
+      <div>
+        <label className="text-xs text-muted block mb-1">Échéance (facultatif)</label>
+        <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      </div>
     </>
   );
 }
@@ -67,6 +71,7 @@ export default function CoursesPage() {
       quantity: addForm.quantity || null,
       urgent: addForm.urgent,
       assigned_to: addForm.assignedTo || null,
+      due_date: addForm.dueDate || null,
     });
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
@@ -81,6 +86,7 @@ export default function CoursesPage() {
       quantity: item.quantity || "",
       urgent: item.urgent,
       assignedTo: item.assigned_to || "",
+      dueDate: item.due_date || "",
     });
   }
 
@@ -91,6 +97,7 @@ export default function CoursesPage() {
       quantity: editForm.quantity || null,
       urgent: editForm.urgent,
       assigned_to: editForm.assignedTo || null,
+      due_date: editForm.dueDate || null,
     }).eq("id", id);
     setEditingId(null);
     loadItems();
@@ -177,7 +184,7 @@ export default function CoursesPage() {
                       {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgent" />}
                       {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
                     </div>
-                    <div className="text-[11px] text-muted">{relativeDate(item.created_at)}{memberName(item.assigned_to) ? ` · ${memberName(item.assigned_to)}` : ""}</div>
+                    <div className="text-[11px] text-muted">{relativeDate(item.created_at)}{memberName(item.assigned_to) ? ` · ${memberName(item.assigned_to)}` : ""}{item.due_date ? ` · ${dueDateLabel(item.due_date)}` : ""}</div>
                   </div>
                   <button onClick={() => startEdit(item)} className="text-muted"><Pencil size={16} /></button>
                   <button onClick={() => openItemComments(item.id)} className="text-muted"><MessageCircle size={16} /></button>

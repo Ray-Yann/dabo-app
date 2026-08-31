@@ -9,9 +9,10 @@ webpush.setVapidDetails(
 );
 
 // Appelée automatiquement chaque jour par Vercel Cron — voir vercel.json.
+// Couvre les tâches ET les articles de courses ayant une échéance.
 // Principe non négociable du produit : le rappel part UNIQUEMENT à la personne
-// assignée à la tâche, jamais aux autres membres du foyer — ce n'est pas un
-// signalement de retard public, juste une aide personnelle.
+// assignée, jamais aux autres membres du foyer — ce n'est pas un signalement
+// de retard public, juste une aide personnelle.
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -28,12 +29,20 @@ export async function GET(req: NextRequest) {
     .not("assigned_to", "is", null)
     .lte("due_date", today);
 
-  if (!tasks || tasks.length === 0) return NextResponse.json({ sent: 0 });
+  const { data: items } = await supabase
+    .from("shopping_items")
+    .select("id, name, assigned_to, due_date")
+    .eq("status", "to_buy")
+    .not("assigned_to", "is", null)
+    .lte("due_date", today);
 
-  // Regroupe les tâches par personne, pour n'envoyer qu'une seule notification
-  // par personne même si elle a plusieurs tâches dues aujourd'hui.
+  const allDue = [...(tasks || []), ...(items || [])];
+  if (allDue.length === 0) return NextResponse.json({ sent: 0 });
+
+  // Regroupe tâches et courses par personne, pour n'envoyer qu'une seule
+  // notification par personne même si plusieurs éléments sont dus aujourd'hui.
   const byMember = new Map<string, string[]>();
-  for (const t of tasks) {
+  for (const t of allDue) {
     if (!t.assigned_to) continue;
     const list = byMember.get(t.assigned_to) || [];
     list.push(t.name);

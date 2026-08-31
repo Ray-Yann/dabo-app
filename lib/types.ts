@@ -25,6 +25,7 @@ export type ShoppingItem = {
   assigned_to: string | null;
   status: "to_buy" | "bought";
   urgent: boolean;
+  due_date: string | null;
   bought_at: string | null;
   created_at: string;
 };
