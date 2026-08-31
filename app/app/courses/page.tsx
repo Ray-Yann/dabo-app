@@ -194,7 +194,7 @@ export default function CoursesPage() {
                   <div onClick={() => toggle(item)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === item.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0" onClick={() => toggle(item)}>
                     <div className="text-sm text-ink cursor-pointer flex items-center gap-1.5">
-                      {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgent" />}
+                      {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
                       {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
                     </div>
                     <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">

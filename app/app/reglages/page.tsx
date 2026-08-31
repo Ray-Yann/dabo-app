@@ -90,7 +90,7 @@ export default function SettingsPage() {
     setTimeout(() => setCopied(false), 1500);
   }
   async function removeMember(memberId: string, name: string) {
-    if (!confirm(`Retirer ${name} du foyer ? Ses tâches et courses assignées repasseront en "non assigné". Ses commentaires seront supprimés.`)) return;
+    if (!confirm(t("confirm_remove_member").replace("{name}", name))) return;
     const { error } = await supabase.from("members").delete().eq("id", memberId);
     if (error) {
       alert("Erreur lors du retrait : " + error.message);
@@ -101,7 +101,7 @@ export default function SettingsPage() {
 
   async function leaveHousehold() {
     if (!me) return;
-    if (!confirm("Quitter ce foyer ? Tu pourras rejoindre un autre foyer ensuite.")) return;
+    if (!confirm(t("confirm_leave"))) return;
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
     await fetch("/api/leave-household", {
@@ -116,8 +116,8 @@ export default function SettingsPage() {
   }
 
   async function deleteAccount() {
-    if (!confirm("Supprimer définitivement ton compte Dabo ? Cette action est irréversible : ton compte, ton accès au foyer et tes commentaires seront supprimés pour toujours. Tes tâches et courses assignées repasseront en \"non assigné\".")) return;
-    if (!confirm("Vraiment sûr ? Il n'y a pas de retour possible après ça.")) return;
+    if (!confirm(t("confirm_delete_account_1"))) return;
+    if (!confirm(t("confirm_delete_account_2"))) return;
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
     const res = await fetch("/api/delete-account", {

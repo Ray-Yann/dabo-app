@@ -260,7 +260,7 @@ export default function TasksPage() {
                   <div onClick={() => completeTask(task)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === task.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-ink flex items-center gap-1.5">
-                      {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgente" />}
+                      {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
                       {task.name}
                     </div>
                     <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
