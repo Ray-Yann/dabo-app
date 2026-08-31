@@ -34,3 +34,11 @@ export function dueDateLabel(dateStr: string): string {
   if (dateStr < today) return `en retard (${dateStr})`;
   return dateStr;
 }
+
+export const MEMBER_COLORS = ["#7C8F6E", "#4F6B75", "#7A4B5C", "#B98A2E", "#5B6B8C"];
+
+export function memberColor(members: { id: string }[], memberId: string | null): string {
+  if (!memberId) return "#C9C4B2";
+  const idx = members.findIndex((m) => m.id === memberId);
+  return MEMBER_COLORS[idx >= 0 ? idx % MEMBER_COLORS.length : 0];
+}

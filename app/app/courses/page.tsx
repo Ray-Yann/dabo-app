@@ -8,6 +8,7 @@ import { relativeDate, dueDateLabel } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+import { Avatar } from "@/components/Avatar";
 
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
@@ -51,6 +52,7 @@ export default function CoursesPage() {
   const [openComments, setOpenComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [animatingId, setAnimatingId] = useState<string | null>(null);
 
   async function loadItems() {
     if (!household) return;
@@ -104,8 +106,14 @@ export default function CoursesPage() {
   }
 
   async function toggle(item: ShoppingItem) {
-    const status = item.status === "bought" ? "to_buy" : "bought";
+    const goingToBought = item.status !== "bought";
+    if (goingToBought) {
+      setAnimatingId(item.id);
+      await new Promise((r) => setTimeout(r, 260));
+    }
+    const status = goingToBought ? "bought" : "to_buy";
     await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
+    setAnimatingId(null);
     if (status === "bought" && household && me) {
       notifyHousehold(household.id, me.id, "Dabo", `${me.first_name} a acheté ${item.name}`);
     }
@@ -178,13 +186,16 @@ export default function CoursesPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div onClick={() => toggle(item)} className="w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer" />
+                  <div onClick={() => toggle(item)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === item.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0" onClick={() => toggle(item)}>
                     <div className="text-sm text-ink cursor-pointer flex items-center gap-1.5">
                       {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgent" />}
                       {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
                     </div>
-                    <div className="text-[11px] text-muted">{relativeDate(item.created_at)}{memberName(item.assigned_to) ? ` · ${memberName(item.assigned_to)}` : ""}{item.due_date ? ` · ${dueDateLabel(item.due_date)}` : ""}</div>
+                    <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
+                      <span>{relativeDate(item.created_at)}{item.due_date ? ` · ${dueDateLabel(item.due_date)}` : ""}</span>
+                      {item.assigned_to && <Avatar member={members.find((m) => m.id === item.assigned_to) || null} members={members} size={16} />}
+                    </div>
                   </div>
                   <button onClick={() => startEdit(item)} className="text-muted"><Pencil size={16} /></button>
                   <button onClick={() => openItemComments(item.id)} className="text-muted"><MessageCircle size={16} /></button>

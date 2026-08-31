@@ -8,6 +8,7 @@ import { relativeDate, dueDateLabel } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+import { Avatar } from "@/components/Avatar";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -65,6 +66,7 @@ export default function TasksPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [cutoff, setCutoff] = useState<number>(0);
+  const [animatingId, setAnimatingId] = useState<string | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -146,7 +148,10 @@ export default function TasksPage() {
   }
 
   async function completeTask(task: Task) {
+    setAnimatingId(task.id);
+    await new Promise((r) => setTimeout(r, 260));
     await supabase.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", task.id);
+    setAnimatingId(null);
     if (household && me) {
       notifyHousehold(household.id, me.id, "Dabo", `${me.first_name} a terminé « ${task.name} »`);
     }
@@ -247,15 +252,15 @@ export default function TasksPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div onClick={() => completeTask(t)} className="w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer" />
+                  <div onClick={() => completeTask(t)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === t.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-ink flex items-center gap-1.5">
                       {t.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgente" />}
                       {t.name}
                     </div>
-                    <div className="text-[11px] text-muted flex items-center gap-1">
-                      {t.routine_id && <Repeat size={10} />} {memberName(t.assigned_to)}
-                      {t.due_date && ` · ${dueDateLabel(t.due_date)}`}
+                    <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
+                      <span className="flex items-center gap-1">{t.routine_id && <Repeat size={10} />} {t.due_date ? dueDateLabel(t.due_date) : null}</span>
+                      {t.assigned_to && <Avatar member={members.find((m) => m.id === t.assigned_to) || null} members={members} size={16} />}
                     </div>
                   </div>
                   <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{t.weight_points} pts</span>

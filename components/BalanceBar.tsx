@@ -1,15 +1,13 @@
 "use client";
 
 import { Member, Task } from "@/lib/types";
-import { startOfWeek } from "@/lib/utils";
-
-const COLORS = ["#7C8F6E", "#4F6B75", "#7A4B5C", "#B98A2E", "#5B6B8C"];
+import { startOfWeek, MEMBER_COLORS } from "@/lib/utils";
 
 export function BalanceBar({ members, tasks, big = false }: { members: Member[]; tasks: Task[]; big?: boolean }) {
   const weekStart = startOfWeek().getTime();
   const totals = members.map((m, i) => ({
     ...m,
-    color: COLORS[i % COLORS.length],
+    color: MEMBER_COLORS[i % MEMBER_COLORS.length],
     pts: tasks
       .filter((t) => t.status === "done" && t.assigned_to === m.id && t.completed_at && new Date(t.completed_at).getTime() >= weekStart)
       .reduce((s, t) => s + t.weight_points, 0),
