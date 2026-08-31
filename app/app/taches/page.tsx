@@ -159,7 +159,7 @@ export default function TasksPage() {
     await supabase.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", task.id);
     setAnimatingId(null);
     if (household && me) {
-      notifyHousehold(household.id, me.id, "notif_task_done", { name: me.first_name, task: task.name });
+      notifyHousehold(supabase, household.id, me.id, "notif_task_done", { name: me.first_name, task: task.name });
     }
 
     if (task.routine_id) {

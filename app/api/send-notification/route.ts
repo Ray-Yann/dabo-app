@@ -9,15 +9,45 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY!
 );
 
+// Seules ces clés peuvent déclencher une notification — empêche quiconque
+// d'injecter un texte arbitraire dans une notification, même en cas de jeton
+// valide détourné.
+const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done"];
+
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+
   const { householdId, excludeMemberId, key, params } = await req.json();
   if (!householdId || !key) {
     return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
   }
+  if (!ALLOWED_KEYS.includes(key)) {
+    return NextResponse.json({ error: "Message non autorisé" }, { status: 400 });
+  }
 
-  const supabase = createAdminClient();
+  const admin = createAdminClient();
+  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  if (userErr || !userData.user) {
+    return NextResponse.json({ error: "Session invalide" }, { status: 401 });
+  }
 
-  const { data: members } = await supabase
+  // Vérifie que la personne qui déclenche la notification est bien elle-même
+  // membre de ce foyer précis — jamais de foyer arbitraire fourni par le client.
+  const { data: callerMember } = await admin
+    .from("members")
+    .select("id")
+    .eq("id", excludeMemberId)
+    .eq("household_id", householdId)
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+
+  if (!callerMember) {
+    return NextResponse.json({ error: "Non autorisé pour ce foyer" }, { status: 403 });
+  }
+
+  const { data: members } = await admin
     .from("members")
     .select("id, language")
     .eq("household_id", householdId)
@@ -27,7 +57,7 @@ export async function POST(req: NextRequest) {
 
   let sent = 0;
   for (const member of members) {
-    const { data: subs } = await supabase
+    const { data: subs } = await admin
       .from("push_subscriptions")
       .select("*")
       .eq("member_id", member.id);
@@ -50,7 +80,7 @@ export async function POST(req: NextRequest) {
       } catch (e: unknown) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
         if (statusCode === 404 || statusCode === 410) {
-          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          await admin.from("push_subscriptions").delete().eq("id", sub.id);
         }
       }
     }

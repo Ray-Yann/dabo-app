@@ -35,11 +35,22 @@ export async function enableNotifications(supabase: SupabaseClient, memberId: st
   );
 }
 
-export async function notifyHousehold(householdId: string, excludeMemberId: string, key: string, params: Record<string, string>) {
+export async function notifyHousehold(
+  supabase: SupabaseClient,
+  householdId: string,
+  excludeMemberId: string,
+  key: string,
+  params: Record<string, string>
+) {
   try {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
     await fetch("/api/send-notification", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
       body: JSON.stringify({ householdId, excludeMemberId, key, params }),
     });
   } catch (e) {
