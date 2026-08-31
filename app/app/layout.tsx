@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Home, ShoppingBag, ListChecks, Scale, Settings, Tag } from "lucide-react";
 import { useHousehold } from "@/lib/use-household";
+import { HouseholdProvider } from "@/lib/household-context";
 import { LanguageProvider, useT } from "@/lib/language-context";
 
 function AppShell({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,14 @@ function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <HouseholdProvider>
+      <AppShellWithLanguage>{children}</AppShellWithLanguage>
+    </HouseholdProvider>
+  );
+}
+
+function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
   const { me } = useHousehold();
 
   useEffect(() => {
