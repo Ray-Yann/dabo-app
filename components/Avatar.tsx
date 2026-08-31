@@ -7,8 +7,8 @@ export function Avatar({
   members,
   size = 22,
 }: {
-  member: { id: string; first_name: string } | null;
-  members: { id: string }[];
+  member: { id: string; first_name: string; avatar_color?: string | null } | null;
+  members: { id: string; avatar_color?: string | null }[];
   size?: number;
 }) {
   if (!member) return null;

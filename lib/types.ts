@@ -14,6 +14,7 @@ export type Member = {
   first_name: string;
   role: "creator" | "member";
   rotation_order: number;
+  avatar_color: string | null;
   created_at: string;
 };
 
