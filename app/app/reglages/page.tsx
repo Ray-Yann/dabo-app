@@ -259,7 +259,7 @@ export default function SettingsPage() {
             <select
               value={household.household_type}
               onChange={(e) => changeType(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink"
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink"
             >
               <option value="couple">{t("household_couple")}</option>
               <option value="coloc">{t("household_coloc")}</option>

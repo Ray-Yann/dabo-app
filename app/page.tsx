@@ -330,18 +330,18 @@ export default function OnboardingPage() {
                 placeholder="Ton prénom"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 outline-none focus:border-ink"
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <input
                 placeholder="Nom du foyer (ex. Chez nous)"
                 value={householdName}
                 onChange={(e) => setHouseholdName(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 outline-none focus:border-ink"
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <select
                 value={householdType}
                 onChange={(e) => setHouseholdType(e.target.value as "couple" | "coloc" | "famille")}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 outline-none focus:border-ink"
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               >
                 <option value="couple">Couple</option>
                 <option value="coloc">Colocation</option>
@@ -382,13 +382,13 @@ export default function OnboardingPage() {
                 placeholder="Code du foyer (ex. ABC-482)"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 outline-none focus:border-ink"
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <input
                 placeholder="Ton prénom"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 outline-none focus:border-ink"
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <div className="flex gap-2">
                 {(["fr", "nl", "en"] as const).map((l) => (

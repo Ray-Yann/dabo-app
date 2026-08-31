@@ -33,15 +33,15 @@ function TaskFormFields({
   return (
     <>
       <input autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      <select value={form.durationLabel} onChange={(e) => setForm({ ...form, durationLabel: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
+      <select value={form.durationLabel} onChange={(e) => setForm({ ...form, durationLabel: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
         {DURATION_PRESETS.map((d) => <option key={d.label} value={d.label}>{d.label}</option>)}
       </select>
-      <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
+      <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
         <option value="">{t("unassigned")}</option>
         {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
       </select>
       {!lockRecurrence && (
-        <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
+        <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
           <option value="none">{t("recurrence_none")}</option>
           <option value="weekly">{t("recurrence_weekly")}</option>
           <option value="monthly">{t("recurrence_monthly")}</option>
