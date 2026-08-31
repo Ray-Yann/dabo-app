@@ -8,9 +8,11 @@ import { Promo } from "@/lib/types";
 import { relativeDate } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+import { useT } from "@/lib/language-context";
 
 export default function PromosPage() {
   const { loading, household, me, members, supabase } = useHousehold();
+  const t = useT();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [product, setProduct] = useState("");
@@ -46,28 +48,28 @@ export default function PromosPage() {
   return (
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-2">
-        <Header title="Promos" />
+        <Header title={t("promos_title")} />
         <button onClick={() => setShowAdd(true)} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium mt-8 mr-5">
-          Ajouter
+          {t("add")}
         </button>
       </div>
-      <p className="px-5 text-xs text-muted -mt-2 mb-4">Notes partagées par votre foyer — pas un catalogue de magasin.</p>
-      <IntroTip id="promos" text="Notez ici les bonnes affaires repérées en magasin, pour que tout le foyer en profite." />
+      <p className="px-5 text-xs text-muted -mt-2 mb-4">{t("promos_subtitle")}</p>
+      <IntroTip id="promos" text={t("intro_promos")} />
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <input autoFocus placeholder="Produit (ex. Beurre)" value={product} onChange={(e) => setProduct(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-          <input placeholder="Magasin (ex. Lidl)" value={store} onChange={(e) => setStore(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-          <input placeholder="Remarque (ex. jusqu'à dimanche)" value={note} onChange={(e) => setNote(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+          <input autoFocus placeholder={t("product_placeholder")} value={product} onChange={(e) => setProduct(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+          <input placeholder={t("store_placeholder")} value={store} onChange={(e) => setStore(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+          <input placeholder={t("note_placeholder")} value={note} onChange={(e) => setNote(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
           <div className="flex gap-2">
-            <button onClick={addPromo} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Ajouter</button>
-            <button onClick={() => setShowAdd(false)} className="px-4 text-sm text-muted">Annuler</button>
+            <button onClick={addPromo} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
+            <button onClick={() => setShowAdd(false)} className="px-4 text-sm text-muted">{t("cancel")}</button>
           </div>
         </div>
       )}
 
       <div className="px-5">
-        {promos.length === 0 && !showAdd && <EmptyState message="Aucune promo notée pour l'instant." actionLabel="Ajouter une promo" onAction={() => setShowAdd(true)} />}
+        {promos.length === 0 && !showAdd && <EmptyState message={t("promos_empty")} actionLabel={t("promos_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1">
           {promos.map((p) => (
             <div key={p.id} className="flex items-center gap-3 py-3 border-b border-borderLight">

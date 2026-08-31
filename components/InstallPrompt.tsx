@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Smartphone, X, Share, MoreVertical } from "lucide-react";
+import { useT } from "@/lib/language-context";
 
 type Platform = "ios" | "android" | "other";
 
@@ -21,6 +22,7 @@ function isStandalone(): boolean {
 export function InstallPrompt() {
   const [visible, setVisible] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
+  const t = useT();
 
   useEffect(() => {
     const dismissed = localStorage.getItem("dabo-install-dismissed");
@@ -45,15 +47,15 @@ export function InstallPrompt() {
           <Smartphone size={16} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium mb-1">Installe Dabo sur ton écran d&apos;accueil</div>
+          <div className="text-sm font-medium mb-1">{t("install_title")}</div>
           {platform === "ios" && (
             <p className="text-xs text-paper/80 leading-relaxed">
-              Appuie sur le bouton <Share size={11} className="inline mx-0.5" /> Partager en bas de Safari, puis choisis « Sur l&apos;écran d&apos;accueil ». C&apos;est aussi nécessaire pour recevoir les notifications sur iPhone.
+              <Share size={11} className="inline mx-0.5" /> {t("install_ios")}
             </p>
           )}
           {platform === "android" && (
             <p className="text-xs text-paper/80 leading-relaxed">
-              Appuie sur les trois points <MoreVertical size={11} className="inline mx-0.5" /> en haut à droite de Chrome, puis choisis « Installer l&apos;application » (ou « Ajouter à l&apos;écran d&apos;accueil »).
+              <MoreVertical size={11} className="inline mx-0.5" /> {t("install_android")}
             </p>
           )}
         </div>

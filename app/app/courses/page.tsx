@@ -9,6 +9,7 @@ import { notifyHousehold } from "@/lib/notifications";
 import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
+import { useT } from "@/lib/language-context";
 
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
@@ -17,25 +18,27 @@ function ItemFormFields({
   form,
   setForm,
   members,
+  t,
 }: {
   form: ItemForm;
   setForm: (f: ItemForm) => void;
   members: { id: string; first_name: string }[];
+  t: (key: string) => string;
 }) {
   return (
     <>
-      <input autoFocus placeholder="Nom de l'article" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      <input placeholder="Quantité (facultatif)" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      <input autoFocus placeholder={t("item_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
       <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
-        <option value="">Non assigné</option>
+        <option value="">{t("unassigned")}</option>
         {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
       </select>
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
-        Marquer comme urgent
+        {t("mark_urgent")}
       </label>
       <div>
-        <label className="text-xs text-muted block mb-1">Échéance (facultatif)</label>
+        <label className="text-xs text-muted block mb-1">{t("due_date_optional")}</label>
         <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
       </div>
     </>
@@ -44,6 +47,7 @@ function ItemFormFields({
 
 export default function CoursesPage() {
   const { loading, household, me, members, supabase } = useHousehold();
+  const t = useT();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
@@ -120,7 +124,7 @@ export default function CoursesPage() {
     loadItems();
   }
   async function remove(id: string) {
-    if (!confirm("Supprimer cet article ?")) return;
+    if (!confirm(t("confirm_delete_item"))) return;
     await supabase.from("shopping_items").delete().eq("id", id);
     loadItems();
   }
@@ -151,38 +155,38 @@ export default function CoursesPage() {
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} articles restants</div>
-          <h1 className="font-serif text-2xl text-ink">Courses</h1>
+          <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t("courses_remaining")}</div>
+          <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
         </div>
         <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
-          Ajouter
+          {t("add")}
         </button>
       </div>
 
-      <IntroTip id="courses" text="Ajoutez vos articles, assignez-les, marquez-les urgents si besoin, et cochez-les une fois achetés — visible par tout le foyer." />
+      <IntroTip id="courses" text={t("intro_courses")} />
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <ItemFormFields form={addForm} setForm={setAddForm} members={members} />
+          <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
           <div className="flex gap-2">
-            <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Ajouter</button>
-            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">Annuler</button>
+            <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
+            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
           </div>
         </div>
       )}
 
       <div className="px-5">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">À acheter</div>
-        {toBuy.length === 0 && !showAdd && <EmptyState message="La liste est vide." actionLabel="Ajouter le premier article" onAction={() => setShowAdd(true)} />}
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_to_buy")}</div>
+        {toBuy.length === 0 && !showAdd && <EmptyState message={t("courses_empty")} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
           {toBuy.map((item) => (
             <div key={item.id} className="border-b border-borderLight py-3">
               {editingId === item.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} />
+                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} t={t} />
                   <div className="flex gap-2">
-                    <button onClick={() => saveEdit(item.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Enregistrer</button>
-                    <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">Annuler</button>
+                    <button onClick={() => saveEdit(item.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
+                    <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">{t("cancel")}</button>
                   </div>
                 </div>
               ) : (
@@ -205,12 +209,12 @@ export default function CoursesPage() {
               )}
               {openComments === item.id && (
                 <div className="mt-2 ml-8 bg-white2 rounded-xl p-3">
-                  {comments.length === 0 && <p className="text-xs text-muted italic">Aucun commentaire.</p>}
+                  {comments.length === 0 && <p className="text-xs text-muted italic">{t("comments_none")}</p>}
                   {comments.map((c) => (
                     <div key={c.id} className="text-xs mb-1"><span className="font-medium text-ink">{memberName(members.find(m=>m.id===c.author_id)?.id || "")}</span> <span className="text-muted">{c.text}</span></div>
                   ))}
                   <div className="flex gap-2 mt-2">
-                    <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Ajouter un commentaire…" className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs outline-none" />
+                    <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={t("comment_placeholder")} className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs outline-none" />
                     <button onClick={addComment} className="text-xs bg-ink text-paper rounded-lg px-3">OK</button>
                     <button onClick={() => setOpenComments(null)} className="text-muted"><X size={14} /></button>
                   </div>
@@ -222,7 +226,7 @@ export default function CoursesPage() {
 
         {bought.length > 0 && (
           <>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Acheté</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_bought")}</div>
             <div className="space-y-1">
               {bought.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 py-3 border-b border-borderLight">

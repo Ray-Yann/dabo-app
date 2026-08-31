@@ -6,10 +6,12 @@ import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { IntroTip } from "@/components/IntroTip";
 import { Task } from "@/lib/types";
+import { useT } from "@/lib/language-context";
 
 export default function BalancePage() {
   const { loading, household, members, supabase } = useHousehold();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const t = useT();
 
   useEffect(() => {
     if (!household) return;
@@ -23,16 +25,16 @@ export default function BalancePage() {
 
   return (
     <div>
-      <Header eyebrow="Cette semaine" title="Équilibre" />
-      <IntroTip id="balance" text="Chaque tâche pèse selon le temps qu'elle prend. Ce total montre qui porte quoi cette semaine — pas un classement." />
+      <Header eyebrow={t("balance_this_week")} title={t("balance_title")} />
+      <IntroTip id="balance" text={t("intro_balance")} />
       <div className="mx-5 mb-5 bg-white2 rounded-2xl p-5">
         {household.equity_score_enabled ? (
           <BalanceBar members={members} tasks={tasks} big />
         ) : (
-          <p className="text-sm text-muted italic text-center py-4">Le score d&apos;équité est désactivé pour ce foyer.</p>
+          <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
         )}
       </div>
-      <p className="text-center text-xs text-muted italic mt-6">Le score est un repère, pas un classement.</p>
+      <p className="text-center text-xs text-muted italic mt-6">{t("balance_footnote")}</p>
     </div>
   );
 }

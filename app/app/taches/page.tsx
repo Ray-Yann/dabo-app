@@ -9,6 +9,7 @@ import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
+import { useT } from "@/lib/language-context";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -20,32 +21,34 @@ function TaskFormFields({
   setForm,
   members,
   lockRecurrence,
+  t,
 }: {
   form: TaskForm;
   setForm: (f: TaskForm) => void;
   members: { id: string; first_name: string }[];
   lockRecurrence?: boolean;
+  t: (key: string) => string;
 }) {
   return (
     <>
-      <input autoFocus placeholder="Nom de la tâche" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      <input autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
       <select value={form.durationLabel} onChange={(e) => setForm({ ...form, durationLabel: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
         {DURATION_PRESETS.map((d) => <option key={d.label} value={d.label}>{d.label}</option>)}
       </select>
       <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
-        <option value="">Non assigné</option>
+        <option value="">{t("unassigned")}</option>
         {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
       </select>
       {!lockRecurrence && (
         <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink">
-          <option value="none">Aucune récurrence</option>
-          <option value="weekly">Chaque semaine (rotation automatique)</option>
-          <option value="monthly">Chaque mois (rotation automatique)</option>
+          <option value="none">{t("recurrence_none")}</option>
+          <option value="weekly">{t("recurrence_weekly")}</option>
+          <option value="monthly">{t("recurrence_monthly")}</option>
         </select>
       )}
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
-        Marquer comme urgente
+        {t("mark_urgent_f")}
       </label>
       <div>
         <label className="text-xs text-muted block mb-1">Échéance (facultatif)</label>
@@ -57,6 +60,7 @@ function TaskFormFields({
 
 export default function TasksPage() {
   const { loading, household, me, members, supabase } = useHousehold();
+  const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
@@ -184,7 +188,7 @@ export default function TasksPage() {
     loadTasks();
   }
   async function remove(id: string) {
-    if (!confirm("Supprimer cette tâche ?")) return;
+    if (!confirm(t("confirm_delete_task"))) return;
     await supabase.from("tasks").delete().eq("id", id);
     loadTasks();
   }
@@ -204,80 +208,80 @@ export default function TasksPage() {
 
   if (loading || !household) return <div className="p-8 text-center text-muted">Chargement…</div>;
 
-  const pending = [...tasks.filter((t) => t.status === "pending")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const pending = [...tasks.filter((task) => task.status === "pending")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const doneRecent = tasks.filter(
-    (t) => t.status === "done" && t.completed_at && new Date(t.completed_at).getTime() > cutoff && cutoff > 0
+    (task) => task.status === "done" && task.completed_at && new Date(task.completed_at).getTime() > cutoff && cutoff > 0
   );
 
   function memberName(id: string | null) {
-    return members.find((m) => m.id === id)?.first_name || "Non assigné";
+    return members.find((m) => m.id === id)?.first_name || t("unassigned");
   }
 
   return (
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{pending.length} tâches en cours</div>
-          <h1 className="font-serif text-2xl text-ink">Tâches</h1>
+          <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{pending.length} {t("tasks_in_progress")}</div>
+          <h1 className="font-serif text-2xl text-ink">{t("tasks_title")}</h1>
         </div>
         <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
-          Ajouter
+          {t("add")}
         </button>
       </div>
 
-      <IntroTip id="tasks" text="Créez des tâches, assignez-les, marquez-les urgentes si besoin, et activez une récurrence pour qu'elles reviennent automatiquement." />
+      <IntroTip id="tasks" text={t("intro_tasks")} />
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <TaskFormFields form={addForm} setForm={setAddForm} members={members} />
+          <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
           <div className="flex gap-2">
-            <button onClick={addTask} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Ajouter</button>
-            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">Annuler</button>
+            <button onClick={addTask} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
+            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
           </div>
         </div>
       )}
 
       <div className="px-5">
-        {pending.length === 0 && !showAdd && <EmptyState message="Aucune tâche en attente." actionLabel="Créer une tâche" onAction={() => setShowAdd(true)} />}
+        {pending.length === 0 && !showAdd && <EmptyState message={t("tasks_empty")} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
-          {pending.map((t) => (
-            <div key={t.id} className="border-b border-borderLight py-3">
-              {editingId === t.id ? (
+          {pending.map((task) => (
+            <div key={task.id} className="border-b border-borderLight py-3">
+              {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} lockRecurrence />
-                  {t.routine_id && <p className="text-[11px] text-muted italic">La récurrence ne se change pas ici — supprime et recrée la tâche pour ça.</p>}
+                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} lockRecurrence t={t} />
+                  {task.routine_id && <p className="text-[11px] text-muted italic">{t("recurrence_lock_note")}</p>}
                   <div className="flex gap-2">
-                    <button onClick={() => saveEdit(t.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">Enregistrer</button>
-                    <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">Annuler</button>
+                    <button onClick={() => saveEdit(task.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
+                    <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">{t("cancel")}</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div onClick={() => completeTask(t)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === t.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
+                  <div onClick={() => completeTask(task)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === task.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-ink flex items-center gap-1.5">
-                      {t.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgente" />}
-                      {t.name}
+                      {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title="Urgente" />}
+                      {task.name}
                     </div>
                     <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
-                      <span className="flex items-center gap-1">{t.routine_id && <Repeat size={10} />} {t.due_date ? dueDateLabel(t.due_date) : null}</span>
-                      {t.assigned_to && <Avatar member={members.find((m) => m.id === t.assigned_to) || null} members={members} size={16} />}
+                      <span className="flex items-center gap-1">{task.routine_id && <Repeat size={10} />} {task.due_date ? dueDateLabel(task.due_date) : null}</span>
+                      {task.assigned_to && <Avatar member={members.find((m) => m.id === task.assigned_to) || null} members={members} size={16} />}
                     </div>
                   </div>
-                  <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{t.weight_points} pts</span>
-                  <button onClick={() => startEdit(t)} className="text-muted"><Pencil size={16} /></button>
-                  <button onClick={() => openTaskComments(t.id)} className="text-muted"><MessageCircle size={16} /></button>
-                  <button onClick={() => remove(t.id)} className="text-muted"><Trash2 size={16} /></button>
+                  <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{task.weight_points} pts</span>
+                  <button onClick={() => startEdit(task)} className="text-muted"><Pencil size={16} /></button>
+                  <button onClick={() => openTaskComments(task.id)} className="text-muted"><MessageCircle size={16} /></button>
+                  <button onClick={() => remove(task.id)} className="text-muted"><Trash2 size={16} /></button>
                 </div>
               )}
-              {openComments === t.id && (
+              {openComments === task.id && (
                 <div className="mt-2 ml-8 bg-white2 rounded-xl p-3">
-                  {comments.length === 0 && <p className="text-xs text-muted italic">Aucun commentaire.</p>}
+                  {comments.length === 0 && <p className="text-xs text-muted italic">{t("comments_none")}</p>}
                   {comments.map((c) => (
                     <div key={c.id} className="text-xs mb-1"><span className="font-medium text-ink">{memberName(members.find((m) => m.id === c.author_id)?.id || null)}</span> <span className="text-muted">{c.text}</span></div>
                   ))}
                   <div className="flex gap-2 mt-2">
-                    <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Ajouter un commentaire…" className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs outline-none" />
+                    <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={t("comment_placeholder")} className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs outline-none" />
                     <button onClick={addComment} className="text-xs bg-ink text-paper rounded-lg px-3">OK</button>
                     <button onClick={() => setOpenComments(null)} className="text-muted"><X size={14} /></button>
                   </div>
@@ -289,16 +293,16 @@ export default function TasksPage() {
 
         {doneRecent.length > 0 && (
           <>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Terminées récemment</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("tasks_done_recent")}</div>
             <div className="space-y-1">
-              {doneRecent.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                  <div onClick={() => uncompleteTask(t.id)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+              {doneRecent.map((task) => (
+                <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
+                  <div onClick={() => uncompleteTask(task.id)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-border line-through">{t.name}</div>
-                    <div className="text-[11px] text-muted">{t.completed_at && relativeDate(t.completed_at)}</div>
+                    <div className="text-sm text-border line-through">{task.name}</div>
+                    <div className="text-[11px] text-muted">{task.completed_at && relativeDate(task.completed_at)}</div>
                   </div>
-                  <button onClick={() => remove(t.id)} className="text-muted"><Trash2 size={16} /></button>
+                  <button onClick={() => remove(task.id)} className="text-muted"><Trash2 size={16} /></button>
                 </div>
               ))}
             </div>

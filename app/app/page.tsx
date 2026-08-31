@@ -8,9 +8,11 @@ import { Task, ShoppingItem } from "@/lib/types";
 import { ShoppingBag, Info } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { useT } from "@/lib/language-context";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
+  const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTasksForBalance, setAllTasksForBalance] = useState<Task[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -56,26 +58,26 @@ export default function TodayPage() {
 
   return (
     <div>
-      <Header eyebrow={household.name} title={`Bonjour, ${me.first_name}`} />
-      <IntroTip id="today" text="C'est ton tableau de bord : ce qui doit être fait aujourd'hui, courses et tâches confondues." />
+      <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
+      <IntroTip id="today" text={t("intro_today")} />
       <InstallPrompt />
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
-          <div className="text-xs text-muted mb-3 font-medium">Équilibre cette semaine</div>
+          <div className="text-xs text-muted mb-3 font-medium">{t("equity_week_label")}</div>
           <BalanceBar members={members} tasks={allTasksForBalance} />
           {showEquityInfo && (
             <div className="mt-3 flex gap-2 text-[11px] text-muted bg-mustardBg rounded-lg p-2.5">
               <Info size={13} className="shrink-0 mt-0.5 text-mustard" />
-              <span>Chaque tâche a un poids selon le temps qu&apos;elle prend. Le total montre qui porte quoi cette semaine — pas un classement.</span>
+              <span>{t("equity_intro")}</span>
             </div>
           )}
         </div>
       )}
 
       <div className="px-5">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">À faire</div>
-        {nothingToDo && <p className="text-sm text-muted italic py-2">Tout est à jour pour l&apos;instant.</p>}
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("today_todo")}</div>
+        {nothingToDo && <p className="text-sm text-muted italic py-2">{t("today_empty")}</p>}
         <div className="space-y-1">
           {items.map((i) => (
             <div key={i.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleItem(i.id)}>
