@@ -12,6 +12,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     hello: "Bonjour",
     today_todo: "À faire",
     today_empty: "Tout est à jour pour l'instant.",
+    today_empty_new: "Ton foyer démarre tout juste. Ajoute ta première course ou tâche pour commencer.",
     equity_intro: "Chaque tâche a un poids selon le temps qu'elle prend. Le total montre qui porte quoi cette semaine — pas un classement.",
     equity_week_label: "Équilibre cette semaine",
 
@@ -127,6 +128,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     hello: "Hallo",
     today_todo: "Te doen",
     today_empty: "Alles is bijgewerkt voor nu.",
+    today_empty_new: "Jullie huishouden is net gestart. Voeg je eerste boodschap of taak toe om te beginnen.",
     equity_intro: "Elke taak weegt naargelang de tijd die ze kost. Dit totaal toont wie wat draagt deze week — geen ranglijst.",
     equity_week_label: "Balans deze week",
 
@@ -242,6 +244,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     hello: "Hello",
     today_todo: "To do",
     today_empty: "Everything's up to date for now.",
+    today_empty_new: "Your household is just getting started. Add your first item or task to begin.",
     equity_intro: "Each task is weighted by how long it takes. This total shows who's carrying what this week — not a ranking.",
     equity_week_label: "Balance this week",
 

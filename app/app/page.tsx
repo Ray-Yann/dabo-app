@@ -5,17 +5,20 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem } from "@/lib/types";
-import { ShoppingBag, Info } from "lucide-react";
+import { ShoppingBag, Info, Plus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { useT } from "@/lib/language-context";
+import { useRouter } from "next/navigation";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTasksForBalance, setAllTasksForBalance] = useState<Task[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
 
   useEffect(() => {
@@ -40,6 +43,12 @@ export default function TodayPage() {
         .eq("status", "to_buy")
         .or(`assigned_to.eq.${me.id},assigned_to.is.null`);
       setItems((myItems as ShoppingItem[]) || []);
+
+      const { count } = await supabase
+        .from("shopping_items")
+        .select("*", { count: "exact", head: true })
+        .eq("household_id", household.id);
+      setTotalItemsEver(count ?? 0);
     })();
   }, [household, me]);
 
@@ -55,6 +64,7 @@ export default function TodayPage() {
   if (loading || !household || !me) return <div className="p-8 text-center text-muted">Chargement…</div>;
 
   const nothingToDo = tasks.length === 0 && items.length === 0;
+  const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
 
   return (
     <div>
@@ -77,7 +87,23 @@ export default function TodayPage() {
 
       <div className="px-5">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("today_todo")}</div>
-        {nothingToDo && <p className="text-sm text-muted italic py-2">{t("today_empty")}</p>}
+        {nothingToDo && (
+          isBrandNew ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
+              <div className="flex gap-2 justify-center">
+                <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
+                  <Plus size={15} /> {t("courses_title")}
+                </button>
+                <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
+                  <Plus size={15} /> {t("tasks_title")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted italic py-2">{t("today_empty")}</p>
+          )
+        )}
         <div className="space-y-1">
           {items.map((i) => (
             <div key={i.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleItem(i.id)}>
