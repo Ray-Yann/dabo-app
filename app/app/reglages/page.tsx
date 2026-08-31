@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
-import { Copy, LogOut, Bell, Check } from "lucide-react";
+import { Copy, LogOut, Bell, Check, UserMinus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { enableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
@@ -80,6 +80,16 @@ export default function SettingsPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
+  async function removeMember(memberId: string, name: string) {
+    if (!confirm(`Retirer ${name} du foyer ? Ses tâches et courses assignées repasseront en "non assigné". Ses commentaires seront supprimés.`)) return;
+    const { error } = await supabase.from("members").delete().eq("id", memberId);
+    if (error) {
+      alert("Erreur lors du retrait : " + error.message);
+      return;
+    }
+    refresh();
+  }
+
   async function leaveHousehold() {
     if (!me) return;
     if (!confirm("Quitter ce foyer ? Tu pourras rejoindre un autre foyer ensuite.")) return;
@@ -160,7 +170,14 @@ export default function SettingsPage() {
                   <Avatar member={m} members={members} size={20} />
                   <span className="text-sm text-ink">{m.first_name}</span>
                 </div>
-                <span className="text-xs text-muted">{m.role === "creator" ? "Créateur" : "Membre"}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted">{m.role === "creator" ? "Créateur" : "Membre"}</span>
+                  {me.role === "creator" && m.id !== me.id && (
+                    <button onClick={() => removeMember(m.id, m.first_name)} className="text-muted">
+                      <UserMinus size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
