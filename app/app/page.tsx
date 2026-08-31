@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem } from "@/lib/types";
-import { ShoppingBag, Info, Plus } from "lucide-react";
+import { ShoppingBag, Info, Plus, ListChecks } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { useT } from "@/lib/language-context";
@@ -66,6 +66,8 @@ export default function TodayPage() {
 
   const nothingToDo = tasks.length === 0 && items.length === 0;
   const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
+  const sortedItems = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const sortedTasks = [...tasks].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
 
   return (
     <div>
@@ -105,23 +107,43 @@ export default function TodayPage() {
             <p className="text-sm text-muted italic py-2">{t("today_empty")}</p>
           )
         )}
-        <div className="space-y-1">
-          {items.map((i) => (
-            <div key={i.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleItem(i.id)}>
-              <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
-                <ShoppingBag size={11} />
-              </div>
-              <span className="text-sm text-ink">{i.name}</span>
+
+        {sortedItems.length > 0 && (
+          <div className="mb-4">
+            <div className="text-[11px] text-muted mb-1 flex items-center gap-1.5"><ShoppingBag size={11} /> {t("courses_title")} · {sortedItems.length}</div>
+            <div className="space-y-1">
+              {sortedItems.map((i) => (
+                <div key={i.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleItem(i.id)}>
+                  <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
+                    <ShoppingBag size={11} />
+                  </div>
+                  <span className="text-sm text-ink flex items-center gap-1.5 flex-1">
+                    {i.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
+                    {i.name}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-          {tasks.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleTask(t.id)}>
-              <div className="w-5 h-5 rounded-full border-2 border-border shrink-0" />
-              <span className="text-sm text-ink flex-1">{t.name}</span>
-              <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{t.weight_points} pts</span>
+          </div>
+        )}
+
+        {sortedTasks.length > 0 && (
+          <div>
+            <div className="text-[11px] text-muted mb-1 flex items-center gap-1.5"><ListChecks size={11} /> {t("tasks_title")} · {sortedTasks.length}</div>
+            <div className="space-y-1">
+              {sortedTasks.map((task) => (
+                <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleTask(task.id)}>
+                  <div className="w-5 h-5 rounded-full border-2 border-border shrink-0" />
+                  <span className="text-sm text-ink flex-1 flex items-center gap-1.5">
+                    {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
+                    {task.name}
+                  </span>
+                  <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{task.weight_points} pts</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
