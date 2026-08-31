@@ -123,6 +123,9 @@ export default function TasksPage() {
       urgent: addForm.urgent,
       due_date: addForm.dueDate || null,
     });
+    if (addForm.urgent && me) {
+      notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: addForm.name.trim() });
+    }
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
     loadTasks();
@@ -145,6 +148,7 @@ export default function TasksPage() {
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
     const duration = DURATION_PRESETS.find((d) => d.label === editForm.durationLabel) || DURATION_PRESETS[1];
+    const wasUrgent = tasks.find((t) => t.id === id)?.urgent || false;
     await supabase.from("tasks").update({
       name: editForm.name.trim(),
       weight_points: duration.points,
@@ -152,6 +156,9 @@ export default function TasksPage() {
       urgent: editForm.urgent,
       due_date: editForm.dueDate || null,
     }).eq("id", id);
+    if (editForm.urgent && !wasUrgent && household && me) {
+      notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: editForm.name.trim() });
+    }
     setEditingId(null);
     loadTasks();
   }

@@ -40,6 +40,8 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     notif_item_bought: "{name} a acheté {item}",
     notif_task_done: "{name} a terminé « {task} »",
+    notif_item_urgent: "{name} a marqué {item} comme urgent",
+    notif_task_urgent: "{name} a marqué « {task} » comme urgente",
     notif_reminder_title: "Dabo — Rappel",
     notif_reminder_multiple: "{count} éléments, dont {first}",
 
@@ -163,6 +165,8 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     notif_item_bought: "{name} heeft {item} gekocht",
     notif_task_done: "{name} heeft \u00ab {task} \u00bb voltooid",
+    notif_item_urgent: "{name} heeft {item} als dringend gemarkeerd",
+    notif_task_urgent: "{name} heeft \u00ab {task} \u00bb als dringend gemarkeerd",
     notif_reminder_title: "Dabo — Herinnering",
     notif_reminder_multiple: "{count} items, waaronder {first}",
 
@@ -286,6 +290,8 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     notif_item_bought: "{name} bought {item}",
     notif_task_done: "{name} finished \u201c{task}\u201d",
+    notif_item_urgent: "{name} marked {item} as urgent",
+    notif_task_urgent: "{name} marked \u201c{task}\u201d as urgent",
     notif_reminder_title: "Dabo — Reminder",
     notif_reminder_multiple: "{count} items, including {first}",
 

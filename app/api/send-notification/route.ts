@@ -12,7 +12,7 @@ webpush.setVapidDetails(
 // Seules ces clés peuvent déclencher une notification — empêche quiconque
 // d'injecter un texte arbitraire dans une notification, même en cas de jeton
 // valide détourné.
-const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done"];
+const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent"];
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");

@@ -90,6 +90,9 @@ export default function CoursesPage() {
       assigned_to: addForm.assignedTo || null,
       due_date: addForm.dueDate || null,
     });
+    if (addForm.urgent && me) {
+      notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: addForm.name.trim() });
+    }
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
     loadItems();
@@ -109,6 +112,7 @@ export default function CoursesPage() {
 
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
+    const wasUrgent = items.find((i) => i.id === id)?.urgent || false;
     await supabase.from("shopping_items").update({
       name: editForm.name.trim(),
       quantity: editForm.quantity || null,
@@ -116,6 +120,9 @@ export default function CoursesPage() {
       assigned_to: editForm.assignedTo || null,
       due_date: editForm.dueDate || null,
     }).eq("id", id);
+    if (editForm.urgent && !wasUrgent && household && me) {
+      notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: editForm.name.trim() });
+    }
     setEditingId(null);
     loadItems();
   }
