@@ -44,11 +44,14 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!callerMember) {
+    const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
     console.error("send-notification: échec de vérification", {
       householdId,
       excludeMemberId,
       userId: userData.user.id,
       callerErr,
+      keyPreview: rawKey.slice(0, 15),
+      keyLength: rawKey.length,
     });
     return NextResponse.json(
       {
@@ -57,6 +60,8 @@ export async function POST(req: NextRequest) {
         householdId,
         excludeMemberId,
         userId: userData.user.id,
+        keyPreview: rawKey.slice(0, 15),
+        keyLength: rawKey.length,
       },
       { status: 403 }
     );
