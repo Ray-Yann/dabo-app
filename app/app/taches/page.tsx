@@ -227,6 +227,7 @@ export default function TasksPage() {
   if (loading || !household) return <LoadingState />;
 
   const pending = [...tasks.filter((task) => task.status === "pending")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const hasDoneTasks = tasks.some((task) => task.status === "done");
   const doneRecent = tasks
     .filter((task) => task.status === "done" && task.completed_at)
     .filter((task) => showAllDone || (new Date(task.completed_at!).getTime() > cutoff && cutoff > 0))
@@ -330,7 +331,7 @@ export default function TasksPage() {
           ))}
         </div>
 
-        {(doneRecent.length > 0 || showAllDone) && (
+        {hasDoneTasks && (
           <>
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted">{showAllDone ? t("tasks_history") : t("tasks_done_recent")}</div>

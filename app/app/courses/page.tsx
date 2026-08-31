@@ -280,12 +280,14 @@ export default function CoursesPage() {
                 {showAllBought ? t("tasks_show_recent") : t("tasks_show_history")}
               </button>
             </div>
-            <input
-              value={boughtSearch}
-              onChange={(e) => setBoughtSearch(e.target.value)}
-              placeholder={t("search_placeholder")}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
-            />
+            {showAllBought && (
+              <input
+                value={boughtSearch}
+                onChange={(e) => setBoughtSearch(e.target.value)}
+                placeholder={t("search_placeholder")}
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
+              />
+            )}
             <div className="space-y-1">
               {bought.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
