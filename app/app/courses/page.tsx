@@ -120,6 +120,7 @@ export default function CoursesPage() {
     loadItems();
   }
   async function remove(id: string) {
+    if (!confirm("Supprimer cet article ?")) return;
     await supabase.from("shopping_items").delete().eq("id", id);
     loadItems();
   }

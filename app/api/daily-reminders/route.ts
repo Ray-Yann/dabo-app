@@ -60,8 +60,11 @@ export async function GET(req: NextRequest) {
           JSON.stringify({ title: "Dabo — Rappel", body })
         );
         sent++;
-      } catch {
-        // Abonnement expiré ou invalide — ne bloque pas les autres envois.
+      } catch (e: unknown) {
+        const statusCode = (e as { statusCode?: number })?.statusCode;
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+        }
       }
     }
   }

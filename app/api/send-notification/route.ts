@@ -41,9 +41,13 @@ export async function POST(req: NextRequest) {
         JSON.stringify({ title, body })
       );
       sent++;
-    } catch (e) {
-      // Un abonnement expiré ou invalide ne doit pas bloquer les autres envois.
-      // On pourrait le supprimer ici si l'erreur indique qu'il n'est plus valide (410/404).
+    } catch (e: unknown) {
+      const statusCode = (e as { statusCode?: number })?.statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        // Abonnement mort (téléphone changé, app désinstallée) — on le retire
+        // pour ne pas continuer à essayer de le contacter indéfiniment.
+        await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+      }
     }
   }
 

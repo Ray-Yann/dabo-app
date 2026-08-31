@@ -184,6 +184,7 @@ export default function TasksPage() {
     loadTasks();
   }
   async function remove(id: string) {
+    if (!confirm("Supprimer cette tâche ?")) return;
     await supabase.from("tasks").delete().eq("id", id);
     loadTasks();
   }

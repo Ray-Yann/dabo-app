@@ -30,8 +30,12 @@ export default function SettingsPage() {
   async function saveProfile() {
     if (!me || !firstName.trim()) return;
     setSavingProfile(true);
-    await supabase.from("members").update({ first_name: firstName.trim() }).eq("id", me.id);
+    const { error } = await supabase.from("members").update({ first_name: firstName.trim() }).eq("id", me.id);
     setSavingProfile(false);
+    if (error) {
+      alert("Erreur lors de l'enregistrement : " + error.message);
+      return;
+    }
     setProfileSaved(true);
     setTimeout(() => setProfileSaved(false), 1500);
     refresh();
@@ -39,7 +43,11 @@ export default function SettingsPage() {
 
   async function chooseColor(color: string) {
     if (!me) return;
-    await supabase.from("members").update({ avatar_color: color }).eq("id", me.id);
+    const { error } = await supabase.from("members").update({ avatar_color: color }).eq("id", me.id);
+    if (error) {
+      alert("Erreur lors de l'enregistrement : " + error.message);
+      return;
+    }
     refresh();
   }
 
