@@ -202,7 +202,8 @@ export default function OnboardingPage() {
         {phase === "auth" && authMode !== "forgot" && (
           <>
             <h1 className="font-serif text-2xl text-ink mb-1">Bienvenue sur Dabo</h1>
-            <p className="text-sm text-muted mb-6">L&apos;équilibre du foyer, enfin visible.</p>
+            <p className="text-sm text-muted mb-1">L&apos;équilibre du foyer, enfin visible.</p>
+            <p className="text-xs text-muted mb-6">Crée ton compte pour retrouver ton foyer, où que tu sois — tes proches t&apos;y attendent déjà, ou t&apos;y rejoindront bientôt.</p>
 
             <div className="space-y-3 text-left">
               <input
