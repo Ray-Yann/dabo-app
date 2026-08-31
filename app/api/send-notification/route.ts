@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
 import { translateWithParams, Lang } from "@/lib/i18n";
 
 webpush.setVapidDetails(
@@ -27,15 +27,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message non autorisé" }, { status: 400 });
   }
 
-  const authClient = createAdminClient();
-  const { data: userData, error: userErr } = await authClient.auth.getUser(token);
-  if (userErr || !userData.user) {
+  const userData = await verifyUserToken(token);
+  if (!userData) {
     return NextResponse.json({ error: "Session invalide" }, { status: 401 });
   }
 
-  // Client neuf, jamais utilisé pour vérifier un jeton — pour éviter que la
-  // vérification d'identité ci-dessus ne fasse perdre au client ses pleins
-  // pouvoirs pour les requêtes suivantes (piège documenté par Supabase).
   const admin = createAdminClient();
 
   // Vérifie que la personne qui déclenche la notification est bien elle-même
@@ -45,7 +41,7 @@ export async function POST(req: NextRequest) {
     .select("id")
     .eq("id", excludeMemberId)
     .eq("household_id", householdId)
-    .eq("user_id", userData.user.id)
+    .eq("user_id", userData.id)
     .maybeSingle();
 
   if (!callerMember) {
@@ -53,7 +49,7 @@ export async function POST(req: NextRequest) {
     console.error("send-notification: échec de vérification", {
       householdId,
       excludeMemberId,
-      userId: userData.user.id,
+      userId: userData.id,
       callerErr,
       keyPreview: rawKey.slice(0, 15),
       keyLength: rawKey.length,
@@ -64,7 +60,7 @@ export async function POST(req: NextRequest) {
         debug: callerErr?.message || null,
         householdId,
         excludeMemberId,
-        userId: userData.user.id,
+        userId: userData.id,
         keyPreview: rawKey.slice(0, 15),
         keyLength: rawKey.length,
       },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, transferCreatorAndRemove } from "@/lib/supabase-admin";
+import { createAdminClient, transferCreatorAndRemove, verifyUserToken } from "@/lib/supabase-admin";
 
 // Supprime définitivement le compte de la personne qui fait la demande.
 // L'identité est vérifiée ici, côté serveur, à partir du jeton envoyé —
@@ -10,16 +10,13 @@ export async function POST(req: NextRequest) {
   const token = authHeader?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const authClient = createAdminClient();
-  const { data: userData, error: userErr } = await authClient.auth.getUser(token);
-  if (userErr || !userData.user) {
+  const userData = await verifyUserToken(token);
+  if (!userData) {
     return NextResponse.json({ error: "Session invalide" }, { status: 401 });
   }
 
-  const userId = userData.user.id;
+  const userId = userData.id;
 
-  // Client neuf pour les opérations sur la base de données — voir la même
-  // note dans send-notification/route.ts sur ce piège Supabase documenté.
   const admin = createAdminClient();
 
   // Retire la personne de tout foyer dont elle est membre, en transmettant
