@@ -61,6 +61,13 @@ export default function CoursesPage() {
   const [editCommentText, setEditCommentText] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [boughtSearch, setBoughtSearch] = useState("");
+  const [showAllBought, setShowAllBought] = useState(false);
+  const [boughtCutoff, setBoughtCutoff] = useState<number>(0);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBoughtCutoff(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  }, []);
 
   async function loadItems() {
     if (!household) return;
@@ -163,7 +170,11 @@ export default function CoursesPage() {
 
   const toBuy = [...items.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const hasBoughtItems = items.some((i) => i.status === "bought");
-  const bought = items.filter((i) => i.status === "bought" && i.name.toLowerCase().includes(boughtSearch.toLowerCase()));
+  const bought = items
+    .filter((i) => i.status === "bought")
+    .filter((i) => showAllBought || (i.bought_at && new Date(i.bought_at).getTime() > boughtCutoff && boughtCutoff > 0))
+    .filter((i) => i.name.toLowerCase().includes(boughtSearch.toLowerCase()))
+    .sort((a, b) => new Date(b.bought_at || 0).getTime() - new Date(a.bought_at || 0).getTime());
 
   function memberName(id: string | null) {
     return members.find((m) => m.id === id)?.first_name;
@@ -263,7 +274,12 @@ export default function CoursesPage() {
 
         {hasBoughtItems && (
           <>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_bought")}</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted">{showAllBought ? t("tasks_history") : t("courses_bought")}</div>
+              <button onClick={() => { setShowAllBought(!showAllBought); setBoughtSearch(""); }} className="text-xs text-mustard font-medium">
+                {showAllBought ? t("tasks_show_recent") : t("tasks_show_history")}
+              </button>
+            </div>
             <input
               value={boughtSearch}
               onChange={(e) => setBoughtSearch(e.target.value)}
