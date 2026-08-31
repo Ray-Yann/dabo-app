@@ -22,6 +22,9 @@ export default function SettingsPage() {
   const [firstName, setFirstName] = useState(me?.first_name || "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [householdName, setHouseholdName] = useState(household?.name || "");
+  const [savingHouseholdName, setSavingHouseholdName] = useState(false);
+  const [householdNameSaved, setHouseholdNameSaved] = useState(false);
 
   useEffect(() => {
     if (me) {
@@ -29,6 +32,13 @@ export default function SettingsPage() {
       setFirstName(me.first_name);
     }
   }, [me?.id]);
+
+  useEffect(() => {
+    if (household) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHouseholdName(household.name);
+    }
+  }, [household?.id]);
 
   async function saveProfile() {
     if (!me || !firstName.trim()) return;
@@ -81,6 +91,15 @@ export default function SettingsPage() {
   async function changeType(type: string) {
     if (!household) return;
     await supabase.from("households").update({ household_type: type }).eq("id", household.id);
+    refresh();
+  }
+  async function saveHouseholdName() {
+    if (!household || !householdName.trim()) return;
+    setSavingHouseholdName(true);
+    await supabase.from("households").update({ name: householdName.trim() }).eq("id", household.id);
+    setSavingHouseholdName(false);
+    setHouseholdNameSaved(true);
+    setTimeout(() => setHouseholdNameSaved(false), 1500);
     refresh();
   }
   function copyCode() {
@@ -182,7 +201,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <button onClick={saveProfile} disabled={savingProfile || !firstName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
-            {savingProfile ? "..." : profileSaved ? t("copied") : t("save")}
+            {savingProfile ? "..." : profileSaved ? t("saved") : t("save")}
           </button>
         </div>
 
@@ -199,7 +218,14 @@ export default function SettingsPage() {
 
         <div className="bg-white2 rounded-2xl p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("settings_household")}</div>
-          <div className="text-sm text-ink mb-3">{household.name}</div>
+          <input
+            value={householdName}
+            onChange={(e) => setHouseholdName(e.target.value)}
+            className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
+          />
+          <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50 mb-3">
+            {savingHouseholdName ? "..." : householdNameSaved ? t("saved") : t("save")}
+          </button>
           <select
             value={household.household_type}
             onChange={(e) => changeType(e.target.value)}
