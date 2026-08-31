@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
@@ -59,6 +60,7 @@ export default function CoursesPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
+  const [boughtSearch, setBoughtSearch] = useState("");
 
   async function loadItems() {
     if (!household) return;
@@ -157,10 +159,11 @@ export default function CoursesPage() {
     reloadComments(openComments);
   }
 
-  if (loading || !household) return <div className="p-8 text-center text-muted">Chargement…</div>;
+  if (loading || !household) return <LoadingState />;
 
   const toBuy = [...items.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-  const bought = items.filter((i) => i.status === "bought");
+  const hasBoughtItems = items.some((i) => i.status === "bought");
+  const bought = items.filter((i) => i.status === "bought" && i.name.toLowerCase().includes(boughtSearch.toLowerCase()));
 
   function memberName(id: string | null) {
     return members.find((m) => m.id === id)?.first_name;
@@ -258,9 +261,15 @@ export default function CoursesPage() {
           ))}
         </div>
 
-        {bought.length > 0 && (
+        {hasBoughtItems && (
           <>
             <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_bought")}</div>
+            <input
+              value={boughtSearch}
+              onChange={(e) => setBoughtSearch(e.target.value)}
+              placeholder={t("search_placeholder")}
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
+            />
             <div className="space-y-1">
               {bought.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 py-3 border-b border-borderLight">

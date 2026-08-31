@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { EmptyState } from "@/components/EmptyState";
@@ -43,7 +44,7 @@ export default function PromosPage() {
     loadPromos();
   }
 
-  if (loading || !household) return <div className="p-8 text-center text-muted">Chargement…</div>;
+  if (loading || !household) return <LoadingState />;
 
   return (
     <div>

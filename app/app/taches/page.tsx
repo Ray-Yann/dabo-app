@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, DURATION_PRESETS } from "@/lib/types";
@@ -72,6 +73,8 @@ export default function TasksPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
   const [cutoff, setCutoff] = useState<number>(0);
+  const [showAllDone, setShowAllDone] = useState(false);
+  const [doneSearch, setDoneSearch] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -221,12 +224,14 @@ export default function TasksPage() {
     reloadComments(openComments);
   }
 
-  if (loading || !household) return <div className="p-8 text-center text-muted">Chargement…</div>;
+  if (loading || !household) return <LoadingState />;
 
   const pending = [...tasks.filter((task) => task.status === "pending")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-  const doneRecent = tasks.filter(
-    (task) => task.status === "done" && task.completed_at && new Date(task.completed_at).getTime() > cutoff && cutoff > 0
-  );
+  const doneRecent = tasks
+    .filter((task) => task.status === "done" && task.completed_at)
+    .filter((task) => showAllDone || (new Date(task.completed_at!).getTime() > cutoff && cutoff > 0))
+    .filter((task) => task.name.toLowerCase().includes(doneSearch.toLowerCase()))
+    .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
 
   function memberName(id: string | null) {
     return members.find((m) => m.id === id)?.first_name || t("unassigned");
@@ -325,9 +330,22 @@ export default function TasksPage() {
           ))}
         </div>
 
-        {doneRecent.length > 0 && (
+        {(doneRecent.length > 0 || showAllDone) && (
           <>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("tasks_done_recent")}</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted">{showAllDone ? t("tasks_history") : t("tasks_done_recent")}</div>
+              <button onClick={() => { setShowAllDone(!showAllDone); setDoneSearch(""); }} className="text-xs text-mustard font-medium">
+                {showAllDone ? t("tasks_show_recent") : t("tasks_show_history")}
+              </button>
+            </div>
+            {showAllDone && (
+              <input
+                value={doneSearch}
+                onChange={(e) => setDoneSearch(e.target.value)}
+                placeholder={t("search_placeholder")}
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
+              />
+            )}
             <div className="space-y-1">
               {doneRecent.map((task) => (
                 <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">

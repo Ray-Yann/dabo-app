@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
@@ -153,7 +154,7 @@ export default function SettingsPage() {
     router.replace("/");
   }
 
-  if (loading || !household || !me) return <div className="p-8 text-center text-muted">Chargement…</div>;
+  if (loading || !household || !me) return <LoadingState />;
 
   const LANGUAGES: { code: Lang; label: string }[] = [
     { code: "fr", label: "Français" },

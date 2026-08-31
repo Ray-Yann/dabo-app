@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
@@ -21,7 +22,7 @@ export default function BalancePage() {
     })();
   }, [household]);
 
-  if (loading || !household) return <div className="p-8 text-center text-muted">Chargement…</div>;
+  if (loading || !household) return <LoadingState />;
 
   return (
     <div>

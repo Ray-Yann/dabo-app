@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { genInviteCode } from "@/lib/utils";
@@ -187,7 +188,7 @@ export default function OnboardingPage() {
   if (phase === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#E7E3D8]">
-        <div className="text-ink">Chargement…</div>
+        <LoadingState />
       </div>
     );
   }
