@@ -26,6 +26,13 @@ export default function OnboardingPage() {
   const [householdType, setHouseholdType] = useState<"couple" | "coloc" | "famille">("couple");
   const [memberLang, setMemberLang] = useState<"fr" | "nl" | "en">("fr");
 
+  // Cet écran (avant connexion) ne doit jamais s'afficher en mode sombre —
+  // cette préférence appartient à un profil qui n'existe pas encore ici.
+  // Filet de sécurité au cas où la classe serait restée d'une session précédente.
+  useEffect(() => {
+    document.documentElement.classList.remove("dark");
+  }, []);
+
   useEffect(() => {
     const browserLang = navigator.language.toLowerCase();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -246,7 +253,7 @@ export default function OnboardingPage() {
               className="text-sm text-muted mt-4"
               onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
             >
-              {authMode === "signup" ? "J&apos;ai déjà un compte" : "Créer un compte"}
+              {authMode === "signup" ? "J'ai déjà un compte" : "Créer un compte"}
             </button>
 
             {authMode === "login" && (

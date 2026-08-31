@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { CheckSquare, Eye, EyeOff } from "lucide-react";
@@ -9,6 +9,11 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    document.documentElement.classList.remove("dark");
+  }, []);
+
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
