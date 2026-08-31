@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
-import { Copy, LogOut, Bell, Check, UserMinus } from "lucide-react";
+import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { enableNotifications, disableNotifications } from "@/lib/notifications";
@@ -145,6 +145,16 @@ export default function SettingsPage() {
     refresh();
   }
 
+  async function promoteToCreator(memberId: string, name: string) {
+    if (!confirm(t("confirm_promote_creator").replace("{name}", name))) return;
+    const { error } = await supabase.from("members").update({ role: "creator" }).eq("id", memberId);
+    if (error) {
+      alert("Erreur : " + error.message);
+      return;
+    }
+    refresh();
+  }
+
   async function leaveHousehold() {
     if (!me) return;
     if (!confirm(t("confirm_leave"))) return;
@@ -278,6 +288,11 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted">{m.role === "creator" ? t("settings_creator") : t("settings_member")}</span>
+                    {me.role === "creator" && m.id !== me.id && m.role !== "creator" && (
+                      <button onClick={() => promoteToCreator(m.id, m.first_name)} className="text-muted" title={t("promote_creator")}>
+                        <ShieldPlus size={15} />
+                      </button>
+                    )}
                     {me.role === "creator" && m.id !== me.id && (
                       <button onClick={() => removeMember(m.id, m.first_name)} className="text-muted">
                         <UserMinus size={15} />

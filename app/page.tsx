@@ -180,7 +180,11 @@ export default function OnboardingPage() {
       household_id: household.id,
       user_id: sessionData.session.user.id,
       first_name: firstName,
-      role: "member",
+      // Si personne n'a encore rejoint ce foyer (cas des foyers migrés
+      // depuis Glide, créés directement en base sans passer par "Créer un
+      // foyer"), la première personne à le rejoindre en devient créatrice —
+      // sinon aucun foyer migré n'aurait jamais de créateur.
+      role: (count || 0) === 0 ? "creator" : "member",
       language: memberLang,
       rotation_order: count || 0,
     });
