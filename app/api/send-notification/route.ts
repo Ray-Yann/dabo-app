@@ -46,6 +46,20 @@ export async function POST(req: NextRequest) {
 
   if (!callerMember) {
     const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+    let rawTestStatus: number | null = null;
+    let rawTestBody: string | null = null;
+    try {
+      const rawTest = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/members?select=id&limit=1`, {
+        headers: {
+          apikey: rawKey,
+          Authorization: `Bearer ${rawKey}`,
+        },
+      });
+      rawTestStatus = rawTest.status;
+      rawTestBody = await rawTest.text();
+    } catch (e) {
+      rawTestBody = e instanceof Error ? e.message : "erreur inconnue";
+    }
     console.error("send-notification: échec de vérification", {
       householdId,
       excludeMemberId,
@@ -53,6 +67,8 @@ export async function POST(req: NextRequest) {
       callerErr,
       keyPreview: rawKey.slice(0, 15),
       keyLength: rawKey.length,
+      rawTestStatus,
+      rawTestBody,
     });
     return NextResponse.json(
       {
@@ -63,6 +79,8 @@ export async function POST(req: NextRequest) {
         userId: userData.id,
         keyPreview: rawKey.slice(0, 15),
         keyLength: rawKey.length,
+        rawTestStatus,
+        rawTestBody,
       },
       { status: 403 }
     );
