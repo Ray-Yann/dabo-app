@@ -35,12 +35,12 @@ export async function enableNotifications(supabase: SupabaseClient, memberId: st
   );
 }
 
-export async function notifyHousehold(householdId: string, excludeMemberId: string, title: string, body: string) {
+export async function notifyHousehold(householdId: string, excludeMemberId: string, key: string, params: Record<string, string>) {
   try {
     await fetch("/api/send-notification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ householdId, excludeMemberId, title, body }),
+      body: JSON.stringify({ householdId, excludeMemberId, key, params }),
     });
   } catch (e) {
     // Une notification manquée ne doit jamais bloquer l'action principale de l'utilisateur.

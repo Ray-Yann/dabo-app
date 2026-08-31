@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { translate, translateWithParams, Lang } from "@/lib/i18n";
 
 webpush.setVapidDetails(
   "mailto:contact@dabo.app",
@@ -51,13 +52,17 @@ export async function GET(req: NextRequest) {
 
   let sent = 0;
   for (const [memberId, names] of byMember.entries()) {
+    const { data: memberRow } = await supabase.from("members").select("language").eq("id", memberId).maybeSingle();
+    const lang: Lang = (memberRow?.language as Lang) || "fr";
+    const title = translate(lang, "notif_reminder_title");
+    const body = names.length === 1 ? names[0] : translateWithParams(lang, "notif_reminder_multiple", { count: String(names.length), first: names[0] });
+
     const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("member_id", memberId);
-    const body = names.length === 1 ? names[0] : `${names.length} tâches, dont ${names[0]}`;
     for (const sub of subs || []) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title: "Dabo — Rappel", body })
+          JSON.stringify({ title, body })
         );
         sent++;
       } catch (e: unknown) {

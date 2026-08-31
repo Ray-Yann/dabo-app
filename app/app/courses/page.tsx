@@ -119,7 +119,7 @@ export default function CoursesPage() {
     await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
     setAnimatingId(null);
     if (status === "bought" && household && me) {
-      notifyHousehold(household.id, me.id, "Dabo", `${me.first_name} a acheté ${item.name}`);
+      notifyHousehold(household.id, me.id, "notif_item_bought", { name: me.first_name, item: item.name });
     }
     loadItems();
   }

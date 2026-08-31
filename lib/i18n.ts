@@ -37,6 +37,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     date_tomorrow: "demain",
     date_overdue: "en retard",
 
+    notif_item_bought: "{name} a acheté {item}",
+    notif_task_done: "{name} a terminé « {task} »",
+    notif_reminder_title: "Dabo — Rappel",
+    notif_reminder_multiple: "{count} éléments, dont {first}",
+
     tasks_title: "Tâches",
     tasks_in_progress: "tâches en cours",
     tasks_empty: "Aucune tâche en attente.",
@@ -141,6 +146,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     date_today: "vandaag",
     date_tomorrow: "morgen",
     date_overdue: "te laat",
+
+    notif_item_bought: "{name} heeft {item} gekocht",
+    notif_task_done: "{name} heeft \u00ab {task} \u00bb voltooid",
+    notif_reminder_title: "Dabo — Herinnering",
+    notif_reminder_multiple: "{count} items, waaronder {first}",
 
     tasks_title: "Taken",
     tasks_in_progress: "lopende taken",
@@ -247,6 +257,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     date_tomorrow: "tomorrow",
     date_overdue: "overdue",
 
+    notif_item_bought: "{name} bought {item}",
+    notif_task_done: "{name} finished \u201c{task}\u201d",
+    notif_reminder_title: "Dabo — Reminder",
+    notif_reminder_multiple: "{count} items, including {first}",
+
     tasks_title: "Tasks",
     tasks_in_progress: "tasks in progress",
     tasks_empty: "No tasks pending.",
@@ -320,4 +335,12 @@ export const translations: Record<Lang, Record<string, string>> = {
 
 export function translate(lang: Lang, key: string): string {
   return translations[lang]?.[key] || translations.fr[key] || key;
+}
+
+export function translateWithParams(lang: Lang, key: string, params: Record<string, string>): string {
+  let text = translate(lang, key);
+  for (const [k, v] of Object.entries(params)) {
+    text = text.replace(`{${k}}`, v);
+  }
+  return text;
 }
