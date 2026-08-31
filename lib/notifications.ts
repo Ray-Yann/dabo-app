@@ -35,6 +35,17 @@ export async function enableNotifications(supabase: SupabaseClient, memberId: st
   );
 }
 
+export async function disableNotifications(supabase: SupabaseClient) {
+  if (!("serviceWorker" in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  if (subscription) {
+    const endpoint = subscription.endpoint;
+    await subscription.unsubscribe();
+    await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+  }
+}
+
 export async function notifyHousehold(
   supabase: SupabaseClient,
   householdId: string,

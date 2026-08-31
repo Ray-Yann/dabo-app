@@ -9,7 +9,7 @@ import { Avatar } from "@/components/Avatar";
 import { Copy, LogOut, Bell, Check, UserMinus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
-import { enableNotifications } from "@/lib/notifications";
+import { enableNotifications, disableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
 import { Lang } from "@/lib/i18n";
@@ -97,6 +97,12 @@ export default function SettingsPage() {
       setNotifError(e instanceof Error ? e.message : "Une erreur est survenue.");
       setNotifStatus("error");
     }
+  }
+
+  async function handleDisableNotifications() {
+    setNotifStatus("loading");
+    await disableNotifications(supabase);
+    setNotifStatus("idle");
   }
 
   async function toggleEquity() {
@@ -321,6 +327,11 @@ export default function SettingsPage() {
             {notifStatus !== "done" && notifStatus !== "checking" && (
               <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
                 {notifStatus === "loading" ? "..." : t("settings_notifications_enable")}
+              </button>
+            )}
+            {notifStatus === "done" && (
+              <button onClick={handleDisableNotifications} className="text-xs text-muted underline">
+                {t("settings_notifications_disable")}
               </button>
             )}
             {notifStatus === "error" && <p className="text-xs text-red-700 mt-2">{notifError}</p>}
