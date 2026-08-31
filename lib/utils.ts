@@ -26,12 +26,12 @@ export function startOfWeek(): Date {
   return d;
 }
 
-export function dueDateLabel(dateStr: string): string {
+export function dueDateLabel(dateStr: string, t: (key: string) => string): string {
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  if (dateStr === today) return "aujourd'hui";
-  if (dateStr === tomorrow) return "demain";
-  if (dateStr < today) return `en retard (${dateStr})`;
+  if (dateStr === today) return t("date_today");
+  if (dateStr === tomorrow) return t("date_tomorrow");
+  if (dateStr < today) return `${t("date_overdue")} (${dateStr})`;
   return dateStr;
 }
 

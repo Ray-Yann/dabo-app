@@ -33,6 +33,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     due_date_optional: "Échéance (facultatif)",
     confirm_delete_item: "Supprimer cet article ?",
     urgent_label: "Urgent",
+    date_today: "aujourd'hui",
+    date_tomorrow: "demain",
+    date_overdue: "en retard",
 
     tasks_title: "Tâches",
     tasks_in_progress: "tâches en cours",
@@ -134,6 +137,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     mark_urgent: "Markeren als dringend",
     due_date_optional: "Vervaldatum (optioneel)",
     confirm_delete_item: "Dit artikel verwijderen?",
+    urgent_label: "Dringend",
+    date_today: "vandaag",
+    date_tomorrow: "morgen",
+    date_overdue: "te laat",
 
     tasks_title: "Taken",
     tasks_in_progress: "lopende taken",
@@ -235,6 +242,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     mark_urgent: "Mark as urgent",
     due_date_optional: "Due date (optional)",
     confirm_delete_item: "Delete this item?",
+    urgent_label: "Urgent",
+    date_today: "today",
+    date_tomorrow: "tomorrow",
+    date_overdue: "overdue",
 
     tasks_title: "Tasks",
     tasks_in_progress: "tasks in progress",

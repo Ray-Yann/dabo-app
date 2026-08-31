@@ -264,7 +264,7 @@ export default function TasksPage() {
                       {task.name}
                     </div>
                     <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
-                      <span className="flex items-center gap-1">{task.routine_id && <Repeat size={10} />} {task.due_date ? dueDateLabel(task.due_date) : null}</span>
+                      <span className="flex items-center gap-1">{task.routine_id && <Repeat size={10} />} {task.due_date ? dueDateLabel(task.due_date, t) : null}</span>
                       {task.assigned_to && <Avatar member={members.find((m) => m.id === task.assigned_to) || null} members={members} size={16} />}
                     </div>
                   </div>

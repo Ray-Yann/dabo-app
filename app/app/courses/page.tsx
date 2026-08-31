@@ -198,7 +198,7 @@ export default function CoursesPage() {
                       {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
                     </div>
                     <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
-                      <span>{relativeDate(item.created_at)}{item.due_date ? ` · ${dueDateLabel(item.due_date)}` : ""}</span>
+                      <span>{relativeDate(item.created_at)}{item.due_date ? ` · ${dueDateLabel(item.due_date, t)}` : ""}</span>
                       {item.assigned_to && <Avatar member={members.find((m) => m.id === item.assigned_to) || null} members={members} size={16} />}
                     </div>
                   </div>
