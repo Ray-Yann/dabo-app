@@ -9,6 +9,7 @@ import { Task, ShoppingItem } from "@/lib/types";
 import { ShoppingBag, Info, Plus, ListChecks } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { InviteNudge } from "@/components/InviteNudge";
 import { useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 
@@ -74,6 +75,14 @@ export default function TodayPage() {
       <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
       <IntroTip id="today" text={t("intro_today")} />
       <InstallPrompt />
+      {household && (
+        <InviteNudge
+          householdId={household.id}
+          memberCount={members.length}
+          householdType={household.household_type}
+          text={t("invite_nudge_text")}
+        />
+      )}
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">

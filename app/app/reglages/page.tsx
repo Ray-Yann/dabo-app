@@ -11,6 +11,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { enableNotifications, disableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
+import { Share2 } from "lucide-react";
 import { useT } from "@/lib/language-context";
 import { Lang } from "@/lib/i18n";
 
@@ -70,6 +71,24 @@ export default function SettingsPage() {
     if (!me) return;
     await supabase.from("members").update({ language: lang }).eq("id", me.id);
     refresh();
+  }
+
+  async function shareApp() {
+    const shareData = {
+      title: "Dabo",
+      text: t("share_app_message"),
+      url: "https://dabo-app.vercel.app",
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // Partage annulé par la personne — rien à faire.
+      }
+    } else {
+      navigator.clipboard?.writeText(`${shareData.text} ${shareData.url}`);
+      alert(t("share_app_copied"));
+    }
   }
 
   useEffect(() => {
@@ -304,6 +323,16 @@ export default function SettingsPage() {
             </div>
           </div>
         </CollapsibleSection>
+
+        <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div className="text-sm text-ink font-medium">{t("share_app_title")}</div>
+            <div className="text-xs text-muted">{t("share_app_desc")}</div>
+          </div>
+          <button onClick={shareApp} className="bg-ink text-paper rounded-xl p-2.5 shrink-0">
+            <Share2 size={16} />
+          </button>
+        </div>
 
         <CollapsibleSection title={t("settings_section_preferences")}>
           <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
