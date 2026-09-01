@@ -3,13 +3,23 @@
 import { Member, Task } from "@/lib/types";
 import { startOfWeek, MEMBER_COLORS } from "@/lib/utils";
 
-export function BalanceBar({ members, tasks, big = false }: { members: Member[]; tasks: Task[]; big?: boolean }) {
-  const weekStart = startOfWeek().getTime();
+export function BalanceBar({
+  members,
+  tasks,
+  big = false,
+  since,
+}: {
+  members: Member[];
+  tasks: Task[];
+  big?: boolean;
+  since?: Date;
+}) {
+  const periodStart = (since || startOfWeek()).getTime();
   const totals = members.map((m, i) => ({
     ...m,
     color: MEMBER_COLORS[i % MEMBER_COLORS.length],
     pts: tasks
-      .filter((t) => t.status === "done" && t.assigned_to === m.id && t.completed_at && new Date(t.completed_at).getTime() >= weekStart)
+      .filter((t) => t.status === "done" && t.assigned_to === m.id && t.completed_at && new Date(t.completed_at).getTime() >= periodStart)
       .reduce((s, t) => s + t.weight_points, 0),
   }));
   const total = totals.reduce((s, m) => s + m.pts, 0) || 1;

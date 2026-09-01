@@ -64,6 +64,10 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Équilibre",
     balance_this_week: "Cette semaine",
+    balance_this_month: "Ce mois",
+    balance_last_3_months: "3 derniers mois",
+    rebalance_suggestion: "Ce mois-ci, l'équilibre pourrait s'améliorer si {name} prenait une tâche ou deux de plus — juste une suggestion, à voir ensemble.",
+    share_report: "Partager ce bilan",
     balance_disabled: "Le score d'équité est désactivé pour ce foyer.",
     balance_footnote: "Le score est un repère, pas un classement.",
 
@@ -196,6 +200,10 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Balans",
     balance_this_week: "Deze week",
+    balance_this_month: "Deze maand",
+    balance_last_3_months: "Laatste 3 maanden",
+    rebalance_suggestion: "Deze maand zou de balans kunnen verbeteren als {name} één of twee taken extra oppakt — gewoon een suggestie, samen te bekijken.",
+    share_report: "Dit overzicht delen",
     balance_disabled: "De balansscore is uitgeschakeld voor dit huishouden.",
     balance_footnote: "De score is een richtpunt, geen ranglijst.",
 
@@ -328,6 +336,10 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Balance",
     balance_this_week: "This week",
+    balance_this_month: "This month",
+    balance_last_3_months: "Last 3 months",
+    rebalance_suggestion: "This month, balance could improve if {name} took on one or two more tasks — just a suggestion, worth discussing together.",
+    share_report: "Share this report",
     balance_disabled: "The equity score is disabled for this household.",
     balance_footnote: "The score is a reference point, not a ranking.",
 

@@ -44,3 +44,18 @@ export function memberColor(members: { id: string; avatar_color?: string | null 
   const idx = members.findIndex((m) => m.id === memberId);
   return MEMBER_COLORS[idx >= 0 ? idx % MEMBER_COLORS.length : 0];
 }
+
+export function computeMemberPoints(
+  members: { id: string; first_name: string }[],
+  tasks: { status: string; assigned_to: string | null; completed_at: string | null; weight_points: number }[],
+  since: Date
+) {
+  const start = since.getTime();
+  return members.map((m) => ({
+    id: m.id,
+    first_name: m.first_name,
+    pts: tasks
+      .filter((t) => t.status === "done" && t.assigned_to === m.id && t.completed_at && new Date(t.completed_at).getTime() >= start)
+      .reduce((s, t) => s + t.weight_points, 0),
+  }));
+}
