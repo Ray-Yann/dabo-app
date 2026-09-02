@@ -72,7 +72,7 @@ function TaskFormFields({
         {t("mark_urgent_f")}
       </label>
       <div>
-        <label className="text-xs text-muted block mb-1">Échéance (facultatif)</label>
+        <label className="text-xs text-muted block mb-1">{form.recurrence !== "none" ? t("due_date_required") : t("due_date_optional")}</label>
         <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
       </div>
     </>
@@ -96,6 +96,7 @@ export default function TasksPage() {
   const [showAllDone, setShowAllDone] = useState(false);
   const [doneSearch, setDoneSearch] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
+  const [recurrenceDeleteTarget, setRecurrenceDeleteTarget] = useState<Task | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -297,12 +298,17 @@ export default function TasksPage() {
       loadTasks();
       return;
     }
-    const choice = prompt(`${t("recurrence_delete_prompt")}\n1 — ${t("recurrence_delete_occurrence")}\n2 — ${t("recurrence_stop")}\n${t("recurrence_cancel_hint")}`);
-    if (choice !== "1" && choice !== "2") return;
+    setRecurrenceDeleteTarget(task);
+  }
+
+  async function handleRecurringDelete(action: "occurrence" | "stop") {
+    const task = recurrenceDeleteTarget;
+    if (!task?.routine_id) return;
+    setRecurrenceDeleteTarget(null);
     const { data } = await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle();
     const routine = data as Routine | null;
     if (!routine) return;
-    if (choice === "1") {
+    if (action === "occurrence") {
       await supabase.from("tasks").delete().eq("id", task.id);
       await insertNextOccurrence(task, routine, todayCivilDate());
     } else {
@@ -354,6 +360,26 @@ export default function TasksPage() {
 
   return (
     <div>
+      {recurrenceDeleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4" onClick={() => setRecurrenceDeleteTarget(null)}>
+          <div className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5 sm:hidden" />
+            <h2 className="font-serif text-xl text-ink mb-1">{t("recurrence_delete_title")}</h2>
+            <p className="text-sm text-muted mb-5">{t("recurrence_delete_intro")}</p>
+            <div className="space-y-2">
+              <button type="button" onClick={() => handleRecurringDelete("occurrence")} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
+                <div className="text-sm font-medium text-ink">{t("recurrence_delete_occurrence")}</div>
+                <div className="text-xs text-muted mt-1">{t("recurrence_delete_occurrence_help")}</div>
+              </button>
+              <button type="button" onClick={() => handleRecurringDelete("stop")} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
+                <div className="text-sm font-medium text-red-700">{t("recurrence_stop")}</div>
+                <div className="text-xs text-muted mt-1">{t("recurrence_stop_help")}</div>
+              </button>
+              <button type="button" onClick={() => setRecurrenceDeleteTarget(null)} className="w-full py-3 text-sm text-muted font-medium">{t("cancel")}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
         <div>
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{pending.length} {t("tasks_in_progress")}</div>
