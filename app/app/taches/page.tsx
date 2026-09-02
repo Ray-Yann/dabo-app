@@ -5,8 +5,9 @@ import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
-import { relativeDate, dueDateLabel, computeNextDueDate, todayCivilDate } from "@/lib/utils";
+import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
+import { completeHouseholdTask, insertNextRecurringOccurrence } from "@/lib/task-completion";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
@@ -214,50 +215,24 @@ export default function TasksPage() {
   }
 
   async function insertNextOccurrence(task: Task, routine: Routine, referenceDate: string) {
-    if (!household || !routine.active) return;
-    const sortedMembers = [...members].sort((a, b) => a.rotation_order - b.rotation_order);
-    const currentIdx = sortedMembers.findIndex((m) => m.id === routine.last_assigned_member);
-    const nextMember = sortedMembers.length ? sortedMembers[(currentIdx + 1 + sortedMembers.length) % sortedMembers.length] : undefined;
-    const baseDue = task.due_date || routine.anchor_date || referenceDate;
-    const nextDue = computeNextDueDate(baseDue, referenceDate, routine.frequency, routine.custom_days || [], routine.anchor_date || baseDue);
-    const { error } = await supabase.from("tasks").insert({
-      household_id: household.id,
-      routine_id: routine.id,
-      name: routine.name,
-      weight_points: routine.weight_points,
-      duration_key: routine.duration_key ?? task.duration_key,
-      effort_level: routine.effort_level ?? task.effort_level,
-      assigned_to: nextMember?.id || null,
-      due_date: nextDue,
-    });
-    // 23505 = unique_violation: another device already created this occurrence.
-    if (error && error.code !== "23505") throw error;
-    if (!error && nextMember) await supabase.from("routines").update({ last_assigned_member: nextMember.id }).eq("id", routine.id);
+    if (!household) return;
+    await insertNextRecurringOccurrence(
+      { supabase, householdId: household.id, members },
+      task,
+      routine,
+      referenceDate
+    );
   }
 
   async function completeTask(task: Task) {
-    if (animatingId) return;
+    if (animatingId || !household || !me) return;
     setAnimatingId(task.id);
     await new Promise((r) => setTimeout(r, 260));
     try {
-      const completedAt = new Date().toISOString();
-      const { data: updated, error: completeError } = await supabase
-        .from("tasks")
-        .update({ status: "done", completed_at: completedAt })
-        .eq("id", task.id)
-        .eq("status", "pending")
-        .select("id")
-        .maybeSingle();
-      // If another device already completed it, do nothing: no duplicate
-      // notification, rotation or next occurrence.
-      if (completeError || !updated) return;
-      if (household && me) notifyHousehold(supabase, household.id, me.id, "notif_task_done", { name: me.first_name, task: task.name });
-
-      if (task.routine_id) {
-        const { data } = await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle();
-        const routine = data as Routine | null;
-        if (routine?.active) await insertNextOccurrence(task, routine, todayCivilDate());
-      }
+      await completeHouseholdTask(
+        { supabase, householdId: household.id, members, me },
+        task
+      );
     } finally {
       setAnimatingId(null);
       loadTasks();

@@ -13,6 +13,7 @@ import { InviteNudge } from "@/components/InviteNudge";
 import { useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
+import { completeHouseholdTask } from "@/lib/task-completion";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -66,9 +67,28 @@ export default function TodayPage() {
     })();
   }, [household, me]);
 
-  async function toggleTask(id: string) {
-    await supabase.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", id);
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  async function toggleTask(task: Task) {
+    if (!household || !me) return;
+
+    const completed = await completeHouseholdTask(
+      { supabase, householdId: household.id, members, me },
+      task
+    );
+    if (!completed) return;
+
+    const [{ data: myTasks }, { data: allTasks }] = await Promise.all([
+      supabase
+        .from("tasks")
+        .select("*")
+        .eq("household_id", household.id)
+        .eq("status", "pending")
+        .or(`assigned_to.eq.${me.id},assigned_to.is.null`),
+      supabase.from("tasks").select("*").eq("household_id", household.id),
+    ]);
+
+    setTasks((myTasks as Task[]) || []);
+    setAllTasksForBalance((allTasks as Task[]) || []);
+    setShowEquityInfo(((allTasks as Task[]) || []).filter((item) => item.status === "done").length < 2);
   }
   async function toggleItem(id: string) {
     await supabase.from("shopping_items").update({ status: "bought", bought_at: new Date().toISOString() }).eq("id", id);
@@ -163,7 +183,7 @@ export default function TodayPage() {
             <div className="text-[11px] text-muted mb-1 flex items-center gap-1.5"><ListChecks size={11} /> {t("tasks_title")} · {sortedTasks.length}</div>
             <div className="space-y-1">
               {sortedTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleTask(task.id)}>
+                <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleTask(task)}>
                   <div className="w-5 h-5 rounded-full border-2 border-border shrink-0" />
                   <span className="text-sm text-ink flex-1 flex items-center gap-1.5">
                     {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
