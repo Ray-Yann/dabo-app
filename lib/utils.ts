@@ -112,3 +112,90 @@ export function computeMemberPercentages(
   }
   return result;
 }
+
+export type RoutineFrequency = "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "custom";
+
+function parseCivilDate(value: string): { year: number; month: number; day: number } {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new Error(`Invalid civil date: ${value}`);
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+function formatCivilDate(year: number, month: number, day: number): string {
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function addDaysCivil(value: string, days: number): string {
+  const { year, month, day } = parseCivilDate(value);
+  const d = new Date(Date.UTC(year, month - 1, day + days));
+  return formatCivilDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
+function addMonthsAnchored(value: string, months: number, anchorDay: number): string {
+  const { year, month } = parseCivilDate(value);
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const y = target.getUTCFullYear();
+  const m = target.getUTCMonth() + 1;
+  return formatCivilDate(y, m, Math.min(anchorDay, daysInMonth(y, m)));
+}
+
+function addYearsAnchored(value: string, years: number, anchorMonth: number, anchorDay: number): string {
+  const { year } = parseCivilDate(value);
+  const y = year + years;
+  return formatCivilDate(y, anchorMonth, Math.min(anchorDay, daysInMonth(y, anchorMonth)));
+}
+
+function weekdayCivil(value: string): number {
+  const { year, month, day } = parseCivilDate(value);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+export function todayCivilDate(): string {
+  const now = new Date();
+  return formatCivilDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+}
+
+/**
+ * Returns the first due date strictly after completedOn while preserving the
+ * routine's original cadence. Missed occurrences are skipped, never recreated.
+ * Dates are civil YYYY-MM-DD values; UTC is used only for calendar arithmetic.
+ */
+export function computeNextDueDate(
+  currentDueDate: string,
+  completedOn: string,
+  frequency: RoutineFrequency,
+  customDays: number[] = [],
+  anchorDate?: string | null
+): string {
+  parseCivilDate(currentDueDate);
+  parseCivilDate(completedOn);
+  const anchor = parseCivilDate(anchorDate || currentDueDate);
+  const validCustomDays = [...new Set(customDays)].filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+  if (frequency === "custom" && validCustomDays.length === 0) throw new Error("custom recurrence requires at least one weekday");
+
+  function advanceOne(value: string): string {
+    if (frequency === "daily") return addDaysCivil(value, 1);
+    if (frequency === "weekly") return addDaysCivil(value, 7);
+    if (frequency === "biweekly") return addDaysCivil(value, 14);
+    if (frequency === "monthly") return addMonthsAnchored(value, 1, anchor.day);
+    if (frequency === "yearly") return addYearsAnchored(value, 1, anchor.month, anchor.day);
+    let candidate = value;
+    do { candidate = addDaysCivil(candidate, 1); } while (!validCustomDays.includes(weekdayCivil(candidate)));
+    return candidate;
+  }
+
+  // Always move at least one recurrence step. This matters when a task is
+  // completed or skipped early: the next occurrence must never reuse the
+  // current occurrence's due date.
+  let next = advanceOne(currentDueDate);
+  let guard = 0;
+  while (next <= completedOn) {
+    if (++guard > 4000) throw new Error("Could not compute next due date");
+    next = advanceOne(next);
+  }
+  return next;
+}

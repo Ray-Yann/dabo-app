@@ -114,3 +114,21 @@ export function computeTaskPoints(durationKey: string, effortKey: string): numbe
   const effort = EFFORT_OPTIONS.find((e) => e.key === effortKey)?.bonus ?? 0;
   return duration + effort;
 }
+
+export type RoutineFrequency = "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "custom";
+
+export type Routine = {
+  id: string;
+  household_id: string;
+  name: string;
+  weight_points: number;
+  duration_key: string | null;
+  effort_level: string | null;
+  frequency: RoutineFrequency;
+  custom_days: number[] | null;
+  anchor_date: string | null;
+  active: boolean;
+  ended_at: string | null;
+  last_assigned_member: string | null;
+  created_at: string;
+};

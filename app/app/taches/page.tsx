@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
-import { Task, Comment, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
-import { relativeDate, dueDateLabel } from "@/lib/utils";
+import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
+import { relativeDate, dueDateLabel, computeNextDueDate, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
@@ -14,8 +14,9 @@ import { useT } from "@/lib/language-context";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | "weekly" | "monthly"; urgent: boolean; dueDate: string };
-const EMPTY_FORM: TaskForm = { name: "", durationKey: DURATION_OPTIONS[2].key, effortKey: "moyen", assignedTo: "", recurrence: "none", urgent: false, dueDate: "" };
+type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
+const EMPTY_FORM: TaskForm = { name: "", durationKey: DURATION_OPTIONS[2].key, effortKey: "moyen", assignedTo: "", recurrence: "none", customDays: [], urgent: false, dueDate: "" };
+const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 function TaskFormFields({
   form,
@@ -47,9 +48,24 @@ function TaskFormFields({
       {!lockRecurrence && (
         <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
           <option value="none">{t("recurrence_none")}</option>
+          <option value="daily">{t("recurrence_daily")}</option>
           <option value="weekly">{t("recurrence_weekly")}</option>
+          <option value="biweekly">{t("recurrence_biweekly")}</option>
           <option value="monthly">{t("recurrence_monthly")}</option>
+          <option value="yearly">{t("recurrence_yearly")}</option>
+          <option value="custom">{t("recurrence_custom")}</option>
         </select>
+      )}
+      {!lockRecurrence && form.recurrence === "custom" && (
+        <div>
+          <div className="text-xs text-muted mb-2">{t("recurrence_choose_days")}</div>
+          <div className="flex flex-wrap gap-2">
+            {WEEKDAYS.map((day, index) => {
+              const selected = form.customDays.includes(index);
+              return <button key={day} type="button" onClick={() => setForm({ ...form, customDays: selected ? form.customDays.filter((d) => d !== index) : [...form.customDays, index].sort() })} className={`px-2.5 py-1.5 rounded-lg text-xs border ${selected ? "bg-ink text-paper border-ink" : "border-border text-ink"}`}>{t(`weekday_${day}`)}</button>;
+            })}
+          </div>
+        </div>
       )}
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
@@ -99,6 +115,8 @@ export default function TasksPage() {
 
   async function addTask() {
     if (!addForm.name.trim() || !household) return;
+    if (addForm.recurrence !== "none" && !addForm.dueDate) { alert(t("recurrence_due_required")); return; }
+    if (addForm.recurrence === "custom" && addForm.customDays.length === 0) { alert(t("recurrence_days_required")); return; }
     const points = computeTaskPoints(addForm.durationKey, addForm.effortKey);
     let routineId: string | null = null;
     const finalAssignee = addForm.assignedTo || members[0]?.id || null;
@@ -111,6 +129,10 @@ export default function TasksPage() {
           name: addForm.name.trim(),
           weight_points: points,
           frequency: addForm.recurrence,
+          custom_days: addForm.recurrence === "custom" ? addForm.customDays : null,
+          duration_key: addForm.durationKey,
+          effort_level: addForm.effortKey,
+          anchor_date: addForm.dueDate,
           last_assigned_member: finalAssignee,
         })
         .select()
@@ -153,6 +175,7 @@ export default function TasksPage() {
       effortKey: task.effort_level || "faible",
       assignedTo: task.assigned_to || "",
       recurrence: "none",
+      customDays: [],
       urgent: task.urgent,
       dueDate: task.due_date || "",
     });
@@ -171,6 +194,17 @@ export default function TasksPage() {
       urgent: editForm.urgent,
       due_date: editForm.dueDate || null,
     }).eq("id", id);
+    const editedTask = tasks.find((t) => t.id === id);
+    if (editedTask?.routine_id) {
+      await supabase.from("routines").update({
+        name: editForm.name.trim(),
+        weight_points: points,
+        duration_key: editForm.durationKey,
+        effort_level: editForm.effortKey,
+        anchor_date: editForm.dueDate || null,
+        last_assigned_member: editForm.assignedTo || null,
+      }).eq("id", editedTask.routine_id);
+    }
     if (editForm.urgent && !wasUrgent && household && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: editForm.name.trim() });
     }
@@ -178,45 +212,103 @@ export default function TasksPage() {
     loadTasks();
   }
 
+  async function insertNextOccurrence(task: Task, routine: Routine, referenceDate: string) {
+    if (!household || !routine.active) return;
+    const sortedMembers = [...members].sort((a, b) => a.rotation_order - b.rotation_order);
+    const currentIdx = sortedMembers.findIndex((m) => m.id === routine.last_assigned_member);
+    const nextMember = sortedMembers.length ? sortedMembers[(currentIdx + 1 + sortedMembers.length) % sortedMembers.length] : undefined;
+    const baseDue = task.due_date || routine.anchor_date || referenceDate;
+    const nextDue = computeNextDueDate(baseDue, referenceDate, routine.frequency, routine.custom_days || [], routine.anchor_date || baseDue);
+    const { error } = await supabase.from("tasks").insert({
+      household_id: household.id,
+      routine_id: routine.id,
+      name: routine.name,
+      weight_points: routine.weight_points,
+      duration_key: routine.duration_key ?? task.duration_key,
+      effort_level: routine.effort_level ?? task.effort_level,
+      assigned_to: nextMember?.id || null,
+      due_date: nextDue,
+    });
+    // 23505 = unique_violation: another device already created this occurrence.
+    if (error && error.code !== "23505") throw error;
+    if (!error && nextMember) await supabase.from("routines").update({ last_assigned_member: nextMember.id }).eq("id", routine.id);
+  }
+
   async function completeTask(task: Task) {
+    if (animatingId) return;
     setAnimatingId(task.id);
     await new Promise((r) => setTimeout(r, 260));
-    await supabase.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", task.id);
-    setAnimatingId(null);
-    if (household && me) {
-      notifyHousehold(supabase, household.id, me.id, "notif_task_done", { name: me.first_name, task: task.name });
-    }
+    try {
+      const completedAt = new Date().toISOString();
+      const { data: updated, error: completeError } = await supabase
+        .from("tasks")
+        .update({ status: "done", completed_at: completedAt })
+        .eq("id", task.id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      // If another device already completed it, do nothing: no duplicate
+      // notification, rotation or next occurrence.
+      if (completeError || !updated) return;
+      if (household && me) notifyHousehold(supabase, household.id, me.id, "notif_task_done", { name: me.first_name, task: task.name });
 
-    if (task.routine_id) {
-      const { data: routine } = await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle();
-      if (routine && routine.active) {
-        const sortedMembers = [...members].sort((a, b) => a.rotation_order - b.rotation_order);
-        const currentIdx = sortedMembers.findIndex((m) => m.id === routine.last_assigned_member);
-        const next = sortedMembers[(currentIdx + 1) % sortedMembers.length] || sortedMembers[0];
-        await supabase.from("routines").update({ last_assigned_member: next?.id }).eq("id", routine.id);
-        const nextDue = new Date();
-        if (routine.frequency === "monthly") nextDue.setMonth(nextDue.getMonth() + 1);
-        else nextDue.setDate(nextDue.getDate() + 7);
-        await supabase.from("tasks").insert({
-          household_id: household!.id,
-          routine_id: routine.id,
-          name: routine.name,
-          weight_points: routine.weight_points,
-          assigned_to: next?.id || null,
-          due_date: nextDue.toISOString().slice(0, 10),
-        });
+      if (task.routine_id) {
+        const { data } = await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle();
+        const routine = data as Routine | null;
+        if (routine?.active) await insertNextOccurrence(task, routine, todayCivilDate());
       }
+    } finally {
+      setAnimatingId(null);
+      loadTasks();
     }
-    loadTasks();
   }
 
-  async function uncompleteTask(id: string) {
-    await supabase.from("tasks").update({ status: "pending", completed_at: null }).eq("id", id);
+  async function uncompleteTask(task: Task) {
+    if (!task.routine_id) {
+      await supabase.from("tasks").update({ status: "pending", completed_at: null }).eq("id", task.id);
+      loadTasks();
+      return;
+    }
+
+    // Undoing a recurring completion must also roll back the future occurrence
+    // it generated. It is only safe when no later occurrence has already been
+    // completed.
+    const { data: laterDone } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("routine_id", task.routine_id)
+      .eq("status", "done")
+      .gt("completed_at", task.completed_at || "")
+      .limit(1);
+    if (laterDone && laterDone.length > 0) {
+      alert(t("recurrence_undo_blocked"));
+      return;
+    }
+
+    await supabase.from("tasks").delete().eq("routine_id", task.routine_id).eq("status", "pending");
+    await supabase.from("tasks").update({ status: "pending", completed_at: null }).eq("id", task.id).eq("status", "done");
+    await supabase.from("routines").update({ last_assigned_member: task.assigned_to }).eq("id", task.routine_id);
     loadTasks();
   }
-  async function remove(id: string) {
-    if (!confirm(t("confirm_delete_task"))) return;
-    await supabase.from("tasks").delete().eq("id", id);
+  async function remove(task: Task) {
+    if (task.status === "done" || !task.routine_id) {
+      if (!confirm(t("confirm_delete_task"))) return;
+      await supabase.from("tasks").delete().eq("id", task.id);
+      loadTasks();
+      return;
+    }
+    const choice = prompt(`${t("recurrence_delete_prompt")}\n1 — ${t("recurrence_delete_occurrence")}\n2 — ${t("recurrence_stop")}\n${t("recurrence_cancel_hint")}`);
+    if (choice !== "1" && choice !== "2") return;
+    const { data } = await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle();
+    const routine = data as Routine | null;
+    if (!routine) return;
+    if (choice === "1") {
+      await supabase.from("tasks").delete().eq("id", task.id);
+      await insertNextOccurrence(task, routine, todayCivilDate());
+    } else {
+      await supabase.from("routines").update({ active: false, ended_at: new Date().toISOString() }).eq("id", routine.id);
+      await supabase.from("tasks").delete().eq("id", task.id).eq("status", "pending");
+    }
     loadTasks();
   }
   async function reloadComments(taskId: string) {
@@ -314,7 +406,7 @@ export default function TasksPage() {
                   <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{task.weight_points} pts</span>
                   <button onClick={() => startEdit(task)} className="text-muted"><Pencil size={16} /></button>
                   <button onClick={() => openTaskComments(task.id)} className="text-muted"><MessageCircle size={16} /></button>
-                  <button onClick={() => remove(task.id)} className="text-muted"><Trash2 size={16} /></button>
+                  <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
                 </div>
               )}
               {openComments === task.id && (
@@ -372,12 +464,12 @@ export default function TasksPage() {
             <div className="space-y-1">
               {doneRecent.map((task) => (
                 <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                  <div onClick={() => uncompleteTask(task.id)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                  <div onClick={() => uncompleteTask(task)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-border line-through">{task.name}</div>
                     <div className="text-[11px] text-muted">{task.completed_at && relativeDate(task.completed_at)}</div>
                   </div>
-                  <button onClick={() => remove(task.id)} className="text-muted"><Trash2 size={16} /></button>
+                  <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
                 </div>
               ))}
             </div>
