@@ -39,6 +39,8 @@ export type Task = {
   routine_id: string | null;
   name: string;
   weight_points: number;
+  duration_key: string | null;
+  effort_level: string | null;
   assigned_to: string | null;
   status: "pending" | "done";
   urgent: boolean;
@@ -86,3 +88,29 @@ export const DURATION_PRESETS = [
   { label: "Longue (30 à 60 min)", points: 40 },
   { label: "Très longue (plus d'1h)", points: 60 },
 ];
+
+// Nouveau modèle de calcul (Phase 1) : durée + effort, séparés et additionnés,
+// pour que la personne comprenne exactement pourquoi une tâche vaut X points —
+// jamais une formule opaque. L'ancien DURATION_PRESETS reste utilisé tel quel
+// pour l'édition des tâches créées avant ce changement, sans rien recalculer.
+export const DURATION_OPTIONS = [
+  { key: "5min", label: "5 min", points: 5 },
+  { key: "10min", label: "10 min", points: 8 },
+  { key: "15min", label: "15 min", points: 12 },
+  { key: "30min", label: "30 min", points: 20 },
+  { key: "45min", label: "45 min", points: 28 },
+  { key: "1h", label: "1 h", points: 35 },
+  { key: "1h+", label: "Plus d'1 h", points: 50 },
+];
+
+export const EFFORT_OPTIONS = [
+  { key: "faible", label: "Faible", bonus: 0 },
+  { key: "moyen", label: "Moyen", bonus: 5 },
+  { key: "important", label: "Important", bonus: 10 },
+];
+
+export function computeTaskPoints(durationKey: string, effortKey: string): number {
+  const duration = DURATION_OPTIONS.find((d) => d.key === durationKey)?.points ?? 12;
+  const effort = EFFORT_OPTIONS.find((e) => e.key === effortKey)?.bonus ?? 0;
+  return duration + effort;
+}

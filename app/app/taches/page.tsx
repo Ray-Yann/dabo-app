@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
-import { Task, Comment, DURATION_PRESETS } from "@/lib/types";
+import { Task, Comment, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
 import { relativeDate, dueDateLabel } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
@@ -14,8 +14,8 @@ import { useT } from "@/lib/language-context";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type TaskForm = { name: string; durationLabel: string; assignedTo: string; recurrence: "none" | "weekly" | "monthly"; urgent: boolean; dueDate: string };
-const EMPTY_FORM: TaskForm = { name: "", durationLabel: DURATION_PRESETS[1].label, assignedTo: "", recurrence: "none", urgent: false, dueDate: "" };
+type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | "weekly" | "monthly"; urgent: boolean; dueDate: string };
+const EMPTY_FORM: TaskForm = { name: "", durationKey: DURATION_OPTIONS[2].key, effortKey: "moyen", assignedTo: "", recurrence: "none", urgent: false, dueDate: "" };
 
 function TaskFormFields({
   form,
@@ -33,9 +33,13 @@ function TaskFormFields({
   return (
     <>
       <input autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      <select value={form.durationLabel} onChange={(e) => setForm({ ...form, durationLabel: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-        {DURATION_PRESETS.map((d) => <option key={d.label} value={d.label}>{d.label}</option>)}
+      <select value={form.durationKey} onChange={(e) => setForm({ ...form, durationKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+        {DURATION_OPTIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
       </select>
+      <select value={form.effortKey} onChange={(e) => setForm({ ...form, effortKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+        {EFFORT_OPTIONS.map((e) => <option key={e.key} value={e.key}>{t("effort_label")} : {e.label}</option>)}
+      </select>
+      <p className="text-[11px] text-muted -mt-1">{t("points_explain")} {computeTaskPoints(form.durationKey, form.effortKey)} pts</p>
       <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
         <option value="">{t("unassigned")}</option>
         {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
@@ -95,7 +99,7 @@ export default function TasksPage() {
 
   async function addTask() {
     if (!addForm.name.trim() || !household) return;
-    const duration = DURATION_PRESETS.find((d) => d.label === addForm.durationLabel) || DURATION_PRESETS[1];
+    const points = computeTaskPoints(addForm.durationKey, addForm.effortKey);
     let routineId: string | null = null;
     const finalAssignee = addForm.assignedTo || members[0]?.id || null;
 
@@ -105,7 +109,7 @@ export default function TasksPage() {
         .insert({
           household_id: household.id,
           name: addForm.name.trim(),
-          weight_points: duration.points,
+          weight_points: points,
           frequency: addForm.recurrence,
           last_assigned_member: finalAssignee,
         })
@@ -118,7 +122,9 @@ export default function TasksPage() {
       household_id: household.id,
       routine_id: routineId,
       name: addForm.name.trim(),
-      weight_points: duration.points,
+      weight_points: points,
+      duration_key: addForm.durationKey,
+      effort_level: addForm.effortKey,
       assigned_to: finalAssignee,
       urgent: addForm.urgent,
       due_date: addForm.dueDate || null,
@@ -134,10 +140,17 @@ export default function TasksPage() {
   function startEdit(task: Task) {
     setOpenComments(null);
     setEditingId(task.id);
-    const preset = DURATION_PRESETS.find((d) => d.points === task.weight_points) || DURATION_PRESETS[1];
+    // Si la tâche a été créée avant ce changement (pas de durée/effort
+    // enregistrés), on estime la durée la plus proche pour ne pas repartir
+    // de zéro à l'édition — sans jamais toucher au poids déjà existant tant
+    // que la personne n'a pas explicitement enregistré une modification.
+    const fallbackDuration = DURATION_OPTIONS.reduce((closest, d) =>
+      Math.abs(d.points - task.weight_points) < Math.abs(closest.points - task.weight_points) ? d : closest
+    );
     setEditForm({
       name: task.name,
-      durationLabel: preset.label,
+      durationKey: task.duration_key || fallbackDuration.key,
+      effortKey: task.effort_level || "faible",
       assignedTo: task.assigned_to || "",
       recurrence: "none",
       urgent: task.urgent,
@@ -147,11 +160,13 @@ export default function TasksPage() {
 
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
-    const duration = DURATION_PRESETS.find((d) => d.label === editForm.durationLabel) || DURATION_PRESETS[1];
+    const points = computeTaskPoints(editForm.durationKey, editForm.effortKey);
     const wasUrgent = tasks.find((t) => t.id === id)?.urgent || false;
     await supabase.from("tasks").update({
       name: editForm.name.trim(),
-      weight_points: duration.points,
+      weight_points: points,
+      duration_key: editForm.durationKey,
+      effort_level: editForm.effortKey,
       assigned_to: editForm.assignedTo || null,
       urgent: editForm.urgent,
       due_date: editForm.dueDate || null,

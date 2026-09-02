@@ -83,3 +83,32 @@ export function daysUntil(date: Date): number {
   target.setHours(0, 0, 0, 0);
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+// Convertit des points en pourcentages, avec la méthode des plus grands
+// restes : garantit que le total affiché fait toujours exactement 100%,
+// jamais 99% ou 101% à cause d'arrondis indépendants.
+export function computeMemberPercentages(
+  pointsByMember: { id: string; pts: number }[]
+): Map<string, number> {
+  const total = pointsByMember.reduce((s, m) => s + m.pts, 0);
+  const result = new Map<string, number>();
+  if (total === 0) {
+    pointsByMember.forEach((m) => result.set(m.id, 0));
+    return result;
+  }
+  const withRemainders = pointsByMember.map((m) => {
+    const exact = (m.pts / total) * 100;
+    return { id: m.id, floor: Math.floor(exact), remainder: exact - Math.floor(exact) };
+  });
+  let assigned = withRemainders.reduce((s, m) => s + m.floor, 0);
+  withRemainders.forEach((m) => result.set(m.id, m.floor));
+  const sortedByRemainder = [...withRemainders].sort((a, b) => b.remainder - a.remainder);
+  let i = 0;
+  while (assigned < 100 && i < sortedByRemainder.length) {
+    const id = sortedByRemainder[i].id;
+    result.set(id, (result.get(id) || 0) + 1);
+    assigned++;
+    i++;
+  }
+  return result;
+}

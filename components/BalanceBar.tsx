@@ -1,7 +1,7 @@
 "use client";
 
 import { Member, Task } from "@/lib/types";
-import { startOfWeek, MEMBER_COLORS } from "@/lib/utils";
+import { startOfWeek, MEMBER_COLORS, computeMemberPercentages } from "@/lib/utils";
 
 export function BalanceBar({
   members,
@@ -23,6 +23,10 @@ export function BalanceBar({
       .reduce((s, t) => s + t.weight_points, 0),
   }));
   const total = totals.reduce((s, m) => s + m.pts, 0) || 1;
+  // Les points restent le moteur interne (largeur de la barre) — seul
+  // l'affichage textuel en mode détaillé (Équilibre) montre un pourcentage,
+  // jamais les points bruts, conformément à la décision produit.
+  const percentages = computeMemberPercentages(totals.map((m) => ({ id: m.id, pts: m.pts })));
 
   return (
     <div>
@@ -41,7 +45,7 @@ export function BalanceBar({
             <div key={m.id} className="flex flex-col items-center gap-0.5 text-xs">
               <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
               <span className="text-ink">{m.first_name}</span>
-              <span className="font-mono text-muted text-[11px]">{m.pts} pts</span>
+              <span className="font-mono text-muted text-[11px]">{percentages.get(m.id) ?? 0}%</span>
             </div>
           ))}
         </div>
