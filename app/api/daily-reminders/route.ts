@@ -77,11 +77,11 @@ export async function GET(req: NextRequest) {
   // Événements du calendrier : rappel 7 jours avant et le jour même,
   // envoyé à TOUT le foyer (pas une seule personne assignée), chacun dans
   // sa propre langue.
-  const { data: allEvents } = await supabase.from("calendar_events").select("id, household_id, title, event_date, recurring");
+  const { data: allEvents } = await supabase.from("calendar_events").select("id, household_id, title, event_date, recurring, reminder_days_before");
   const householdsToNotify = new Map<string, string[]>();
   for (const ev of allEvents || []) {
     const days = daysUntil(nextOccurrence(ev.event_date, ev.recurring));
-    if (days === 0 || days === 7) {
+    if (days === 0 || days === ev.reminder_days_before) {
       const list = householdsToNotify.get(ev.household_id) || [];
       list.push(ev.title);
       householdsToNotify.set(ev.household_id, list);

@@ -74,6 +74,7 @@ export type CalendarEvent = {
   title: string;
   event_date: string;
   recurring: boolean;
+  reminder_days_before: number;
   created_at: string;
 };
 

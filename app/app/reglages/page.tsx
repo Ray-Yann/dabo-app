@@ -275,6 +275,16 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-sm text-ink font-medium">{t("share_app_title")}</div>
+              <div className="text-xs text-muted">{t("share_app_desc")}</div>
+            </div>
+            <button onClick={shareApp} className="bg-ink text-paper rounded-xl p-2.5 shrink-0">
+              <Share2 size={16} />
+            </button>
+          </div>
+
           <div className="bg-white2 rounded-2xl p-4">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("settings_household")}</div>
             <input
@@ -323,16 +333,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </CollapsibleSection>
-
-        <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <div className="text-sm text-ink font-medium">{t("share_app_title")}</div>
-            <div className="text-xs text-muted">{t("share_app_desc")}</div>
-          </div>
-          <button onClick={shareApp} className="bg-ink text-paper rounded-xl p-2.5 shrink-0">
-            <Share2 size={16} />
-          </button>
-        </div>
 
         <CollapsibleSection title={t("settings_section_preferences")}>
           <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">

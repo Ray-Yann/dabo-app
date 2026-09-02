@@ -19,6 +19,7 @@ export default function CalendarPage() {
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [recurring, setRecurring] = useState(true);
+  const [reminderDays, setReminderDays] = useState(7);
 
   async function loadEvents() {
     if (!household) return;
@@ -38,10 +39,12 @@ export default function CalendarPage() {
       title: title.trim(),
       event_date: eventDate,
       recurring,
+      reminder_days_before: reminderDays,
     });
     setTitle("");
     setEventDate("");
     setRecurring(true);
+    setReminderDays(7);
     setShowAdd(false);
     loadEvents();
   }
@@ -77,6 +80,21 @@ export default function CalendarPage() {
             <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
             {t("event_recurring")}
           </label>
+          <div>
+            <label className="text-xs text-muted block mb-1">{t("event_reminder_label")}</label>
+            <select
+              value={reminderDays}
+              onChange={(e) => setReminderDays(Number(e.target.value))}
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink"
+            >
+              <option value={0}>{t("reminder_same_day")}</option>
+              <option value={1}>{t("reminder_1_day")}</option>
+              <option value={2}>{t("reminder_2_days")}</option>
+              <option value={3}>{t("reminder_3_days")}</option>
+              <option value={7}>{t("reminder_1_week")}</option>
+              <option value={14}>{t("reminder_2_weeks")}</option>
+            </select>
+          </div>
           <div className="flex gap-2">
             <button onClick={addEvent} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
             <button onClick={() => setShowAdd(false)} className="px-4 text-sm text-muted">{t("cancel")}</button>
