@@ -5,13 +5,14 @@ import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
-import { Task, ShoppingItem } from "@/lib/types";
-import { ShoppingBag, Info, Plus, ListChecks } from "lucide-react";
+import { Task, ShoppingItem, CalendarEvent } from "@/lib/types";
+import { ShoppingBag, Info, Plus, ListChecks, PartyPopper } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
 import { useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
+import { nextOccurrence, daysUntil } from "@/lib/utils";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -21,6 +22,7 @@ export default function TodayPage() {
   const [allTasksForBalance, setAllTasksForBalance] = useState<Task[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
+  const [upcomingEvent, setUpcomingEvent] = useState<{ title: string; days: number } | null>(null);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
 
   useEffect(() => {
@@ -51,6 +53,16 @@ export default function TodayPage() {
         .select("*", { count: "exact", head: true })
         .eq("household_id", household.id);
       setTotalItemsEver(count ?? 0);
+
+      const { data: events } = await supabase
+        .from("calendar_events")
+        .select("title, event_date, recurring")
+        .eq("household_id", household.id);
+      const withNext = (events || [])
+        .map((e) => ({ title: e.title, days: daysUntil(nextOccurrence(e.event_date, e.recurring)) }))
+        .filter((e) => e.days >= 0 && e.days <= 7)
+        .sort((a, b) => a.days - b.days);
+      setUpcomingEvent(withNext[0] || null);
     })();
   }, [household, me]);
 
@@ -82,6 +94,16 @@ export default function TodayPage() {
           householdType={household.household_type}
           text={t("invite_nudge_text")}
         />
+      )}
+
+      {upcomingEvent && (
+        <div className="mx-5 mb-4 flex items-center gap-2 bg-mustardBg rounded-xl p-3 text-sm text-ink">
+          <PartyPopper size={16} className="text-mustard shrink-0" />
+          <span className="flex-1">
+            {upcomingEvent.title} —{" "}
+            {upcomingEvent.days === 0 ? t("event_today") : upcomingEvent.days === 1 ? t("event_tomorrow") : `${t("event_in")} ${upcomingEvent.days} ${t("event_days")}`}
+          </span>
+        </div>
       )}
 
       {household.equity_score_enabled && (

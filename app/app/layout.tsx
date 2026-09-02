@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Home, ShoppingBag, ListChecks, Scale, Settings, Tag } from "lucide-react";
+import { Home, ShoppingBag, ListChecks, Scale, Settings, Calendar } from "lucide-react";
 import { useHousehold } from "@/lib/use-household";
 import { HouseholdProvider } from "@/lib/household-context";
 import { LanguageProvider, useT } from "@/lib/language-context";
@@ -17,7 +17,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/app/courses", icon: ShoppingBag, label: t("tab_courses") },
     { href: "/app/taches", icon: ListChecks, label: t("tab_tasks") },
     { href: "/app/equilibre", icon: Scale, label: t("tab_balance") },
-    { href: "/app/promos", icon: Tag, label: t("tab_promos") },
+    { href: "/app/calendrier", icon: Calendar, label: t("tab_calendar") },
     { href: "/app/reglages", icon: Settings, label: t("tab_settings") },
   ];
 

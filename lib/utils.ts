@@ -59,3 +59,27 @@ export function computeMemberPoints(
       .reduce((s, t) => s + t.weight_points, 0),
   }));
 }
+
+// Calcule la prochaine occurrence d'un événement : pour un événement
+// récurrent, avance à la même date l'année prochaine si celle de cette année
+// est déjà passée. Pour un événement ponctuel, retourne sa date telle quelle.
+export function nextOccurrence(eventDate: string, recurring: boolean): Date {
+  const original = new Date(eventDate + "T00:00:00");
+  if (!recurring) return original;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const next = new Date(today.getFullYear(), original.getMonth(), original.getDate());
+  if (next.getTime() < today.getTime()) {
+    next.setFullYear(next.getFullYear() + 1);
+  }
+  return next;
+}
+
+export function daysUntil(date: Date): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}

@@ -11,6 +11,7 @@ import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
+import { PromosView } from "@/components/PromosView";
 
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
@@ -49,6 +50,7 @@ function ItemFormFields({
 export default function CoursesPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
+  const [view, setView] = useState<"courses" | "promos">("courses");
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
@@ -201,6 +203,25 @@ export default function CoursesPage() {
 
       <IntroTip id="courses" text={t("intro_courses")} />
 
+      <div className="flex gap-2 px-5 mb-2">
+        <button
+          onClick={() => setView("courses")}
+          className={`flex-1 py-2 rounded-xl text-xs border ${view === "courses" ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
+        >
+          {t("courses_title")}
+        </button>
+        <button
+          onClick={() => setView("promos")}
+          className={`flex-1 py-2 rounded-xl text-xs border ${view === "promos" ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
+        >
+          {t("promos_title")}
+        </button>
+      </div>
+
+      {view === "promos" ? (
+        <PromosView household={household} me={me} members={members} supabase={supabase} />
+      ) : (
+        <>
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
           <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
@@ -310,6 +331,8 @@ export default function CoursesPage() {
           </>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

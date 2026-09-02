@@ -67,6 +67,16 @@ export type Promo = {
   created_at: string;
 };
 
+export type CalendarEvent = {
+  id: string;
+  household_id: string;
+  created_by: string | null;
+  title: string;
+  event_date: string;
+  recurring: boolean;
+  created_at: string;
+};
+
 // Barème de points par durée estimée, plus simple à comprendre qu'un nombre libre
 export const DURATION_PRESETS = [
   { label: "Rapide (moins de 5 min)", points: 5 },
