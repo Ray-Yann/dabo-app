@@ -121,7 +121,7 @@ export default function TasksPage() {
     if (addForm.recurrence === "custom" && addForm.customDays.length === 0) { alert(t("recurrence_days_required")); return; }
     const points = computeTaskPoints(addForm.durationKey, addForm.effortKey);
     let routineId: string | null = null;
-    const finalAssignee = addForm.assignedTo || members[0]?.id || null;
+    const finalAssignee = addForm.assignedTo || null;
 
     if (addForm.recurrence !== "none") {
       const { data: routine } = await supabase

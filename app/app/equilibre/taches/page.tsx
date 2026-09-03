@@ -40,7 +40,7 @@ export default function TasksPage() {
   async function addTask() {
     if (!name.trim() || !household) return;
     let routineId: string | null = null;
-    const finalAssignee = assignedTo || members[0]?.id || null;
+    const finalAssignee = assignedTo || null;
 
     if (recurrence !== "none") {
       const { data: routine } = await supabase
