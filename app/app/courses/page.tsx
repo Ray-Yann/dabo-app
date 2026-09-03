@@ -30,19 +30,22 @@ function ItemFormFields({
 }) {
   return (
     <>
-      <input autoFocus placeholder={t("item_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-        <option value="">{t("unassigned")}</option>
-        {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
-      </select>
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
-        {t("mark_urgent")}
-      </label>
-      <div>
-        <label className="text-xs text-muted block mb-1">{t("due_date_optional")}</label>
-        <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+      <input autoFocus placeholder={t("item_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+      <div className="rounded-xl bg-paper/60 p-3 space-y-2">
+        <div className="text-[11px] font-medium text-muted">{t("courses_optional_details")}</div>
+        <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+        <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+          <option value="">{t("unassigned")}</option>
+          {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
+        </select>
+        <div>
+          <label className="text-xs text-muted block mb-1">{t("due_date_optional")}</label>
+          <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
+          {t("mark_urgent")}
+        </label>
       </div>
     </>
   );
@@ -65,17 +68,12 @@ export default function CoursesPage() {
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [boughtSearch, setBoughtSearch] = useState("");
   const [showAllBought, setShowAllBought] = useState(false);
-  const [boughtCutoff, setBoughtCutoff] = useState<number>(0);
+  const [addConfirmation, setAddConfirmation] = useState(false);
   const [suggestionPreferences, setSuggestionPreferences] = useState<ShoppingSuggestionPreference[]>([]);
   const [handledSuggestionKeys, setHandledSuggestionKeys] = useState<string[]>([]);
   const [suggestionsHandledThisVisit, setSuggestionsHandledThisVisit] = useState(0);
   const [suggestionBusy, setSuggestionBusy] = useState(false);
   const [suggestionMenuOpen, setSuggestionMenuOpen] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBoughtCutoff(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  }, []);
 
   async function loadItems() {
     if (!household) return;
@@ -107,6 +105,8 @@ export default function CoursesPage() {
     }
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
+    setAddConfirmation(true);
+    window.setTimeout(() => setAddConfirmation(false), 2200);
     loadItems();
   }
 
@@ -314,11 +314,36 @@ export default function CoursesPage() {
 
   const toBuy = [...items.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const hasBoughtItems = items.some((i) => i.status === "bought");
-  const bought = items
+  const allBought = items
     .filter((i) => i.status === "bought")
-    .filter((i) => showAllBought || (i.bought_at && new Date(i.bought_at).getTime() > boughtCutoff && boughtCutoff > 0))
     .filter((i) => i.name.toLowerCase().includes(boughtSearch.toLowerCase()))
     .sort((a, b) => new Date(b.bought_at || 0).getTime() - new Date(a.bought_at || 0).getTime());
+  const bought = showAllBought ? allBought : allBought.slice(0, 3);
+
+  const boughtGroups = (() => {
+    if (!showAllBought) return [{ label: "", items: bought }];
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startYesterday = new Date(startToday);
+    startYesterday.setDate(startYesterday.getDate() - 1);
+    const startWeek = new Date(startToday);
+    const mondayOffset = (startWeek.getDay() + 6) % 7;
+    startWeek.setDate(startWeek.getDate() - mondayOffset);
+    const groups = [
+      { key: "courses_history_today", items: [] as ShoppingItem[] },
+      { key: "courses_history_yesterday", items: [] as ShoppingItem[] },
+      { key: "courses_history_week", items: [] as ShoppingItem[] },
+      { key: "courses_history_older", items: [] as ShoppingItem[] },
+    ];
+    for (const item of bought) {
+      const date = new Date(item.bought_at || item.created_at);
+      if (date >= startToday) groups[0].items.push(item);
+      else if (date >= startYesterday) groups[1].items.push(item);
+      else if (date >= startWeek) groups[2].items.push(item);
+      else groups[3].items.push(item);
+    }
+    return groups.filter((group) => group.items.length > 0).map((group) => ({ label: t(group.key), items: group.items }));
+  })();
   const shoppingSuggestions = suggestionsHandledThisVisit >= 3
     ? []
     : generateShoppingSuggestions({ items, preferences: suggestionPreferences, today: todayCivilDate() })
@@ -336,12 +361,12 @@ export default function CoursesPage() {
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t("courses_remaining")}</div>
           <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
         </div>
-        <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
-          {t("add")}
+        <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
+          <Plus size={15} /> {t("add")}
         </button>
       </div>
 
-      <IntroTip id="courses" text={t("intro_courses")} />
+      <IntroTip id="courses" title={t("intro_courses_title")} text={t("intro_courses")} />
 
       {view === "courses" && shoppingSuggestion && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4">
@@ -428,7 +453,11 @@ export default function CoursesPage() {
       ) : (
         <>
       {showAdd && (
-        <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
+        <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-3">
+          <div>
+            <div className="text-sm font-semibold text-ink">{t("courses_add_question")}</div>
+            <div className="text-xs text-muted mt-0.5">{t("courses_add_hint")}</div>
+          </div>
           <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
           <div className="flex gap-2">
             <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
@@ -439,7 +468,7 @@ export default function CoursesPage() {
 
       <div className="px-5">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_to_buy")}</div>
-        {toBuy.length === 0 && !showAdd && <EmptyState message={t("courses_empty")} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
+        {toBuy.length === 0 && !showAdd && <EmptyState message={`${t("courses_empty_title")} ${t("courses_empty")}`} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
           {toBuy.map((item) => (
             <div key={item.id} className="border-b border-borderLight py-3">
@@ -455,14 +484,23 @@ export default function CoursesPage() {
                 <div className="flex items-center gap-3">
                   <div onClick={() => toggle(item)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === item.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0" onClick={() => toggle(item)}>
-                    <div className="text-sm text-ink cursor-pointer flex items-center gap-1.5">
-                      {item.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
-                      {item.name} {item.quantity && <span className="text-muted">· {item.quantity}</span>}
+                    <div className="text-sm text-ink cursor-pointer flex flex-wrap items-center gap-1.5">
+                      <span>{item.name}</span>
+                      {item.quantity && <span className="text-muted">· {item.quantity}</span>}
+                      {item.urgent && <span className="rounded-full bg-mustardBg px-2 py-0.5 text-[10px] font-semibold text-mustard">{t("urgent_label")}</span>}
                     </div>
-                    <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
-                      <span>{relativeDate(item.created_at)}{item.due_date ? ` · ${dueDateLabel(item.due_date, t)}` : ""}</span>
-                      {item.assigned_to && <Avatar member={members.find((m) => m.id === item.assigned_to) || null} members={members} size={16} />}
-                    </div>
+                    {(item.assigned_to || item.due_date) && (
+                      <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
+                        {item.assigned_to && (
+                          <>
+                            <Avatar member={members.find((m) => m.id === item.assigned_to) || null} members={members} size={16} />
+                            <span>{t("courses_for_member").replace("{member}", memberName(item.assigned_to) || "")}</span>
+                          </>
+                        )}
+                        {item.assigned_to && item.due_date && <span>·</span>}
+                        {item.due_date && <span>{dueDateLabel(item.due_date, t)}</span>}
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => startEdit(item)} className="text-muted"><Pencil size={16} /></button>
                   <button onClick={() => openItemComments(item.id)} className="text-muted"><MessageCircle size={16} /></button>
@@ -517,26 +555,50 @@ export default function CoursesPage() {
               <input
                 value={boughtSearch}
                 onChange={(e) => setBoughtSearch(e.target.value)}
-                placeholder={t("search_placeholder")}
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
+                placeholder={t("courses_history_search")}
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-3"
               />
             )}
-            <div className="space-y-1">
-              {bought.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                  <div onClick={() => toggle(item)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-border line-through">{item.name}</div>
-                    <div className="text-[11px] text-muted">{item.bought_at && relativeDate(item.bought_at)}</div>
+            <div className="space-y-4">
+              {boughtGroups.map((group) => (
+                <div key={group.label || "recent"}>
+                  {group.label && <div className="text-[11px] font-semibold text-muted mb-1.5">{group.label}</div>}
+                  <div className="space-y-1">
+                    {group.items.map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
+                        <div onClick={() => toggle(item)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-muted line-through">{item.name}{item.quantity && <span> · {item.quantity}</span>}</div>
+                          <div className="text-[11px] text-muted">{item.bought_at && relativeDate(item.bought_at)}</div>
+                        </div>
+                        <button onClick={() => remove(item.id)} className="text-muted"><Trash2 size={16} /></button>
+                      </div>
+                    ))}
                   </div>
-                  <button onClick={() => remove(item.id)} className="text-muted"><Trash2 size={16} /></button>
                 </div>
               ))}
+              {showAllBought && bought.length === 0 && <div className="text-sm text-muted py-4">{t("courses_history_no_result")}</div>}
             </div>
           </>
         )}
       </div>
       </>
+      )}
+
+      {addConfirmation && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg">
+          {t("courses_added_confirmation")}
+        </div>
+      )}
+
+      {view === "courses" && !showAdd && (
+        <button
+          type="button"
+          onClick={() => { setEditingId(null); setShowAdd(true); }}
+          className="md:hidden fixed right-5 bottom-24 z-20 rounded-full bg-ink px-4 py-3 text-sm font-medium text-paper shadow-lg"
+        >
+          <Plus size={15} className="inline mr-1" />{t("add")}
+        </button>
       )}
     </div>
   );

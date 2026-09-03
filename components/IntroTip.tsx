@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Info, X } from "lucide-react";
 
-export function IntroTip({ id, text }: { id: string; text: string }) {
+export function IntroTip({ id, title, text }: { id: string; title?: string; text: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -22,7 +22,10 @@ export function IntroTip({ id, text }: { id: string; text: string }) {
   return (
     <div className="mx-5 mb-4 flex items-start gap-2 bg-mustardBg rounded-xl p-3 text-xs text-ink">
       <Info size={14} className="shrink-0 mt-0.5 text-mustard" />
-      <span className="flex-1">{text}</span>
+      <div className="flex-1">
+        {title && <div className="font-semibold text-ink mb-0.5">{title}</div>}
+        <div className="leading-relaxed">{text}</div>
+      </div>
       <button onClick={dismiss} className="text-muted shrink-0">
         <X size={14} />
       </button>
