@@ -213,8 +213,9 @@ export default function TodayPage() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-ink mb-1">{detail.title}</div>
                     <div className="text-sm text-ink leading-snug">{detail.message}</div>
-                    <div className="text-[11px] text-muted mt-2 leading-snug">
-                      <span className="font-medium">{t("dabo_why")}</span> {detail.reason}
+                    <div className="text-[11px] mt-2 leading-snug">
+                      <span className="font-semibold text-mustard mr-1.5">{t("dabo_why")}</span>
+                      <span className="text-muted">{detail.reason}</span>
                     </div>
                   </div>
                   <ChevronRight size={16} className="text-muted shrink-0 mt-1" />
