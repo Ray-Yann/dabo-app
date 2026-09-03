@@ -8,7 +8,7 @@ import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTI
 import { todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { completeHouseholdTask, insertNextRecurringOccurrence, uncompleteHouseholdTask } from "@/lib/task-completion";
-import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search } from "lucide-react";
+import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search, MoreHorizontal } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
@@ -111,18 +111,30 @@ export default function TasksPage() {
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [recurrenceDeleteTarget, setRecurrenceDeleteTarget] = useState<Task | null>(null);
   const [showFloatingAdd, setShowFloatingAdd] = useState(false);
+  const [taskContributions, setTaskContributions] = useState<Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }>>({});
+  const [historyActionTask, setHistoryActionTask] = useState<Task | null>(null);
   const [addedConfirmation, setAddedConfirmation] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const topAddRef = useRef<HTMLButtonElement | null>(null);
 
   async function loadTasks() {
     if (!household) return;
-    const [{ data }, { data: routineData }] = await Promise.all([
+    const [{ data }, { data: routineData }, { data: contributionData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("routines").select("*").eq("household_id", household.id),
+      supabase.from("task_contributions").select("id, task_id, hidden_from_task_history, cancelled_at").eq("household_id", household.id),
     ]);
     setTasks((data as Task[]) || []);
     setRoutines((routineData as Routine[]) || []);
+    const contributionMap: Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }> = {};
+    for (const row of contributionData || []) {
+      contributionMap[row.task_id] = {
+        id: row.id,
+        hidden_from_task_history: Boolean(row.hidden_from_task_history),
+        cancelled_at: row.cancelled_at || null,
+      };
+    }
+    setTaskContributions(contributionMap);
   }
 
   useEffect(() => {
@@ -303,13 +315,49 @@ export default function TasksPage() {
     loadTasks();
   }
   async function remove(task: Task) {
-    if (task.status === "done" || !task.routine_id) {
+    if (!task.routine_id) {
       if (!confirm(t("confirm_delete_task"))) return;
       await supabase.from("tasks").delete().eq("id", task.id);
       loadTasks();
       return;
     }
     setRecurrenceDeleteTarget(task);
+  }
+
+  async function manageCompletedTaskHistory(action: "hide" | "cancel") {
+    const task = historyActionTask;
+    if (!task) return;
+    const contribution = taskContributions[task.id];
+    if (!contribution) {
+      alert(t("task_history_action_error"));
+      return;
+    }
+
+    setHistoryActionTask(null);
+
+    if (action === "cancel" && !confirm(t("task_history_cancel_contribution_confirm"))) return;
+
+    if (action === "cancel") {
+      const { error: cancelError } = await supabase.rpc("manage_task_contribution_history", {
+        p_contribution_id: contribution.id,
+        p_action: "cancel",
+      });
+      if (cancelError) {
+        alert(t("task_history_action_error"));
+        return;
+      }
+    }
+
+    const { error: hideError } = await supabase.rpc("manage_task_contribution_history", {
+      p_contribution_id: contribution.id,
+      p_action: "hide",
+    });
+    if (hideError) {
+      alert(t("task_history_action_error"));
+      return;
+    }
+
+    loadTasks();
   }
 
   async function handleRecurringDelete(action: "occurrence" | "stop") {
@@ -372,7 +420,7 @@ export default function TasksPage() {
     return a.due_date ? -1 : b.due_date ? 1 : 0;
   });
   const allDone = tasks
-    .filter((task) => task.status === "done" && task.completed_at)
+    .filter((task) => task.status === "done" && task.completed_at && !taskContributions[task.id]?.hidden_from_task_history)
     .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
   const hasDoneTasks = allDone.length > 0;
   const filteredDone = allDone.filter((task) => task.name.toLowerCase().includes(doneSearch.trim().toLowerCase()));
@@ -448,6 +496,28 @@ export default function TasksPage() {
           onChoose={(performerIds) => void completeTask(completionTarget, performerIds)}
           onCancel={() => setCompletionTarget(null)}
         />
+      )}
+
+      {historyActionTask && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4" onClick={() => setHistoryActionTask(null)}>
+          <div className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5 sm:hidden" />
+            <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_history_actions")}</div>
+            <h2 className="font-serif text-xl text-ink mb-1">{historyActionTask.name}</h2>
+            <p className="text-sm text-muted mb-5">{t("task_history_actions_intro")}</p>
+            <div className="space-y-2">
+              <button type="button" onClick={() => manageCompletedTaskHistory("hide")} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
+                <div className="text-sm font-medium text-ink">{t("task_history_hide")}</div>
+                <div className="text-xs text-muted mt-1">{t("task_history_hide_help")}</div>
+              </button>
+              <button type="button" onClick={() => manageCompletedTaskHistory("cancel")} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
+                <div className="text-sm font-medium text-ink">{t("task_history_cancel_contribution")}</div>
+                <div className="text-xs text-muted mt-1">{t("task_history_cancel_contribution_help")}</div>
+              </button>
+              <button type="button" onClick={() => setHistoryActionTask(null)} className="w-full py-3 text-sm text-muted font-medium">{t("cancel")}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {recurrenceDeleteTarget && (
@@ -598,7 +668,7 @@ export default function TasksPage() {
                             <div className="text-sm text-border line-through">{task.name}</div>
                             <div className="text-[11px] text-muted">{completedLabel(task)}</div>
                           </div>
-                          <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
+                          <button onClick={() => setHistoryActionTask(task)} className="text-muted" aria-label={t("task_history_actions")}><MoreHorizontal size={18} /></button>
                         </div>
                       ))}
                     </div>
@@ -615,7 +685,7 @@ export default function TasksPage() {
                       <div className="text-sm text-border line-through">{task.name}</div>
                       <div className="text-[11px] text-muted">{completedLabel(task)}</div>
                     </div>
-                    <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
+                    <button onClick={() => setHistoryActionTask(task)} className="text-muted" aria-label={t("task_history_actions")}><MoreHorizontal size={18} /></button>
                   </div>
                 ))}
               </div>
