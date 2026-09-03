@@ -15,6 +15,7 @@ import { useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
 import { completeHouseholdTask } from "@/lib/task-completion";
+import { ContributionBalanceData, countConfirmedContributionsSince, fetchContributionBalanceData } from "@/lib/task-contributions";
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 
 export default function TodayPage() {
@@ -23,6 +24,7 @@ export default function TodayPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTasksForBalance, setAllTasksForBalance] = useState<Task[]>([]);
+  const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
   const [upcomingEvent, setUpcomingEvent] = useState<{ title: string; days: number } | null>(null);
@@ -42,9 +44,13 @@ export default function TodayPage() {
         .or(`assigned_to.eq.${me.id},assigned_to.is.null`);
       setTasks((myTasks as Task[]) || []);
 
-      const { data: allTasks } = await supabase.from("tasks").select("*").eq("household_id", household.id);
+      const [{ data: allTasks }, contributionData] = await Promise.all([
+        supabase.from("tasks").select("*").eq("household_id", household.id),
+        fetchContributionBalanceData(supabase, household.id),
+      ]);
       setAllTasksForBalance((allTasks as Task[]) || []);
-      setShowEquityInfo(((allTasks as Task[]) || []).filter((t) => t.status === "done").length < 2);
+      setBalanceData(contributionData);
+      setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
 
       const { data: myItems } = await supabase
         .from("shopping_items")
@@ -95,7 +101,7 @@ export default function TodayPage() {
       return;
     }
 
-    const [{ data: myTasks }, { data: allTasks }] = await Promise.all([
+    const [{ data: myTasks }, { data: allTasks }, contributionData] = await Promise.all([
       supabase
         .from("tasks")
         .select("*")
@@ -103,11 +109,13 @@ export default function TodayPage() {
         .eq("status", "pending")
         .or(`assigned_to.eq.${me.id},assigned_to.is.null`),
       supabase.from("tasks").select("*").eq("household_id", household.id),
+      fetchContributionBalanceData(supabase, household.id),
     ]);
 
     setTasks((myTasks as Task[]) || []);
     setAllTasksForBalance((allTasks as Task[]) || []);
-    setShowEquityInfo(((allTasks as Task[]) || []).filter((item) => item.status === "done").length < 2);
+    setBalanceData(contributionData);
+    setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
   }
   async function toggleItem(id: string) {
     await supabase.from("shopping_items").update({ status: "bought", bought_at: new Date().toISOString() }).eq("id", id);
@@ -260,7 +268,7 @@ export default function TodayPage() {
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
           <div className="text-xs text-muted mb-3 font-medium">{t("equity_week_label")}</div>
-          <BalanceBar members={members} tasks={allTasksForBalance} />
+          <BalanceBar members={members} contributions={balanceData.contributions} participants={balanceData.participants} />
           {showEquityInfo && (
             <div className="mt-3 flex gap-2 text-[11px] text-muted bg-mustardBg rounded-lg p-2.5">
               <Info size={13} className="shrink-0 mt-0.5 text-mustard" />

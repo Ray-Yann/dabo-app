@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
@@ -9,7 +9,12 @@ import { IntroTip } from "@/components/IntroTip";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { Task, DURATION_OPTIONS, EFFORT_OPTIONS } from "@/lib/types";
 import { useT } from "@/lib/language-context";
-import { computeMemberPoints, computeMemberPercentages } from "@/lib/utils";
+import { computeMemberPercentages } from "@/lib/utils";
+import {
+  ContributionBalanceData,
+  computeContributionMemberPoints,
+  fetchContributionBalanceData,
+} from "@/lib/task-contributions";
 import { Share2 } from "lucide-react";
 
 type Period = "week" | "month" | "quarter";
@@ -30,54 +35,72 @@ function startOfPeriod(period: Period): Date {
   return d;
 }
 
-function durationLabel(key: string | null): string {
-  return DURATION_OPTIONS.find((d) => d.key === key)?.label || "—";
+function durationLabel(key: string | null): string | null {
+  return DURATION_OPTIONS.find((d) => d.key === key)?.label || null;
 }
-function effortLabel(key: string | null): string {
-  return EFFORT_OPTIONS.find((e) => e.key === key)?.label || "—";
+function effortLabel(key: string | null): string | null {
+  return EFFORT_OPTIONS.find((e) => e.key === key)?.label || null;
 }
 
 export default function BalancePage() {
   const { loading, household, members, supabase } = useHousehold();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [period, setPeriod] = useState<Period>("week");
   const t = useT();
 
   useEffect(() => {
     if (!household) return;
     (async () => {
-      const { data } = await supabase.from("tasks").select("*").eq("household_id", household.id);
+      const [{ data }, contributionData] = await Promise.all([
+        supabase.from("tasks").select("*").eq("household_id", household.id),
+        fetchContributionBalanceData(supabase, household.id),
+      ]);
       setTasks((data as Task[]) || []);
-    })();
-  }, [household]);
+      setBalanceData(contributionData);
+    })().catch((error) => console.error("DABO balance load failed", error));
+  }, [household, supabase]);
+
+  const since = useMemo(() => startOfPeriod(period), [period]);
 
   if (loading || !household) return <LoadingState />;
 
-  const since = startOfPeriod(period);
-  const totals = computeMemberPoints(members, tasks, since);
-  const total = totals.reduce((s, m) => s + m.pts, 0);
-  const percentages = computeMemberPercentages(totals.map((m) => ({ id: m.id, pts: m.pts })));
-  const sorted = [...totals].sort((a, b) => a.pts - b.pts);
-  const lowest = sorted[0];
-  const average = total / (members.length || 1);
-  // Suggestion douce et privée, jamais publique ni accusatrice, sans jamais
-  // citer de pourcentage — ton neutre et bienveillant uniquement.
-  const showSuggestion =
-    members.length > 1 &&
-    total >= 40 &&
-    average > 0 &&
-    lowest.pts < average * 0.6;
-
-  // Tâches prises en compte dans le calcul de la période, pour le détail.
+  const pointsByMember = computeContributionMemberPoints(
+    members.map((member) => member.id),
+    balanceData.contributions,
+    balanceData.participants,
+    since
+  );
+  const totals = members.map((member) => ({
+    id: member.id,
+    first_name: member.first_name,
+    pts: pointsByMember.get(member.id) || 0,
+  }));
+  const total = totals.reduce((sum, member) => sum + member.pts, 0);
+  const percentages = computeMemberPercentages(totals.map((member) => ({ id: member.id, pts: member.pts })));
   const sinceMs = since.getTime();
-  const detailTasks = tasks
-    .filter((tk) => tk.status === "done" && tk.completed_at && new Date(tk.completed_at).getTime() >= sinceMs)
-    .filter((tk) => members.some((m) => m.id === tk.assigned_to));
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const participantsByContribution = new Map<string, string[]>();
+  balanceData.participants.forEach((participant) => {
+    const names = participantsByContribution.get(participant.contribution_id) || [];
+    const member = members.find((candidate) => candidate.id === participant.member_id);
+    if (member) names.push(member.first_name);
+    participantsByContribution.set(participant.contribution_id, names);
+  });
+  const detailContributions = balanceData.contributions
+    .filter(
+      (contribution) =>
+        contribution.performer_status === "confirmed" &&
+        !contribution.cancelled_at &&
+        new Date(contribution.completed_at).getTime() >= sinceMs &&
+        (participantsByContribution.get(contribution.id)?.length || 0) > 0
+    )
+    .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
 
   function shareReport() {
     const periodLabel = period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months");
-    const lines = totals.map((m) => `${m.first_name} : ${percentages.get(m.id) ?? 0}%`).join("\n");
-    const text = `${household!.name} — ${periodLabel}\n${lines}`;
+    const lines = totals.map((member) => `${member.first_name} : ${percentages.get(member.id) ?? 0}%`).join("\n");
+    const text = `${household!.name} — ${periodLabel}\n${lines}\n${t("balance_footnote")}`;
     if (navigator.share) {
       navigator.share({ title: "Dabo", text }).catch(() => {});
     } else {
@@ -109,15 +132,15 @@ export default function BalancePage() {
         ) : total === 0 ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_empty_period")}</p>
         ) : (
-          <BalanceBar members={members} tasks={tasks} big since={since} />
+          <BalanceBar
+            members={members}
+            contributions={balanceData.contributions}
+            participants={balanceData.participants}
+            big
+            since={since}
+          />
         )}
       </div>
-
-      {household.equity_score_enabled && showSuggestion && (
-        <div className="mx-5 mb-5 bg-mustardBg rounded-2xl p-4 text-sm text-ink">
-          {t("rebalance_suggestion").replace("{name}", lowest.first_name)}
-        </div>
-      )}
 
       {household.equity_score_enabled && total > 0 && (
         <>
@@ -128,20 +151,25 @@ export default function BalancePage() {
           <div className="px-5 mb-5">
             <CollapsibleSection title={t("view_contribution_detail")} defaultOpen={false}>
               <div className="bg-white2 rounded-2xl p-4">
-                <div className="space-y-2 mb-3">
-                  {detailTasks.map((tk) => (
-                    <div key={tk.id} className="flex items-center justify-between text-xs border-b border-borderLight pb-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-ink">{tk.name}</div>
-                        <div className="text-muted">{durationLabel(tk.duration_key)} · {effortLabel(tk.effort_level)}</div>
+                <div className="space-y-2">
+                  {detailContributions.map((contribution) => {
+                    const task = taskById.get(contribution.task_id);
+                    const duration = durationLabel(contribution.duration_key);
+                    const effort = effortLabel(contribution.effort_level);
+                    const meta = [duration, effort ? `${t("effort_label")} ${effort.toLowerCase()}` : null]
+                      .filter(Boolean)
+                      .join(" · ");
+                    const performers = participantsByContribution.get(contribution.id) || [];
+                    return (
+                      <div key={contribution.id} className="flex items-start justify-between gap-3 text-xs border-b border-borderLight pb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-ink">{task?.name || t("tasks_title")}</div>
+                          <div className="text-muted">{meta || t("effort_not_provided")}</div>
+                        </div>
+                        <span className="text-muted shrink-0 text-right">{performers.join(" & ")}</span>
                       </div>
-                      <span className="font-mono text-mustard shrink-0 ml-2">{tk.weight_points} pts</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-sm font-medium text-ink pt-1">
-                  <span>{t("detail_total")}</span>
-                  <span className="font-mono">{total} pts</span>
+                    );
+                  })}
                 </div>
               </div>
             </CollapsibleSection>

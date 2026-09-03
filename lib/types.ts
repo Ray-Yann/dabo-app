@@ -18,6 +18,8 @@ export type Member = {
   language: "fr" | "nl" | "en";
   dark_mode: boolean;
   created_at: string;
+  left_at?: string | null;
+  archived_avatar_color?: string | null;
 };
 
 export type ShoppingItem = {

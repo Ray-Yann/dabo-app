@@ -1,38 +1,49 @@
 "use client";
 
-import { Member, Task } from "@/lib/types";
-import { startOfWeek, MEMBER_COLORS, computeMemberPercentages } from "@/lib/utils";
+import { Member } from "@/lib/types";
+import { startOfWeek, computeMemberPercentages, memberColor } from "@/lib/utils";
+import {
+  TaskContribution,
+  TaskContributionParticipant,
+  computeContributionMemberPoints,
+} from "@/lib/task-contributions";
 
 export function BalanceBar({
   members,
-  tasks,
+  contributions,
+  participants,
   big = false,
   since,
 }: {
   members: Member[];
-  tasks: Task[];
+  contributions: TaskContribution[];
+  participants: TaskContributionParticipant[];
   big?: boolean;
   since?: Date;
 }) {
-  const periodStart = (since || startOfWeek()).getTime();
-  const totals = members.map((m, i) => ({
-    ...m,
-    color: MEMBER_COLORS[i % MEMBER_COLORS.length],
-    pts: tasks
-      .filter((t) => t.status === "done" && t.assigned_to === m.id && t.completed_at && new Date(t.completed_at).getTime() >= periodStart)
-      .reduce((s, t) => s + t.weight_points, 0),
+  const periodStart = since || startOfWeek();
+  const points = computeContributionMemberPoints(
+    members.map((member) => member.id),
+    contributions,
+    participants,
+    periodStart
+  );
+  const totals = members.map((member) => ({
+    ...member,
+    color: memberColor(members, member.id),
+    pts: points.get(member.id) || 0,
   }));
-  const total = totals.reduce((s, m) => s + m.pts, 0) || 1;
-  // Les points restent le moteur interne (largeur de la barre) — seul
-  // l'affichage textuel en mode détaillé (Équilibre) montre un pourcentage,
-  // jamais les points bruts, conformément à la décision produit.
-  const percentages = computeMemberPercentages(totals.map((m) => ({ id: m.id, pts: m.pts })));
+  const total = totals.reduce((sum, member) => sum + member.pts, 0) || 1;
+  const percentages = computeMemberPercentages(totals.map((member) => ({ id: member.id, pts: member.pts })));
 
   return (
     <div>
       <div className={`flex w-full rounded-full overflow-hidden bg-borderLight ${big ? "h-4" : "h-2.5"}`}>
-        {totals.map((m) => (
-          <div key={m.id} style={{ width: `${(m.pts / total) * 100}%`, background: m.color }} />
+        {totals.map((member) => (
+          <div
+            key={member.id}
+            style={{ width: `${(member.pts / total) * 100}%`, background: member.color }}
+          />
         ))}
       </div>
       <div
@@ -41,11 +52,11 @@ export function BalanceBar({
       />
       {big && (
         <div className="flex justify-between flex-wrap gap-2 mt-3">
-          {totals.map((m) => (
-            <div key={m.id} className="flex flex-col items-center gap-0.5 text-xs">
-              <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
-              <span className="text-ink">{m.first_name}</span>
-              <span className="font-mono text-muted text-[11px]">{percentages.get(m.id) ?? 0}%</span>
+          {totals.map((member) => (
+            <div key={member.id} className="flex flex-col items-center gap-0.5 text-xs">
+              <span className="w-2 h-2 rounded-full" style={{ background: member.color }} />
+              <span className="text-ink">{member.first_name}</span>
+              <span className="font-mono text-muted text-[11px]">{percentages.get(member.id) ?? 0}%</span>
             </div>
           ))}
         </div>
