@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
-import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
+import { todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { completeHouseholdTask, insertNextRecurringOccurrence } from "@/lib/task-completion";
-import { Check, Trash2, Repeat, MessageCircle, X, Pencil } from "lucide-react";
+import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
-import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
 const EMPTY_FORM: TaskForm = { name: "", durationKey: DURATION_OPTIONS[2].key, effortKey: "moyen", assignedTo: "", recurrence: "none", customDays: [], urgent: false, dueDate: "" };
@@ -34,29 +32,52 @@ function TaskFormFields({
 }) {
   return (
     <>
-      <input autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      <select value={form.durationKey} onChange={(e) => setForm({ ...form, durationKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-        {DURATION_OPTIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-      </select>
-      <select value={form.effortKey} onChange={(e) => setForm({ ...form, effortKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-        {EFFORT_OPTIONS.map((e) => <option key={e.key} value={e.key}>{t("effort_label")} : {e.label}</option>)}
-      </select>
-      <p className="text-[11px] text-muted -mt-1">{t("points_explain")} {computeTaskPoints(form.durationKey, form.effortKey)} pts</p>
-      <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-        <option value="">{t("unassigned")}</option>
-        {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
-      </select>
-      {!lockRecurrence && (
-        <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-          <option value="none">{t("recurrence_none")}</option>
-          <option value="daily">{t("recurrence_daily")}</option>
-          <option value="weekly">{t("recurrence_weekly")}</option>
-          <option value="biweekly">{t("recurrence_biweekly")}</option>
-          <option value="monthly">{t("recurrence_monthly")}</option>
-          <option value="yearly">{t("recurrence_yearly")}</option>
-          <option value="custom">{t("recurrence_custom")}</option>
-        </select>
-      )}
+      <div>
+        <label className="text-sm font-medium text-ink block mb-1.5">{t("task_form_main_label")}</label>
+        <input autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
+      </div>
+
+      <div className="pt-1">
+        <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_form_for_task")}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+            <option value="">{t("unassigned")}</option>
+            {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
+          </select>
+          <div>
+            <input aria-label={form.recurrence !== "none" ? t("due_date_required") : t("due_date_optional")} type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+            <div className="text-[10px] text-muted mt-1 px-1">{form.recurrence !== "none" ? t("due_date_required") : t("due_date_optional")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-1">
+        <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_form_if_needed")}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <select value={form.durationKey} onChange={(e) => setForm({ ...form, durationKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+            {DURATION_OPTIONS.map((d) => <option key={d.key} value={d.key}>{t("task_duration")} · {d.label}</option>)}
+          </select>
+          <select value={form.effortKey} onChange={(e) => setForm({ ...form, effortKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+            {EFFORT_OPTIONS.map((e) => <option key={e.key} value={e.key}>{t("effort_label")} · {e.label}</option>)}
+          </select>
+          {!lockRecurrence && (
+            <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+              <option value="none">{t("recurrence_none")}</option>
+              <option value="daily">{t("recurrence_daily")}</option>
+              <option value="weekly">{t("recurrence_weekly")}</option>
+              <option value="biweekly">{t("recurrence_biweekly")}</option>
+              <option value="monthly">{t("recurrence_monthly")}</option>
+              <option value="yearly">{t("recurrence_yearly")}</option>
+              <option value="custom">{t("recurrence_custom")}</option>
+            </select>
+          )}
+          <label className="flex items-center gap-2 text-sm text-ink border border-border rounded-xl px-3 py-2">
+            <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
+            {t("mark_urgent_f")}
+          </label>
+        </div>
+      </div>
+
       {!lockRecurrence && form.recurrence === "custom" && (
         <div>
           <div className="text-xs text-muted mb-2">{t("recurrence_choose_days")}</div>
@@ -68,14 +89,6 @@ function TaskFormFields({
           </div>
         </div>
       )}
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
-        {t("mark_urgent_f")}
-      </label>
-      <div>
-        <label className="text-xs text-muted block mb-1">{form.recurrence !== "none" ? t("due_date_required") : t("due_date_optional")}</label>
-        <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
-      </div>
     </>
   );
 }
@@ -84,6 +97,7 @@ export default function TasksPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -93,27 +107,36 @@ export default function TasksPage() {
   const [newComment, setNewComment] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
-  const [cutoff, setCutoff] = useState<number>(0);
   const [showAllDone, setShowAllDone] = useState(false);
   const [doneSearch, setDoneSearch] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [recurrenceDeleteTarget, setRecurrenceDeleteTarget] = useState<Task | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCutoff(Date.now() - SEVEN_DAYS_MS);
-  }, []);
+  const [showFloatingAdd, setShowFloatingAdd] = useState(false);
+  const [addedConfirmation, setAddedConfirmation] = useState(false);
+  const topAddRef = useRef<HTMLButtonElement | null>(null);
 
   async function loadTasks() {
     if (!household) return;
-    const { data } = await supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false });
+    const [{ data }, { data: routineData }] = await Promise.all([
+      supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
+      supabase.from("routines").select("*").eq("household_id", household.id),
+    ]);
     setTasks((data as Task[]) || []);
+    setRoutines((routineData as Routine[]) || []);
   }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (household) loadTasks();
   }, [household]);
+
+  useEffect(() => {
+    const button = topAddRef.current;
+    if (!button || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setShowFloatingAdd(!entry.isIntersecting), { threshold: 0 });
+    observer.observe(button);
+    return () => observer.disconnect();
+  }, []);
 
   async function addTask() {
     if (!addForm.name.trim() || !household) return;
@@ -158,6 +181,8 @@ export default function TasksPage() {
     }
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
+    setAddedConfirmation(true);
+    window.setTimeout(() => setAddedConfirmation(false), 2200);
     loadTasks();
   }
 
@@ -321,17 +346,85 @@ export default function TasksPage() {
 
   if (loading || !household) return <LoadingState />;
 
-  const pending = [...tasks.filter((task) => task.status === "pending")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-  const hasDoneTasks = tasks.some((task) => task.status === "done");
-  const doneRecent = tasks
+  const today = todayCivilDate();
+  const civilDayNumber = (value: string) => {
+    const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+    return Date.UTC(year, month - 1, day) / 86400000;
+  };
+  const dayDiff = (value: string) => civilDayNumber(value) - civilDayNumber(today);
+  const pending = [...tasks.filter((task) => task.status === "pending")].sort((a, b) => {
+    const aLate = a.due_date && a.due_date < today ? 1 : 0;
+    const bLate = b.due_date && b.due_date < today ? 1 : 0;
+    if (aLate !== bLate) return bLate - aLate;
+    if (a.urgent !== b.urgent) return b.urgent ? 1 : -1;
+    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+    return a.due_date ? -1 : b.due_date ? 1 : 0;
+  });
+  const allDone = tasks
     .filter((task) => task.status === "done" && task.completed_at)
-    .filter((task) => showAllDone || (new Date(task.completed_at!).getTime() > cutoff && cutoff > 0))
-    .filter((task) => task.name.toLowerCase().includes(doneSearch.toLowerCase()))
     .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
+  const hasDoneTasks = allDone.length > 0;
+  const filteredDone = allDone.filter((task) => task.name.toLowerCase().includes(doneSearch.trim().toLowerCase()));
+  const doneRecent = showAllDone ? filteredDone : allDone.slice(0, 3);
 
   function memberName(id: string | null) {
     return members.find((m) => m.id === id)?.first_name || t("unassigned");
   }
+
+  function taskDateLabel(dateStr: string | null) {
+    if (!dateStr) return null;
+    const diff = dayDiff(dateStr);
+    if (diff === -1) return t("task_due_yesterday");
+    if (diff < -1) return t("task_due_resume");
+    if (diff === 0) return t("date_today");
+    if (diff === 1) return t("date_tomorrow");
+    if (diff > 1 && diff <= 6) {
+      const [y,m,d] = dateStr.split("-").map(Number);
+      const weekday = new Date(Date.UTC(y,m-1,d)).getUTCDay();
+      return t(`weekday_long_${WEEKDAYS[weekday]}`);
+    }
+    return dateStr.split("-").reverse().join("/");
+  }
+
+  function routineLabel(task: Task) {
+    if (!task.routine_id) return null;
+    const routine = routines.find((r) => r.id === task.routine_id);
+    if (!routine) return t("task_recurring");
+    if (routine.frequency === "custom") {
+      const days = (routine.custom_days || []).map((day) => t(`weekday_${WEEKDAYS[day]}`)).join(", ");
+      return days || t("task_recurring");
+    }
+    return t(`task_rhythm_${routine.frequency}`);
+  }
+
+  function completedLabel(task: Task) {
+    if (!task.completed_at) return "";
+    const d = new Date(task.completed_at);
+    const completedCivil = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const diff = -dayDiff(completedCivil);
+    if (diff === 0) return t("history_today").toLowerCase();
+    if (diff === 1) return t("history_yesterday").toLowerCase();
+    if (diff < 7) {
+      const weekday = d.getDay();
+      return t(`weekday_long_${WEEKDAYS[weekday]}`).toLowerCase();
+    }
+    return t("history_older").toLowerCase();
+  }
+
+  function completionGroup(task: Task): "today" | "yesterday" | "week" | "older" {
+    if (!task.completed_at) return "older";
+    const d = new Date(task.completed_at);
+    const completedCivil = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const diff = -dayDiff(completedCivil);
+    if (diff === 0) return "today";
+    if (diff === 1) return "yesterday";
+    if (diff < 7) return "week";
+    return "older";
+  }
+
+  const doneGroups = (["today", "yesterday", "week", "older"] as const)
+    .map((key) => ({ key, tasks: doneRecent.filter((task) => completionGroup(task) === key) }))
+    .filter((group) => group.tasks.length > 0);
 
   return (
     <div>
@@ -360,12 +453,16 @@ export default function TasksPage() {
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{pending.length} {t("tasks_in_progress")}</div>
           <h1 className="font-serif text-2xl text-ink">{t("tasks_title")}</h1>
         </div>
-        <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
+        <button ref={topAddRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
           {t("add")}
         </button>
       </div>
 
-      <IntroTip id="tasks" text={t("intro_tasks")} />
+      <IntroTip id="tasks-v2" title={t("intro_tasks_title")} text={t("intro_tasks")} />
+
+      {addedConfirmation && (
+        <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>
+      )}
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
@@ -378,7 +475,7 @@ export default function TasksPage() {
       )}
 
       <div className="px-5">
-        {pending.length === 0 && !showAdd && <EmptyState message={t("tasks_empty")} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
+        {pending.length === 0 && !showAdd && <EmptyState message={`${t("tasks_empty_title")} ${t("tasks_empty")}`} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
           {pending.map((task) => (
             <div key={task.id} className="border-b border-borderLight py-3">
@@ -395,16 +492,17 @@ export default function TasksPage() {
                 <div className="flex items-center gap-3">
                   <div onClick={() => completeTask(task)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === task.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-ink flex items-center gap-1.5">
-                      {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
-                      {task.name}
+                    <div className="text-sm text-ink flex items-center gap-2 flex-wrap">
+                      <span>{task.name}</span>
+                      {task.urgent && <span className="text-[10px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-medium">{t("urgent_label")}</span>}
                     </div>
-                    <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
-                      <span className="flex items-center gap-1">{task.routine_id && <Repeat size={10} />} {task.due_date ? dueDateLabel(task.due_date, t) : null}</span>
-                      {task.assigned_to && <Avatar member={members.find((m) => m.id === task.assigned_to) || null} members={members} size={16} />}
+                    <div className="text-[11px] text-muted flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
+                      {task.due_date && <span className={task.due_date < today ? "text-mustard font-medium" : ""}>{taskDateLabel(task.due_date)}</span>}
+                      {task.assigned_to && <span>{t("task_for")} {memberName(task.assigned_to)}</span>}
+                      {task.routine_id && <span className="flex items-center gap-1"><Repeat size={10} /> {routineLabel(task)}</span>}
+                      {!task.assigned_to && !task.due_date && !task.routine_id && <span>{t("unassigned")}</span>}
                     </div>
                   </div>
-                  <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{task.weight_points} pts</span>
                   <button onClick={() => startEdit(task)} className="text-muted"><Pencil size={16} /></button>
                   <button onClick={() => openTaskComments(task.id)} className="text-muted"><MessageCircle size={16} /></button>
                   <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
@@ -455,26 +553,61 @@ export default function TasksPage() {
               </button>
             </div>
             {showAllDone && (
-              <input
-                value={doneSearch}
-                onChange={(e) => setDoneSearch(e.target.value)}
-                placeholder={t("search_placeholder")}
-                className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
-              />
+              <div className="relative mb-4">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  value={doneSearch}
+                  onChange={(e) => setDoneSearch(e.target.value)}
+                  placeholder={t("tasks_history_search")}
+                  className="w-full border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none focus:border-ink"
+                />
+              </div>
             )}
-            <div className="space-y-1">
-              {doneRecent.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                  <div onClick={() => uncompleteTask(task)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-border line-through">{task.name}</div>
-                    <div className="text-[11px] text-muted">{task.completed_at && relativeDate(task.completed_at)}</div>
+            {showAllDone ? (
+              <div className="space-y-5">
+                {doneGroups.map((group) => (
+                  <div key={group.key}>
+                    <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-1">{t(`history_${group.key}`)}</div>
+                    <div className="space-y-1">
+                      {group.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
+                          <div onClick={() => uncompleteTask(task)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-border line-through">{task.name}</div>
+                            <div className="text-[11px] text-muted">{completedLabel(task)}</div>
+                          </div>
+                          <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
-                </div>
-              ))}
-            </div>
+                ))}
+                {doneGroups.length === 0 && <div className="text-sm text-muted py-4">{t("tasks_history_no_results")}</div>}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {doneRecent.map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
+                    <div onClick={() => uncompleteTask(task)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-border line-through">{task.name}</div>
+                      <div className="text-[11px] text-muted">{completedLabel(task)}</div>
+                    </div>
+                    <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
+        )}
+
+        {showFloatingAdd && !showAdd && (
+          <button
+            onClick={() => { setEditingId(null); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            className="sm:hidden fixed right-5 bottom-24 z-30 bg-ink text-paper rounded-full px-5 py-3 text-sm font-medium shadow-lg"
+          >
+            {t("add")}
+          </button>
         )}
       </div>
     </div>
