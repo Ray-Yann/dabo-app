@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
 import { todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
-import { completeHouseholdTask, insertNextRecurringOccurrence } from "@/lib/task-completion";
+import { completeHouseholdTask, insertNextRecurringOccurrence, uncompleteHouseholdTask } from "@/lib/task-completion";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
@@ -288,30 +288,18 @@ export default function TasksPage() {
   }
 
   async function uncompleteTask(task: Task) {
-    if (!task.routine_id) {
-      await supabase.from("tasks").update({ status: "pending", completed_at: null }).eq("id", task.id);
-      loadTasks();
+    if (!household || !me) return;
+
+    const result = await uncompleteHouseholdTask(
+      { supabase, householdId: household.id, members, me },
+      task
+    );
+
+    if (!result.ok) {
+      alert(t(result.reason === "recurrence_blocked" ? "recurrence_undo_blocked" : "task_undo_error"));
       return;
     }
 
-    // Undoing a recurring completion must also roll back the future occurrence
-    // it generated. It is only safe when no later occurrence has already been
-    // completed.
-    const { data: laterDone } = await supabase
-      .from("tasks")
-      .select("id")
-      .eq("routine_id", task.routine_id)
-      .eq("status", "done")
-      .gt("completed_at", task.completed_at || "")
-      .limit(1);
-    if (laterDone && laterDone.length > 0) {
-      alert(t("recurrence_undo_blocked"));
-      return;
-    }
-
-    await supabase.from("tasks").delete().eq("routine_id", task.routine_id).eq("status", "pending");
-    await supabase.from("tasks").update({ status: "pending", completed_at: null }).eq("id", task.id).eq("status", "done");
-    await supabase.from("routines").update({ last_assigned_member: task.assigned_to }).eq("id", task.routine_id);
     loadTasks();
   }
   async function remove(task: Task) {
