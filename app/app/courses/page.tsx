@@ -323,12 +323,15 @@ export default function CoursesPage() {
   const boughtGroups = (() => {
     if (!showAllBought) return [{ label: "", items: bought }];
     const now = new Date();
-    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startYesterday = new Date(startToday);
-    startYesterday.setDate(startYesterday.getDate() - 1);
-    const startWeek = new Date(startToday);
-    const mondayOffset = (startWeek.getDay() + 6) % 7;
-    startWeek.setDate(startWeek.getDate() - mondayOffset);
+    const formatLocalCivilDate = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const todayCivil = formatLocalCivilDate(now);
+    const yesterdayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const yesterdayCivil = formatLocalCivilDate(yesterdayDate);
+    const startWeekDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const mondayOffset = (startWeekDate.getDay() + 6) % 7;
+    startWeekDate.setDate(startWeekDate.getDate() - mondayOffset);
+    const startWeekCivil = formatLocalCivilDate(startWeekDate);
     const groups = [
       { key: "courses_history_today", items: [] as ShoppingItem[] },
       { key: "courses_history_yesterday", items: [] as ShoppingItem[] },
@@ -337,9 +340,10 @@ export default function CoursesPage() {
     ];
     for (const item of bought) {
       const date = new Date(item.bought_at || item.created_at);
-      if (date >= startToday) groups[0].items.push(item);
-      else if (date >= startYesterday) groups[1].items.push(item);
-      else if (date >= startWeek) groups[2].items.push(item);
+      const civilDate = formatLocalCivilDate(date);
+      if (civilDate === todayCivil) groups[0].items.push(item);
+      else if (civilDate === yesterdayCivil) groups[1].items.push(item);
+      else if (civilDate >= startWeekCivil) groups[2].items.push(item);
       else groups[3].items.push(item);
     }
     return groups.filter((group) => group.items.length > 0).map((group) => ({ label: t(group.key), items: group.items }));
@@ -358,7 +362,7 @@ export default function CoursesPage() {
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t("courses_remaining")}</div>
+          <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t(toBuy.length === 1 ? "courses_remaining_singular" : "courses_remaining")}</div>
           <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
         </div>
         <button onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">

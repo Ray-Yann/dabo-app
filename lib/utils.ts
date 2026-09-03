@@ -8,8 +8,13 @@ export function genInviteCode(): string {
 export function relativeDate(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+  // Compare calendar days in the user's local timezone rather than elapsed
+  // 24-hour periods. An item bought before midnight should become "hier"
+  // after midnight, even if fewer than 24 hours have elapsed.
+  const dateDay = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.max(0, Math.round((todayDay - dateDay) / (1000 * 60 * 60 * 24)));
 
   if (diffDays === 0) return "aujourd'hui";
   if (diffDays === 1) return "hier";

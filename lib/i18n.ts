@@ -35,6 +35,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     courses_title: "Courses",
     courses_remaining: "articles restants",
+    courses_remaining_singular: "article restant",
     courses_to_buy: "À acheter",
     courses_bought: "Acheté",
     courses_empty: "Votre liste est vide. Quand quelque chose manquera, vous pourrez simplement l’ajouter ici.",
@@ -251,6 +252,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     courses_title: "Boodschappen",
     courses_remaining: "artikelen resterend",
+    courses_remaining_singular: "artikel resterend",
     courses_to_buy: "Te kopen",
     courses_bought: "Gekocht",
     courses_empty: "Jullie lijst is leeg. Als er iets ontbreekt, kunnen jullie het hier gewoon toevoegen.",
@@ -467,6 +469,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     courses_title: "Groceries",
     courses_remaining: "items remaining",
+    courses_remaining_singular: "item remaining",
     courses_to_buy: "To buy",
     courses_bought: "Bought",
     courses_empty: "Your list is empty. When something is missing, you can simply add it here.",
