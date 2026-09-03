@@ -337,22 +337,11 @@ export default function TasksPage() {
 
     if (action === "cancel" && !confirm(t("task_history_cancel_contribution_confirm"))) return;
 
-    if (action === "cancel") {
-      const { error: cancelError } = await supabase.rpc("manage_task_contribution_history", {
-        p_contribution_id: contribution.id,
-        p_action: "cancel",
-      });
-      if (cancelError) {
-        alert(t("task_history_action_error"));
-        return;
-      }
-    }
-
-    const { error: hideError } = await supabase.rpc("manage_task_contribution_history", {
+    const { error: historyActionError } = await supabase.rpc("manage_task_contribution_history", {
       p_contribution_id: contribution.id,
-      p_action: "hide",
+      p_action: action,
     });
-    if (hideError) {
+    if (historyActionError) {
       alert(t("task_history_action_error"));
       return;
     }
