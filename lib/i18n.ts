@@ -160,6 +160,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     recurrence_undo_blocked: "Impossible d’annuler cette validation : une occurrence plus récente de cette récurrence a déjà été terminée.",
     weekday_sun: "Dim", weekday_mon: "Lun", weekday_tue: "Mar", weekday_wed: "Mer", weekday_thu: "Jeu", weekday_fri: "Ven", weekday_sat: "Sam",
     recurrence_lock_note: "La récurrence ne se change pas ici — supprime et recrée la tâche pour ça.",
+    recurrence_edit_future_note: "Le nouveau rythme s’appliquera après cette tâche.",
     confirm_delete_task: "Supprimer cette tâche ?",
 
     balance_title: "Équilibre",
@@ -400,6 +401,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     recurrence_undo_blocked: "Deze voltooiing kan niet ongedaan worden gemaakt: een latere taak in deze herhaling is al voltooid.",
     weekday_sun: "Zo", weekday_mon: "Ma", weekday_tue: "Di", weekday_wed: "Wo", weekday_thu: "Do", weekday_fri: "Vr", weekday_sat: "Za",
     recurrence_lock_note: "De herhaling kan hier niet gewijzigd worden — verwijder en maak de taak opnieuw aan.",
+    recurrence_edit_future_note: "Het nieuwe ritme geldt vanaf de volgende taak.",
     confirm_delete_task: "Deze taak verwijderen?",
 
     balance_title: "Balans",
@@ -640,6 +642,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     recurrence_undo_blocked: "This completion can’t be undone because a later occurrence in this recurrence has already been completed.",
     weekday_sun: "Sun", weekday_mon: "Mon", weekday_tue: "Tue", weekday_wed: "Wed", weekday_thu: "Thu", weekday_fri: "Fri", weekday_sat: "Sat",
     recurrence_lock_note: "Recurrence can't be changed here — delete and recreate the task instead.",
+    recurrence_edit_future_note: "The new rhythm will apply after this task.",
     confirm_delete_task: "Delete this task?",
 
     balance_title: "Balance",

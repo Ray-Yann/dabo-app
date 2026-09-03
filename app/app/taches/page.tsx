@@ -21,13 +21,13 @@ function TaskFormFields({
   form,
   setForm,
   members,
-  lockRecurrence,
+  editingRecurring,
   t,
 }: {
   form: TaskForm;
   setForm: (f: TaskForm) => void;
   members: { id: string; first_name: string }[];
-  lockRecurrence?: boolean;
+  editingRecurring?: boolean;
   t: (key: string) => string;
 }) {
   return (
@@ -60,17 +60,15 @@ function TaskFormFields({
           <select value={form.effortKey} onChange={(e) => setForm({ ...form, effortKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
             {EFFORT_OPTIONS.map((e) => <option key={e.key} value={e.key}>{t("effort_label")} · {e.label}</option>)}
           </select>
-          {!lockRecurrence && (
-            <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-              <option value="none">{t("recurrence_none")}</option>
-              <option value="daily">{t("recurrence_daily")}</option>
-              <option value="weekly">{t("recurrence_weekly")}</option>
-              <option value="biweekly">{t("recurrence_biweekly")}</option>
-              <option value="monthly">{t("recurrence_monthly")}</option>
-              <option value="yearly">{t("recurrence_yearly")}</option>
-              <option value="custom">{t("recurrence_custom")}</option>
-            </select>
-          )}
+          <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"], customDays: e.target.value === "custom" ? form.customDays : [] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+            {!editingRecurring && <option value="none">{t("recurrence_none")}</option>}
+            <option value="daily">{t("recurrence_daily")}</option>
+            <option value="weekly">{t("recurrence_weekly")}</option>
+            <option value="biweekly">{t("recurrence_biweekly")}</option>
+            <option value="monthly">{t("recurrence_monthly")}</option>
+            <option value="yearly">{t("recurrence_yearly")}</option>
+            <option value="custom">{t("recurrence_custom")}</option>
+          </select>
           <label className="flex items-center gap-2 text-sm text-ink border border-border rounded-xl px-3 py-2">
             <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} />
             {t("mark_urgent_f")}
@@ -78,7 +76,7 @@ function TaskFormFields({
         </div>
       </div>
 
-      {!lockRecurrence && form.recurrence === "custom" && (
+      {form.recurrence === "custom" && (
         <div>
           <div className="text-xs text-muted mb-2">{t("recurrence_choose_days")}</div>
           <div className="flex flex-wrap gap-2">
@@ -196,13 +194,14 @@ export default function TasksPage() {
     const fallbackDuration = DURATION_OPTIONS.reduce((closest, d) =>
       Math.abs(d.points - task.weight_points) < Math.abs(closest.points - task.weight_points) ? d : closest
     );
+    const routine = task.routine_id ? routines.find((item) => item.id === task.routine_id) : null;
     setEditForm({
       name: task.name,
       durationKey: task.duration_key || fallbackDuration.key,
       effortKey: task.effort_level || "faible",
       assignedTo: task.assigned_to || "",
-      recurrence: "none",
-      customDays: [],
+      recurrence: routine?.frequency || "none",
+      customDays: routine?.custom_days || [],
       urgent: task.urgent,
       dueDate: task.due_date || "",
     });
@@ -210,8 +209,14 @@ export default function TasksPage() {
 
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
+    const editedTask = tasks.find((task) => task.id === id);
+    const existingRoutine = editedTask?.routine_id ? routines.find((routine) => routine.id === editedTask.routine_id) : null;
+    if (existingRoutine && editForm.recurrence === "custom" && editForm.customDays.length === 0) {
+      alert(t("recurrence_days_required"));
+      return;
+    }
     const points = computeTaskPoints(editForm.durationKey, editForm.effortKey);
-    const wasUrgent = tasks.find((t) => t.id === id)?.urgent || false;
+    const wasUrgent = editedTask?.urgent || false;
     await supabase.from("tasks").update({
       name: editForm.name.trim(),
       weight_points: points,
@@ -221,14 +226,19 @@ export default function TasksPage() {
       urgent: editForm.urgent,
       due_date: editForm.dueDate || null,
     }).eq("id", id);
-    const editedTask = tasks.find((t) => t.id === id);
-    if (editedTask?.routine_id) {
+    if (editedTask?.routine_id && existingRoutine) {
+      const recurrenceChanged = existingRoutine.frequency !== editForm.recurrence
+        || JSON.stringify(existingRoutine.custom_days || []) !== JSON.stringify(editForm.recurrence === "custom" ? editForm.customDays : []);
       await supabase.from("routines").update({
         name: editForm.name.trim(),
         weight_points: points,
         duration_key: editForm.durationKey,
         effort_level: editForm.effortKey,
-        anchor_date: editForm.dueDate || null,
+        frequency: editForm.recurrence,
+        custom_days: editForm.recurrence === "custom" ? editForm.customDays : null,
+        // The current occurrence keeps its due date. When the rhythm changes,
+        // that occurrence becomes the anchor for the next cadence.
+        anchor_date: recurrenceChanged ? (editForm.dueDate || editedTask.due_date || existingRoutine.anchor_date) : (editForm.dueDate || existingRoutine.anchor_date),
         last_assigned_member: editForm.assignedTo || null,
       }).eq("id", editedTask.routine_id);
     }
@@ -481,8 +491,8 @@ export default function TasksPage() {
             <div key={task.id} className="border-b border-borderLight py-3">
               {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} lockRecurrence t={t} />
-                  {task.routine_id && <p className="text-[11px] text-muted italic">{t("recurrence_lock_note")}</p>}
+                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} editingRecurring={Boolean(task.routine_id)} t={t} />
+                  {task.routine_id && <p className="text-[11px] text-muted italic">{t("recurrence_edit_future_note")}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(task.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
                     <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">{t("cancel")}</button>
