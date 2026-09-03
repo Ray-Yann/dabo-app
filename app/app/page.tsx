@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
-import { Task, ShoppingItem, CalendarEvent } from "@/lib/types";
-import { ShoppingBag, Info, Plus, ListChecks, PartyPopper } from "lucide-react";
+import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
+import { ShoppingBag, Info, Plus, ListChecks, PartyPopper, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
 import { useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
-import { nextOccurrence, daysUntil } from "@/lib/utils";
+import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
 import { completeHouseholdTask } from "@/lib/task-completion";
+import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -24,6 +25,8 @@ export default function TodayPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
   const [upcomingEvent, setUpcomingEvent] = useState<{ title: string; days: number } | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
 
   useEffect(() => {
@@ -55,11 +58,15 @@ export default function TodayPage() {
         .eq("household_id", household.id);
       setTotalItemsEver(count ?? 0);
 
-      const { data: events } = await supabase
-        .from("calendar_events")
-        .select("title, event_date, recurring")
-        .eq("household_id", household.id);
-      const withNext = (events || [])
+      const [{ data: events }, { data: routineData }] = await Promise.all([
+        supabase.from("calendar_events").select("*").eq("household_id", household.id),
+        supabase.from("routines").select("*").eq("household_id", household.id),
+      ]);
+      const householdEvents = (events as CalendarEvent[]) || [];
+      setCalendarEvents(householdEvents);
+      setRoutines((routineData as Routine[]) || []);
+
+      const withNext = householdEvents
         .map((e) => ({ title: e.title, days: daysUntil(nextOccurrence(e.event_date, e.recurring)) }))
         .filter((e) => e.days >= 0 && e.days <= 7)
         .sort((a, b) => a.days - b.days);
@@ -95,12 +102,79 @@ export default function TodayPage() {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
+  const daboInsights = useMemo(() => {
+    if (!household) return [];
+    return generateDaboInsights({
+      members,
+      tasks: allTasksForBalance,
+      calendarEvents,
+      routines,
+      today: todayCivilDate(),
+    }).slice(0, 3);
+  }, [household, members, allTasksForBalance, calendarEvents, routines]);
+
   if (loading || !household || !me) return <LoadingState />;
 
   const nothingToDo = tasks.length === 0 && items.length === 0;
   const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
   const sortedItems = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const sortedTasks = [...tasks].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+
+  const hasDaboEventInsight = daboInsights.some((insight) => insight.type === "upcoming_event");
+
+  function insightDetails(insight: DaboInsight) {
+    const task = insight.relatedEntityId
+      ? allTasksForBalance.find((candidate) => candidate.id === insight.relatedEntityId)
+      : undefined;
+    const event = insight.relatedEntityId
+      ? calendarEvents.find((candidate) => candidate.id === insight.relatedEntityId)
+      : undefined;
+    const suggestedMember = insight.suggestedMemberId
+      ? members.find((member) => member.id === insight.suggestedMemberId)
+      : undefined;
+
+    if (insight.type === "overdue_task") {
+      return {
+        icon: Clock3,
+        title: t(insight.titleKey),
+        message: t(insight.messageKey).replace("{task}", task?.name || t("tasks_title")),
+        reason: t(insight.reasonKey),
+        href: "/app/taches",
+      };
+    }
+
+    if (insight.type === "upcoming_event") {
+      return {
+        icon: CalendarDays,
+        title: t(insight.titleKey),
+        message: t(insight.messageKey).replace("{event}", event?.title || t("calendar_title")),
+        reason: t(insight.reasonKey),
+        href: "/app/calendrier",
+      };
+    }
+
+    if (insight.type === "balance") {
+      return {
+        icon: Scale,
+        title: t(insight.titleKey),
+        message: t(insight.messageKey),
+        reason: t(insight.reasonKey)
+          .replace("{share}", String(insight.metadata?.highestShare ?? ""))
+          .replace("{count}", String(insight.metadata?.completedTaskCount ?? "")),
+        href: "/app/equilibre",
+      };
+    }
+
+    return {
+      icon: UserRoundPlus,
+      title: t(insight.titleKey),
+      message: t(insight.messageKey)
+        .replace("{member}", suggestedMember?.first_name || t("unassigned"))
+        .replace("{task}", task?.name || t("tasks_title")),
+      reason: t(insight.reasonKey),
+      href: "/app/taches",
+    };
+  }
 
   return (
     <div>
@@ -116,7 +190,42 @@ export default function TodayPage() {
         />
       )}
 
-      {upcomingEvent && (
+      {daboInsights.length > 0 && (
+        <section className="mx-5 mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={15} className="text-mustard" />
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t("dabo_insights_label")}</div>
+          </div>
+          <div className="space-y-2">
+            {daboInsights.map((insight) => {
+              const detail = insightDetails(insight);
+              const InsightIcon = detail.icon;
+              return (
+                <button
+                  key={insight.id}
+                  type="button"
+                  onClick={() => router.push(detail.href)}
+                  className="w-full text-left bg-white2 rounded-2xl p-4 flex gap-3 items-start"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-mustardBg flex items-center justify-center shrink-0">
+                    <InsightIcon size={17} className="text-mustard" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-ink mb-1">{detail.title}</div>
+                    <div className="text-sm text-ink leading-snug">{detail.message}</div>
+                    <div className="text-[11px] text-muted mt-2 leading-snug">
+                      <span className="font-medium">{t("dabo_why")}</span> {detail.reason}
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-muted shrink-0 mt-1" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {upcomingEvent && !hasDaboEventInsight && (
         <div className="mx-5 mb-4 flex items-center gap-2 bg-mustardBg rounded-xl p-3 text-sm text-ink">
           <PartyPopper size={16} className="text-mustard shrink-0" />
           <span className="flex-1">
