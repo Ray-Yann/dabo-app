@@ -10,6 +10,7 @@ import { notifyHousehold } from "@/lib/notifications";
 import { completeHouseholdTask, insertNextRecurringOccurrence } from "@/lib/task-completion";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
+import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
 
 
@@ -111,6 +112,7 @@ export default function TasksPage() {
   const [recurrenceDeleteTarget, setRecurrenceDeleteTarget] = useState<Task | null>(null);
   const [showFloatingAdd, setShowFloatingAdd] = useState(false);
   const [addedConfirmation, setAddedConfirmation] = useState(false);
+  const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const topAddRef = useRef<HTMLButtonElement | null>(null);
 
   async function loadTasks() {
@@ -259,15 +261,26 @@ export default function TasksPage() {
     );
   }
 
-  async function completeTask(task: Task) {
+  async function completeTask(task: Task, performerIds?: string[]) {
     if (animatingId || !household || !me) return;
+
+    if (!performerIds && task.assigned_to && task.assigned_to !== me.id) {
+      setCompletionTarget(task);
+      return;
+    }
+
+    setCompletionTarget(null);
     setAnimatingId(task.id);
     await new Promise((r) => setTimeout(r, 260));
     try {
-      await completeHouseholdTask(
+      const result = await completeHouseholdTask(
         { supabase, householdId: household.id, members, me },
-        task
+        task,
+        performerIds || [me.id]
       );
+      if (!result.ok && result.reason === "contribution_error") {
+        alert(t("task_completion_error"));
+      }
     } finally {
       setAnimatingId(null);
       loadTasks();
@@ -438,6 +451,17 @@ export default function TasksPage() {
 
   return (
     <div>
+      {completionTarget && me && (
+        <TaskCompletionDialog
+          task={completionTarget}
+          me={me}
+          members={members}
+          t={t}
+          onChoose={(performerIds) => void completeTask(completionTarget, performerIds)}
+          onCancel={() => setCompletionTarget(null)}
+        />
+      )}
+
       {recurrenceDeleteTarget && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4" onClick={() => setRecurrenceDeleteTarget(null)}>
           <div className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>

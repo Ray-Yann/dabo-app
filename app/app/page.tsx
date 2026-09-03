@@ -10,6 +10,7 @@ import { ShoppingBag, Info, Plus, ListChecks, PartyPopper, Sparkles, Clock3, Cal
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
+import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
@@ -28,6 +29,7 @@ export default function TodayPage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
+  const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
 
   useEffect(() => {
     if (!household || !me) return;
@@ -74,14 +76,24 @@ export default function TodayPage() {
     })();
   }, [household, me]);
 
-  async function toggleTask(task: Task) {
+  async function toggleTask(task: Task, performerIds?: string[]) {
     if (!household || !me) return;
 
-    const completed = await completeHouseholdTask(
+    if (!performerIds && task.assigned_to && task.assigned_to !== me.id) {
+      setCompletionTarget(task);
+      return;
+    }
+
+    setCompletionTarget(null);
+    const result = await completeHouseholdTask(
       { supabase, householdId: household.id, members, me },
-      task
+      task,
+      performerIds || [me.id]
     );
-    if (!completed) return;
+    if (!result.ok) {
+      if (result.reason === "contribution_error") alert(t("task_completion_error"));
+      return;
+    }
 
     const [{ data: myTasks }, { data: allTasks }] = await Promise.all([
       supabase
@@ -315,6 +327,17 @@ export default function TodayPage() {
           </div>
         )}
       </div>
+
+      {completionTarget && (
+        <TaskCompletionDialog
+          task={completionTarget}
+          me={me}
+          members={members}
+          t={t}
+          onChoose={(performerIds) => void toggleTask(completionTarget, performerIds)}
+          onCancel={() => setCompletionTarget(null)}
+        />
+      )}
     </div>
   );
 }

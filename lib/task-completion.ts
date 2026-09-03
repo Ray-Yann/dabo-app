@@ -13,6 +13,10 @@ type CompleteTaskContext = RecurrenceContext & {
   me: Member;
 };
 
+export type TaskCompletionResult =
+  | { ok: true }
+  | { ok: false; reason: "already_completed" | "contribution_error" };
+
 export async function insertNextRecurringOccurrence(
   { supabase, householdId, members }: RecurrenceContext,
   task: Task,
@@ -60,9 +64,16 @@ export async function insertNextRecurringOccurrence(
 
 export async function completeHouseholdTask(
   { supabase, householdId, members, me }: CompleteTaskContext,
-  task: Task
-): Promise<boolean> {
+  task: Task,
+  performerMemberIds: string[] = [me.id]
+): Promise<TaskCompletionResult> {
   const completedAt = new Date().toISOString();
+  const uniquePerformerIds = [...new Set(performerMemberIds)].filter(Boolean);
+
+  if (uniquePerformerIds.length === 0) {
+    return { ok: false, reason: "contribution_error" };
+  }
+
   const { data: updated, error: completeError } = await supabase
     .from("tasks")
     .update({ status: "done", completed_at: completedAt })
@@ -72,7 +83,89 @@ export async function completeHouseholdTask(
     .maybeSingle();
 
   // A second click/device must not generate another notification or occurrence.
-  if (completeError || !updated) return false;
+  if (completeError || !updated) return { ok: false, reason: "already_completed" };
+
+  // Contribution writes happen before notifications/recurrence. If one of them
+  // fails, put the task back to pending. An unfinished contribution remains
+  // "unknown" and can be resumed safely on a later attempt.
+  try {
+    let contributionId: string | null = null;
+
+    const { data: existingContribution } = await supabase
+      .from("task_contributions")
+      .select("id, performer_status")
+      .eq("task_id", task.id)
+      .maybeSingle();
+
+    if (existingContribution?.id) {
+      contributionId = existingContribution.id;
+      const { error: refreshError } = await supabase
+        .from("task_contributions")
+        .update({
+          completed_at: completedAt,
+          duration_key: task.duration_key,
+          effort_level: task.effort_level,
+          weight_points: task.weight_points,
+          performer_status: "unknown",
+          cancelled_at: null,
+          updated_by: me.id,
+        })
+        .eq("id", contributionId);
+      if (refreshError) throw refreshError;
+    } else {
+      const { data: contribution, error: contributionError } = await supabase
+        .from("task_contributions")
+        .insert({
+          task_id: task.id,
+          household_id: householdId,
+          completed_at: completedAt,
+          duration_key: task.duration_key,
+          effort_level: task.effort_level,
+          weight_points: task.weight_points,
+          performer_status: "unknown",
+          created_by: me.id,
+          updated_by: me.id,
+        })
+        .select("id")
+        .single();
+      if (contributionError || !contribution) throw contributionError || new Error("Contribution non créée");
+      contributionId = contribution.id;
+    }
+
+    const { data: existingParticipants, error: participantReadError } = await supabase
+      .from("task_contribution_participants")
+      .select("member_id")
+      .eq("contribution_id", contributionId);
+    if (participantReadError) throw participantReadError;
+
+    const existingIds = new Set((existingParticipants || []).map((row: { member_id: string }) => row.member_id));
+    const missingIds = uniquePerformerIds.filter((id) => !existingIds.has(id));
+
+    if (missingIds.length > 0) {
+      const { error: participantError } = await supabase
+        .from("task_contribution_participants")
+        .insert(missingIds.map((memberId) => ({
+          contribution_id: contributionId,
+          member_id: memberId,
+          share_weight: 1,
+        })));
+      if (participantError) throw participantError;
+    }
+
+    const { error: confirmError } = await supabase
+      .from("task_contributions")
+      .update({ performer_status: "confirmed", updated_by: me.id })
+      .eq("id", contributionId);
+    if (confirmError) throw confirmError;
+  } catch (error) {
+    console.error("DABO contribution completion failed", error);
+    await supabase
+      .from("tasks")
+      .update({ status: "pending", completed_at: null })
+      .eq("id", task.id)
+      .eq("completed_at", completedAt);
+    return { ok: false, reason: "contribution_error" };
+  }
 
   void notifyHousehold(supabase, householdId, me.id, "notif_task_done", {
     name: me.first_name,
@@ -97,5 +190,5 @@ export async function completeHouseholdTask(
     }
   }
 
-  return true;
+  return { ok: true };
 }
