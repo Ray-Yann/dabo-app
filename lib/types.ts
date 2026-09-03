@@ -31,6 +31,7 @@ export type ShoppingItem = {
   due_date: string | null;
   bought_at: string | null;
   created_at: string;
+  dabo_suggestion_product_key?: string | null;
 };
 
 export type Task = {

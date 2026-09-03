@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
 import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
-import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles } from "lucide-react";
+import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
@@ -70,6 +70,7 @@ export default function CoursesPage() {
   const [handledSuggestionKeys, setHandledSuggestionKeys] = useState<string[]>([]);
   const [suggestionsHandledThisVisit, setSuggestionsHandledThisVisit] = useState(0);
   const [suggestionBusy, setSuggestionBusy] = useState(false);
+  const [suggestionMenuOpen, setSuggestionMenuOpen] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -154,6 +155,29 @@ export default function CoursesPage() {
   }
   async function remove(id: string) {
     if (!confirm(t("confirm_delete_item"))) return;
+    const item = items.find((candidate) => candidate.id === id);
+
+    if (household && item?.status === "to_buy" && item.dabo_suggestion_product_key) {
+      const productKey = item.dabo_suggestion_product_key;
+      const preference = preferenceFor(productKey);
+      const now = new Date().toISOString();
+
+      await supabase.from("shopping_suggestion_preferences").upsert({
+        household_id: household.id,
+        product_key: productKey,
+        last_label: item.name.trim(),
+        dismiss_count: preference?.dismiss_count ?? 0,
+        snoozed_until: preference?.snoozed_until ?? null,
+        disabled: preference?.disabled ?? false,
+        accepted_count: preference?.accepted_count ?? 0,
+        removed_without_purchase_count: (preference?.removed_without_purchase_count ?? 0) + 1,
+        last_suggested_at: preference?.last_suggested_at ?? null,
+        last_accepted_at: preference?.last_accepted_at ?? null,
+        last_dismissed_at: preference?.last_dismissed_at ?? null,
+        updated_at: now,
+      }, { onConflict: "household_id,product_key" });
+    }
+
     await supabase.from("shopping_items").delete().eq("id", id);
     loadItems();
   }
@@ -206,6 +230,7 @@ export default function CoursesPage() {
       urgent: false,
       assigned_to: null,
       due_date: null,
+      dabo_suggestion_product_key: productKey,
     });
 
     if (!itemError) {
@@ -223,6 +248,35 @@ export default function CoursesPage() {
         last_dismissed_at: preference?.last_dismissed_at ?? null,
         updated_at: now,
       }, { onConflict: "household_id,product_key" });
+      markSuggestionHandled(productKey);
+      await loadItems();
+    }
+    setSuggestionBusy(false);
+  }
+
+  async function disableShoppingSuggestion(productKey: string, label: string) {
+    if (!household || suggestionBusy) return;
+    setSuggestionBusy(true);
+    const preference = preferenceFor(productKey);
+    const now = new Date().toISOString();
+
+    const { error } = await supabase.from("shopping_suggestion_preferences").upsert({
+      household_id: household.id,
+      product_key: productKey,
+      last_label: label,
+      dismiss_count: preference?.dismiss_count ?? 0,
+      snoozed_until: null,
+      disabled: true,
+      accepted_count: preference?.accepted_count ?? 0,
+      removed_without_purchase_count: preference?.removed_without_purchase_count ?? 0,
+      last_suggested_at: now,
+      last_accepted_at: preference?.last_accepted_at ?? null,
+      last_dismissed_at: preference?.last_dismissed_at ?? null,
+      updated_at: now,
+    }, { onConflict: "household_id,product_key" });
+
+    if (!error) {
+      setSuggestionMenuOpen(false);
       markSuggestionHandled(productKey);
       await loadItems();
     }
@@ -325,6 +379,29 @@ export default function CoursesPage() {
                 >
                   {t("dabo_shopping_not_now")}
                 </button>
+                <div className="relative ml-auto">
+                  <button
+                    type="button"
+                    disabled={suggestionBusy}
+                    onClick={() => setSuggestionMenuOpen((open) => !open)}
+                    aria-label={t("dabo_shopping_more_options")}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:bg-paper disabled:opacity-50"
+                  >
+                    <MoreHorizontal size={17} />
+                  </button>
+                  {suggestionMenuOpen && (
+                    <div className="absolute right-0 top-9 z-10 w-56 rounded-xl border border-border bg-white2 p-1.5 shadow-lg">
+                      <button
+                        type="button"
+                        disabled={suggestionBusy}
+                        onClick={() => disableShoppingSuggestion(shoppingSuggestion.productKey, shoppingSuggestion.label)}
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-paper disabled:opacity-50"
+                      >
+                        {t("dabo_shopping_never_suggest")}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
