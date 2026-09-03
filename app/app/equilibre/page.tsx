@@ -112,7 +112,7 @@ export default function BalancePage() {
   return (
     <div>
       <Header eyebrow={t("balance_this_week")} title={t("balance_title")} />
-      <IntroTip id="balance" text={t("intro_balance")} />
+      <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
 
       <div className="flex gap-2 px-5 mb-4">
         {(["week", "month", "quarter"] as Period[]).map((p) => (

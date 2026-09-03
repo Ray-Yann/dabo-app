@@ -242,7 +242,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     intro_courses_title: "Les courses, plus simples ensemble 🛒",
     intro_courses: "Ajoutez ce qu’il manque à la maison, partagez les courses si besoin et cochez au fur et à mesure. DABO garde tout le monde au courant.",
     intro_tasks: "Notez ce qu’il y a à faire, répartissez-vous les tâches si besoin et laissez DABO vous aider à garder le rythme.",
-    intro_balance: "Chaque tâche pèse selon le temps qu'elle prend. Ce total montre qui porte quoi cette semaine — pas un classement.",
+    intro_balance_title: "Mieux voir pour mieux partager ⚖️",
+    intro_balance: "DABO tient compte du temps et de l’effort de chaque tâche pour vous aider à comprendre comment les contributions se répartissent dans le foyer.",
     intro_promos: "Notez ici les bonnes affaires repérées en magasin, pour que tout le foyer en profite.",
     intro_settings: "Invitez des membres, gérez le type de foyer, et personnalisez les préférences ici.",
 
@@ -491,7 +492,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     intro_courses_title: "Samen eenvoudiger boodschappen doen 🛒",
     intro_courses: "Voeg toe wat thuis ontbreekt, verdeel de boodschappen indien nodig en vink af terwijl jullie bezig zijn. DABO houdt iedereen op de hoogte.",
     intro_tasks: "Noteer wat er moet gebeuren, verdeel de taken indien nodig en laat DABO helpen om het ritme te bewaren.",
-    intro_balance: "Elke taak weegt naargelang de tijd die ze kost. Dit totaal toont wie wat draagt deze week — geen ranglijst.",
+    intro_balance_title: "Beter zien om beter te verdelen ⚖️",
+    intro_balance: "DABO houdt rekening met de tijd en inspanning van elke taak om je te helpen begrijpen hoe de bijdragen binnen het huishouden verdeeld zijn.",
     intro_promos: "Noteer hier de goede deals die je in de winkel vindt, voor het hele huishouden.",
     intro_settings: "Nodig leden uit, beheer het type huishouden, en personaliseer de voorkeuren hier.",
 
@@ -740,7 +742,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     intro_courses_title: "Groceries, simpler together 🛒",
     intro_courses: "Add what’s missing at home, share the shopping if needed, and check things off as you go. DABO keeps everyone up to date.",
     intro_tasks: "Note what needs doing, share tasks if needed, and let DABO help you keep the rhythm.",
-    intro_balance: "Each task is weighted by how long it takes. This total shows who's carrying what this week — not a ranking.",
+    intro_balance_title: "See more clearly, share more fairly ⚖️",
+    intro_balance: "DABO takes the time and effort of each task into account to help you understand how contributions are shared across the household.",
     intro_promos: "Note the good deals you spot in stores here, for the whole household to use.",
     intro_settings: "Invite members, manage the household type, and customize preferences here.",
 
