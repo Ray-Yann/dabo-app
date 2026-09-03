@@ -5,13 +5,14 @@ import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
-import { relativeDate, dueDateLabel } from "@/lib/utils";
+import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
-import { Check, Plus, Trash2, MessageCircle, X, Pencil } from "lucide-react";
+import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
 import { PromosView } from "@/components/PromosView";
+import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
@@ -65,6 +66,10 @@ export default function CoursesPage() {
   const [boughtSearch, setBoughtSearch] = useState("");
   const [showAllBought, setShowAllBought] = useState(false);
   const [boughtCutoff, setBoughtCutoff] = useState<number>(0);
+  const [suggestionPreferences, setSuggestionPreferences] = useState<ShoppingSuggestionPreference[]>([]);
+  const [handledSuggestionKeys, setHandledSuggestionKeys] = useState<string[]>([]);
+  const [suggestionsHandledThisVisit, setSuggestionsHandledThisVisit] = useState(0);
+  const [suggestionBusy, setSuggestionBusy] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -73,8 +78,12 @@ export default function CoursesPage() {
 
   async function loadItems() {
     if (!household) return;
-    const { data } = await supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false });
-    setItems((data as ShoppingItem[]) || []);
+    const [{ data: itemData }, { data: preferenceData }] = await Promise.all([
+      supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
+      supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
+    ]);
+    setItems((itemData as ShoppingItem[]) || []);
+    setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
   }
 
   useEffect(() => {
@@ -175,6 +184,78 @@ export default function CoursesPage() {
     reloadComments(openComments);
   }
 
+  function preferenceFor(productKey: string) {
+    return suggestionPreferences.find((preference) => preference.product_key === productKey);
+  }
+
+  function markSuggestionHandled(productKey: string) {
+    setHandledSuggestionKeys((current) => current.includes(productKey) ? current : [...current, productKey]);
+    setSuggestionsHandledThisVisit((count) => count + 1);
+  }
+
+  async function acceptShoppingSuggestion(productKey: string, label: string) {
+    if (!household || suggestionBusy) return;
+    setSuggestionBusy(true);
+    const preference = preferenceFor(productKey);
+    const now = new Date().toISOString();
+
+    const { error: itemError } = await supabase.from("shopping_items").insert({
+      household_id: household.id,
+      name: label,
+      quantity: null,
+      urgent: false,
+      assigned_to: null,
+      due_date: null,
+    });
+
+    if (!itemError) {
+      await supabase.from("shopping_suggestion_preferences").upsert({
+        household_id: household.id,
+        product_key: productKey,
+        last_label: label,
+        dismiss_count: preference?.dismiss_count ?? 0,
+        snoozed_until: null,
+        disabled: preference?.disabled ?? false,
+        accepted_count: (preference?.accepted_count ?? 0) + 1,
+        removed_without_purchase_count: preference?.removed_without_purchase_count ?? 0,
+        last_suggested_at: now,
+        last_accepted_at: now,
+        last_dismissed_at: preference?.last_dismissed_at ?? null,
+        updated_at: now,
+      }, { onConflict: "household_id,product_key" });
+      markSuggestionHandled(productKey);
+      await loadItems();
+    }
+    setSuggestionBusy(false);
+  }
+
+  async function dismissShoppingSuggestion(productKey: string, label: string, nextSuggestionDate: string) {
+    if (!household || suggestionBusy) return;
+    setSuggestionBusy(true);
+    const preference = preferenceFor(productKey);
+    const now = new Date().toISOString();
+    const snoozedUntil = `${nextSuggestionDate}T00:00:00.000Z`;
+
+    await supabase.from("shopping_suggestion_preferences").upsert({
+      household_id: household.id,
+      product_key: productKey,
+      last_label: label,
+      dismiss_count: (preference?.dismiss_count ?? 0) + 1,
+      snoozed_until: snoozedUntil,
+      disabled: preference?.disabled ?? false,
+      accepted_count: preference?.accepted_count ?? 0,
+      removed_without_purchase_count: preference?.removed_without_purchase_count ?? 0,
+      last_suggested_at: now,
+      last_accepted_at: preference?.last_accepted_at ?? null,
+      last_dismissed_at: now,
+      updated_at: now,
+    }, { onConflict: "household_id,product_key" });
+
+    markSuggestionHandled(productKey);
+    await loadItems();
+    setSuggestionBusy(false);
+  }
+
   if (loading || !household) return <LoadingState />;
 
   const toBuy = [...items.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
@@ -184,6 +265,11 @@ export default function CoursesPage() {
     .filter((i) => showAllBought || (i.bought_at && new Date(i.bought_at).getTime() > boughtCutoff && boughtCutoff > 0))
     .filter((i) => i.name.toLowerCase().includes(boughtSearch.toLowerCase()))
     .sort((a, b) => new Date(b.bought_at || 0).getTime() - new Date(a.bought_at || 0).getTime());
+  const shoppingSuggestions = suggestionsHandledThisVisit >= 3
+    ? []
+    : generateShoppingSuggestions({ items, preferences: suggestionPreferences, today: todayCivilDate() })
+        .filter((suggestion) => !handledSuggestionKeys.includes(suggestion.productKey));
+  const shoppingSuggestion = shoppingSuggestions[0] ?? null;
 
   function memberName(id: string | null) {
     return members.find((m) => m.id === id)?.first_name;
@@ -202,6 +288,48 @@ export default function CoursesPage() {
       </div>
 
       <IntroTip id="courses" text={t("intro_courses")} />
+
+      {view === "courses" && shoppingSuggestion && (
+        <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-mustardBg flex items-center justify-center shrink-0">
+              <Sparkles size={17} className="text-mustard" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-ink mb-1">{t("dabo_shopping_thought")}</div>
+              <p className="text-sm text-ink leading-snug">
+                {t("dabo_shopping_suggestion").replace("{product}", shoppingSuggestion.label)}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <button
+                  type="button"
+                  disabled={suggestionBusy}
+                  onClick={() => acceptShoppingSuggestion(shoppingSuggestion.productKey, shoppingSuggestion.label)}
+                  className="bg-ink text-paper rounded-xl px-3.5 py-2 text-xs font-medium disabled:opacity-50"
+                >
+                  {t("dabo_shopping_add")}
+                </button>
+                <button
+                  type="button"
+                  disabled={suggestionBusy}
+                  onClick={() => dismissShoppingSuggestion(
+                    shoppingSuggestion.productKey,
+                    shoppingSuggestion.label,
+                    new Date(Date.UTC(
+                      Number(shoppingSuggestion.expectedOn.slice(0, 4)),
+                      Number(shoppingSuggestion.expectedOn.slice(5, 7)) - 1,
+                      Number(shoppingSuggestion.expectedOn.slice(8, 10)) + shoppingSuggestion.rhythmDays - 2
+                    )).toISOString().slice(0, 10)
+                  )}
+                  className="px-2 py-2 text-xs font-medium text-muted disabled:opacity-50"
+                >
+                  {t("dabo_shopping_not_now")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 px-5 mb-2">
         <button
