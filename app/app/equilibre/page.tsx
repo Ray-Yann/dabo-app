@@ -138,14 +138,21 @@ export default function BalancePage() {
         ) : detailContributions.length === 0 ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_empty_period")}</p>
         ) : confirmedContributionCount < 4 ? (
-          <div className="text-center py-3">
-            <p className="text-base text-ink font-medium">{t("balance_building_title")}</p>
-            <p className="text-sm text-muted mt-1">
-              {t("balance_building_text").replace("{count}", String(confirmedContributionCount))}
-            </p>
-            {hasHistoricalUnknowns && (
-              <p className="text-xs text-muted mt-3">{t("balance_historical_unknown_note")}</p>
-            )}
+          <div>
+            <div className="text-center mb-4">
+              <p className="text-base text-ink font-medium">{t("balance_building_title")}</p>
+              <p className="text-sm text-muted mt-1">{t("balance_building_text")}</p>
+              <p className="text-[11px] text-muted mt-2">
+                {t("balance_partial_data").replace("{count}", String(confirmedContributionCount))}
+              </p>
+            </div>
+            <BalanceBar
+              members={members}
+              contributions={balanceData.contributions}
+              participants={balanceData.participants}
+              big
+              since={since}
+            />
           </div>
         ) : (
           <BalanceBar
@@ -211,6 +218,9 @@ export default function BalancePage() {
                 )}
               </div>
             </CollapsibleSection>
+            {hasHistoricalUnknowns && (
+              <p className="text-[11px] text-muted mt-3 px-1">{t("balance_historical_unknown_note")}</p>
+            )}
           </div>
         </>
       )}
