@@ -104,13 +104,22 @@ export default function TodayPage() {
 
   const daboInsights = useMemo(() => {
     if (!household) return [];
-    return generateDaboInsights({
+    const insights = generateDaboInsights({
       members,
       tasks: allTasksForBalance,
       calendarEvents,
       routines,
       today: todayCivilDate(),
-    }).slice(0, 3);
+    });
+
+    const seenTypes = new Set<DaboInsight["type"]>();
+    return insights
+      .filter((insight) => {
+        if (seenTypes.has(insight.type)) return false;
+        seenTypes.add(insight.type);
+        return true;
+      })
+      .slice(0, 3);
   }, [household, members, allTasksForBalance, calendarEvents, routines]);
 
   if (loading || !household || !me) return <LoadingState />;
