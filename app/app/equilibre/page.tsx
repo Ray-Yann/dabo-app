@@ -13,6 +13,7 @@ import { computeMemberPercentages } from "@/lib/utils";
 import {
   ContributionBalanceData,
   computeContributionMemberPoints,
+  countConfirmedContributionsSince,
   fetchContributionBalanceData,
 } from "@/lib/task-contributions";
 import { Share2 } from "lucide-react";
@@ -47,6 +48,7 @@ export default function BalancePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [period, setPeriod] = useState<Period>("week");
+  const [showAllDetails, setShowAllDetails] = useState(false);
   const t = useT();
 
   useEffect(() => {
@@ -76,7 +78,11 @@ export default function BalancePage() {
     first_name: member.first_name,
     pts: pointsByMember.get(member.id) || 0,
   }));
-  const total = totals.reduce((sum, member) => sum + member.pts, 0);
+  const confirmedContributionCount = countConfirmedContributionsSince(
+    balanceData.contributions,
+    balanceData.participants,
+    since
+  );
   const percentages = computeMemberPercentages(totals.map((member) => ({ id: member.id, pts: member.pts })));
   const sinceMs = since.getTime();
   const taskById = new Map(tasks.map((task) => [task.id, task]));
@@ -90,12 +96,12 @@ export default function BalancePage() {
   const detailContributions = balanceData.contributions
     .filter(
       (contribution) =>
-        contribution.performer_status === "confirmed" &&
         !contribution.cancelled_at &&
-        new Date(contribution.completed_at).getTime() >= sinceMs &&
-        (participantsByContribution.get(contribution.id)?.length || 0) > 0
+        new Date(contribution.completed_at).getTime() >= sinceMs
     )
     .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
+  const visibleDetailContributions = showAllDetails ? detailContributions : detailContributions.slice(0, 5);
+  const hasHistoricalUnknowns = detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
   function shareReport() {
     const periodLabel = period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months");
@@ -118,7 +124,7 @@ export default function BalancePage() {
         {(["week", "month", "quarter"] as Period[]).map((p) => (
           <button
             key={p}
-            onClick={() => setPeriod(p)}
+            onClick={() => { setPeriod(p); setShowAllDetails(false); }}
             className={`flex-1 py-2 rounded-xl text-xs border ${period === p ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
           >
             {p === "week" ? t("balance_this_week") : p === "month" ? t("balance_this_month") : t("balance_last_3_months")}
@@ -129,8 +135,18 @@ export default function BalancePage() {
       <div className="mx-5 mb-5 bg-white2 rounded-2xl p-5">
         {!household.equity_score_enabled ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
-        ) : total === 0 ? (
+        ) : detailContributions.length === 0 ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_empty_period")}</p>
+        ) : confirmedContributionCount < 4 ? (
+          <div className="text-center py-3">
+            <p className="text-base text-ink font-medium">{t("balance_building_title")}</p>
+            <p className="text-sm text-muted mt-1">
+              {t("balance_building_text").replace("{count}", String(confirmedContributionCount))}
+            </p>
+            {hasHistoricalUnknowns && (
+              <p className="text-xs text-muted mt-3">{t("balance_historical_unknown_note")}</p>
+            )}
+          </div>
         ) : (
           <BalanceBar
             members={members}
@@ -142,17 +158,19 @@ export default function BalancePage() {
         )}
       </div>
 
-      {household.equity_score_enabled && total > 0 && (
+      {household.equity_score_enabled && detailContributions.length > 0 && (
         <>
-          <button onClick={shareReport} className="mx-5 mb-3 flex items-center justify-center gap-2 w-full border border-border rounded-xl py-2.5 text-sm text-muted">
-            <Share2 size={14} /> {t("share_report")}
-          </button>
+          {confirmedContributionCount >= 4 && (
+            <button onClick={shareReport} className="mx-5 mb-3 flex items-center justify-center gap-2 w-full border border-border rounded-xl py-2.5 text-sm text-muted">
+              <Share2 size={14} /> {t("share_report")}
+            </button>
+          )}
 
           <div className="px-5 mb-5">
-            <CollapsibleSection title={t("view_contribution_detail")} defaultOpen={false}>
+            <CollapsibleSection title={t("view_contribution_detail")} defaultOpen>
               <div className="bg-white2 rounded-2xl p-4">
                 <div className="space-y-2">
-                  {detailContributions.map((contribution) => {
+                  {visibleDetailContributions.map((contribution) => {
                     const task = taskById.get(contribution.task_id);
                     const duration = durationLabel(contribution.duration_key);
                     const effort = effortLabel(contribution.effort_level);
@@ -166,11 +184,31 @@ export default function BalancePage() {
                           <div className="text-ink">{task?.name || t("tasks_title")}</div>
                           <div className="text-muted">{meta || t("effort_not_provided")}</div>
                         </div>
-                        <span className="text-muted shrink-0 text-right">{performers.join(" & ")}</span>
+                        <span className="text-muted shrink-0 text-right">
+                          {contribution.performer_status === "unknown" || performers.length === 0
+                            ? t("balance_performer_unknown")
+                            : performers.join(" & ")}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
+                {detailContributions.length > 5 && (
+                  <div className="pt-3 text-center">
+                    <p className="text-[11px] text-muted mb-2">
+                      {t("balance_detail_count")
+                        .replace("{shown}", String(visibleDetailContributions.length))
+                        .replace("{total}", String(detailContributions.length))}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDetails((value) => !value)}
+                      className="text-xs text-mustard hover:underline"
+                    >
+                      {showAllDetails ? t("balance_show_less") : t("balance_show_all_detail")}
+                    </button>
+                  </div>
+                )}
               </div>
             </CollapsibleSection>
           </div>
