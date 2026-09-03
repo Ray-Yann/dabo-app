@@ -1,5 +1,5 @@
 import type { CalendarEvent, Member, Routine, Task } from "@/lib/types";
-import { computeMemberPercentages, nextOccurrence } from "@/lib/utils";
+import { computeMemberPercentages } from "@/lib/utils";
 
 export type DaboInsightType =
   | "overdue_task"
@@ -163,14 +163,37 @@ function buildOverdueInsights(tasks: Task[], today: string): DaboInsight[] {
     });
 }
 
+function nextCalendarOccurrence(eventDate: string, recurring: boolean, today: string): string {
+  parseCivilDate(eventDate);
+  parseCivilDate(today);
+  if (!recurring) return eventDate;
+
+  const [, month, day] = eventDate.split("-").map(Number);
+  const todayDate = parseCivilDate(today);
+  let year = todayDate.getUTCFullYear();
+  const candidateDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
+  let candidate = [
+    year,
+    String(month).padStart(2, "0"),
+    String(candidateDay).padStart(2, "0"),
+  ].join("-");
+
+  if (candidate < today) {
+    year += 1;
+    const nextDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
+    candidate = [
+      year,
+      String(month).padStart(2, "0"),
+      String(nextDay).padStart(2, "0"),
+    ].join("-");
+  }
+
+  return candidate;
+}
+
 function buildUpcomingEventInsights(events: CalendarEvent[], today: string): DaboInsight[] {
   return events.flatMap((event) => {
-    const occurrence = nextOccurrence(event.event_date, event.recurring);
-    const occurrenceCivil = [
-      occurrence.getFullYear(),
-      String(occurrence.getMonth() + 1).padStart(2, "0"),
-      String(occurrence.getDate()).padStart(2, "0"),
-    ].join("-");
+    const occurrenceCivil = nextCalendarOccurrence(event.event_date, event.recurring, today);
     const daysAway = civilDiffDays(today, occurrenceCivil);
 
     if (daysAway < 0 || daysAway > DABO_ENGINE_RULES.upcomingEventDays) return [];
