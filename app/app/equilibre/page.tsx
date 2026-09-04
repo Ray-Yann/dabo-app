@@ -651,8 +651,8 @@ export default function BalancePage() {
             {(redistributionTask.duration_key || redistributionTask.effort_level) && (
               <p className="mt-1 text-sm text-muted">
                 {[
-                  redistributionTask.duration_key ? t(`duration_${redistributionTask.duration_key}`) : null,
-                  redistributionTask.effort_level ? t(`effort_${redistributionTask.effort_level}`) : null,
+                  redistributionTask.duration_key ? t(`balance_redistribute_duration_${redistributionTask.duration_key}`) : null,
+                  redistributionTask.effort_level ? t(`balance_redistribute_effort_${redistributionTask.effort_level}`) : null,
                 ].filter(Boolean).join(" · ")}
               </p>
             )}
