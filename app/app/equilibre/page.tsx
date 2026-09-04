@@ -301,7 +301,7 @@ export default function BalancePage() {
     <div>
       <Header
         eyebrow={
-          section === "redistribute"
+          balanceSection === "redistribute"
             ? t("balance_redistribute_eyebrow")
             : period === "week"
               ? t("balance_analysis_week")
