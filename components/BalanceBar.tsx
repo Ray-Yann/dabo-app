@@ -57,15 +57,11 @@ export function BalanceBar({
         </div>
         {big && totals.length === 2 && (
           <div
-            className="absolute left-1/2 top-[-4px] h-6 w-px -translate-x-1/2 bg-ink/30"
+            className="absolute left-1/2 top-[-5px] h-7 w-px -translate-x-1/2 bg-ink/40 dark:bg-white/40"
             aria-hidden="true"
           />
         )}
       </div>
-
-      {big && totals.length === 2 && (
-        <div className="mt-1 text-center text-[10px] text-muted">{t("balance_reference_50_50")}</div>
-      )}
 
       {big && (
         <div className="flex justify-between flex-wrap gap-3 mt-3">
