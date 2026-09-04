@@ -265,10 +265,10 @@ export default function BalancePage() {
             }`}
           >
             {p === "week"
-              ? t("balance_period_week")
+              ? t("balance_this_week")
               : p === "month"
-                ? t("balance_period_month")
-                : t("balance_period_quarter")}
+                ? t("balance_this_month")
+                : t("balance_last_3_months")}
           </button>
         ))}
       </div>
