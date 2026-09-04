@@ -1,6 +1,7 @@
 "use client";
 
 import { Member } from "@/lib/types";
+import { Avatar } from "@/components/Avatar";
 import { startOfWeek, computeMemberPercentages, memberColor } from "@/lib/utils";
 import {
   TaskContribution,
@@ -38,25 +39,37 @@ export function BalanceBar({
 
   return (
     <div>
-      <div className={`flex w-full rounded-full overflow-hidden bg-borderLight ${big ? "h-4" : "h-2.5"}`}>
-        {totals.map((member) => (
-          <div
-            key={member.id}
-            style={{ width: `${(member.pts / total) * 100}%`, background: member.color }}
-          />
-        ))}
-      </div>
-      <div
-        className="mx-auto mt-1"
-        style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "6px solid #22301F" }}
-      />
-      {big && (
-        <div className="flex justify-between flex-wrap gap-2 mt-3">
+      <div className="relative">
+        <div className={`flex w-full rounded-full overflow-hidden bg-borderLight ${big ? "h-4" : "h-2.5"}`}>
           {totals.map((member) => (
-            <div key={member.id} className="flex flex-col items-center gap-0.5 text-xs">
-              <span className="w-2 h-2 rounded-full" style={{ background: member.color }} />
-              <span className="text-ink">{member.first_name}</span>
-              <span className="font-mono text-muted text-[11px]">{percentages.get(member.id) ?? 0}%</span>
+            <div
+              key={member.id}
+              className="transition-[width] duration-300 motion-reduce:transition-none"
+              style={{ width: `${(member.pts / total) * 100}%`, background: member.color }}
+            />
+          ))}
+        </div>
+        {big && totals.length === 2 && (
+          <div
+            className="absolute left-1/2 top-[-4px] h-6 w-px -translate-x-1/2 bg-ink/30"
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {big && totals.length === 2 && (
+        <div className="mt-1 text-center text-[10px] text-muted">50/50</div>
+      )}
+
+      {big && (
+        <div className="flex justify-between flex-wrap gap-3 mt-3">
+          {totals.map((member) => (
+            <div key={member.id} className="flex items-center gap-2 min-w-0">
+              <Avatar member={member} members={members} size={28} />
+              <div className="min-w-0">
+                <div className="text-xs text-ink truncate">{member.first_name}</div>
+                <div className="text-sm font-medium text-ink">{percentages.get(member.id) ?? 0}%</div>
+              </div>
             </div>
           ))}
         </div>

@@ -84,6 +84,21 @@ export default function BalancePage() {
     since
   );
   const percentages = computeMemberPercentages(totals.map((member) => ({ id: member.id, pts: member.pts })));
+  const memberShares = totals.map((member) => percentages.get(member.id) ?? 0);
+  const highestShare = memberShares.length ? Math.max(...memberShares) : 0;
+  const idealShare = members.length > 0 ? 100 / members.length : 100;
+  const balanceLevel: "healthy" | "gentle" | "marked" =
+    members.length === 2
+      ? highestShare < 60
+        ? "healthy"
+        : highestShare < 70
+          ? "gentle"
+          : "marked"
+      : highestShare <= idealShare * 1.2
+        ? "healthy"
+        : highestShare <= idealShare * 1.5
+          ? "gentle"
+          : "marked";
   const sinceMs = since.getTime();
   const taskById = new Map(tasks.map((task) => [task.id, task]));
   const participantsByContribution = new Map<string, string[]>();
@@ -120,19 +135,19 @@ export default function BalancePage() {
       <Header eyebrow={t("balance_this_week")} title={t("balance_title")} />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
 
-      <div className="flex gap-2 px-5 mb-4">
+      <div className="mx-5 mb-4 rounded-2xl bg-white2 p-1.5 flex gap-1">
         {(["week", "month", "quarter"] as Period[]).map((p) => (
           <button
             key={p}
             onClick={() => { setPeriod(p); setShowAllDetails(false); }}
-            className={`flex-1 py-2 rounded-xl text-xs border ${period === p ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
+            className={`flex-1 py-2.5 px-2 rounded-xl text-xs transition-colors ${period === p ? "bg-paper text-ink shadow-sm font-medium" : "text-muted hover:text-ink"}`}
           >
             {p === "week" ? t("balance_this_week") : p === "month" ? t("balance_this_month") : t("balance_last_3_months")}
           </button>
         ))}
       </div>
 
-      <div className="mx-5 mb-5 bg-white2 rounded-2xl p-5">
+      <div className="mx-5 mb-5 bg-white2 rounded-2xl p-5 border border-borderLight">
         {!household.equity_score_enabled ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
         ) : detailContributions.length === 0 ? (
@@ -155,13 +170,31 @@ export default function BalancePage() {
             />
           </div>
         ) : (
-          <BalanceBar
-            members={members}
-            contributions={balanceData.contributions}
-            participants={balanceData.participants}
-            big
-            since={since}
-          />
+          <div>
+            <div className="text-center mb-5">
+              <p className="text-base text-ink font-medium">
+                {balanceLevel === "healthy"
+                  ? t("balance_healthy_title")
+                  : balanceLevel === "gentle"
+                    ? t("balance_gentle_title")
+                    : t("balance_marked_title")}
+              </p>
+              <p className="text-sm text-muted mt-1 max-w-sm mx-auto">
+                {balanceLevel === "healthy"
+                  ? t("balance_healthy_text")
+                  : balanceLevel === "gentle"
+                    ? t("balance_gentle_text")
+                    : t("balance_marked_text")}
+              </p>
+            </div>
+            <BalanceBar
+              members={members}
+              contributions={balanceData.contributions}
+              participants={balanceData.participants}
+              big
+              since={since}
+            />
+          </div>
         )}
       </div>
 
