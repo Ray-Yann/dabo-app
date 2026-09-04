@@ -16,12 +16,16 @@ export function BalanceBar({
   participants,
   big = false,
   since,
+  selectedMemberId,
+  onMemberSelect,
 }: {
   members: Member[];
   contributions: TaskContribution[];
   participants: TaskContributionParticipant[];
   big?: boolean;
   since?: Date;
+  selectedMemberId?: string | null;
+  onMemberSelect?: (memberId: string) => void;
 }) {
   const t = useT();
   const periodStart = since || startOfWeek();
@@ -65,15 +69,27 @@ export function BalanceBar({
 
       {big && (
         <div className="flex justify-between flex-wrap gap-3 mt-3">
-          {totals.map((member) => (
-            <div key={member.id} className="flex items-center gap-2 min-w-0">
-              <Avatar member={member} members={members} size={28} />
-              <div className="min-w-0">
-                <div className="text-xs text-ink truncate">{member.first_name}</div>
-                <div className="text-sm font-medium text-ink">{percentages.get(member.id) ?? 0}%</div>
-              </div>
-            </div>
-          ))}
+          {totals.map((member) => {
+            const selected = selectedMemberId === member.id;
+            const interactive = Boolean(onMemberSelect);
+            return (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => onMemberSelect?.(member.id)}
+                aria-pressed={interactive ? selected : undefined}
+                className={`flex items-center gap-2 min-w-0 rounded-xl px-2 py-1.5 -mx-2 transition-colors ${
+                  interactive ? "cursor-pointer hover:bg-paper/60" : "cursor-default"
+                } ${selected ? "bg-paper ring-1 ring-border" : ""}`}
+              >
+                <Avatar member={member} members={members} size={28} />
+                <div className="min-w-0 text-left">
+                  <div className="text-xs text-ink truncate">{member.first_name}</div>
+                  <div className="text-sm font-medium text-ink">{percentages.get(member.id) ?? 0}%</div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

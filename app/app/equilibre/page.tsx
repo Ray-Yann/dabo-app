@@ -49,6 +49,7 @@ export default function BalancePage() {
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [period, setPeriod] = useState<Period>("week");
   const [showAllDetails, setShowAllDetails] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const t = useT();
 
   useEffect(() => {
@@ -102,11 +103,15 @@ export default function BalancePage() {
   const sinceMs = since.getTime();
   const taskById = new Map(tasks.map((task) => [task.id, task]));
   const participantsByContribution = new Map<string, string[]>();
+  const participantIdsByContribution = new Map<string, string[]>();
   balanceData.participants.forEach((participant) => {
     const names = participantsByContribution.get(participant.contribution_id) || [];
+    const ids = participantIdsByContribution.get(participant.contribution_id) || [];
     const member = members.find((candidate) => candidate.id === participant.member_id);
     if (member) names.push(member.first_name);
+    ids.push(participant.member_id);
     participantsByContribution.set(participant.contribution_id, names);
+    participantIdsByContribution.set(participant.contribution_id, ids);
   });
   const detailContributions = balanceData.contributions
     .filter(
@@ -115,8 +120,19 @@ export default function BalancePage() {
         new Date(contribution.completed_at).getTime() >= sinceMs
     )
     .sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
-  const visibleDetailContributions = showAllDetails ? detailContributions : detailContributions.slice(0, 5);
-  const hasHistoricalUnknowns = detailContributions.some((contribution) => contribution.performer_status === "unknown");
+  const filteredDetailContributions = selectedMemberId
+    ? detailContributions.filter(
+        (contribution) =>
+          contribution.performer_status === "confirmed" &&
+          (participantIdsByContribution.get(contribution.id) || []).includes(selectedMemberId)
+      )
+    : detailContributions;
+  const visibleDetailContributions = showAllDetails
+    ? filteredDetailContributions
+    : filteredDetailContributions.slice(0, 5);
+  const hasHistoricalUnknowns =
+    !selectedMemberId &&
+    detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
   const groupedDetailContributions = (() => {
     const groups = new Map<string, typeof visibleDetailContributions>();
@@ -164,7 +180,7 @@ export default function BalancePage() {
   return (
     <div>
       <Header
-        eyebrow={period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months")}
+        eyebrow={period === "week" ? t("balance_analysis_week") : period === "month" ? t("balance_analysis_month") : t("balance_analysis_3_months")}
         title={t("balance_title")}
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
@@ -173,7 +189,7 @@ export default function BalancePage() {
         {(["week", "month", "quarter"] as Period[]).map((p) => (
           <button
             key={p}
-            onClick={() => { setPeriod(p); setShowAllDetails(false); }}
+            onClick={() => { setPeriod(p); setShowAllDetails(false); setSelectedMemberId(null); }}
             className={`flex-1 py-2.5 px-2 rounded-xl text-xs transition-colors ${period === p ? "bg-paper text-ink shadow-sm font-medium" : "text-muted hover:text-ink"}`}
           >
             {p === "week" ? t("balance_this_week") : p === "month" ? t("balance_this_month") : t("balance_last_3_months")}
@@ -201,6 +217,11 @@ export default function BalancePage() {
               participants={balanceData.participants}
               big
               since={since}
+              selectedMemberId={selectedMemberId}
+              onMemberSelect={(memberId) => {
+                setSelectedMemberId(memberId);
+                setShowAllDetails(false);
+              }}
             />
           </div>
         ) : (
@@ -227,6 +248,11 @@ export default function BalancePage() {
               participants={balanceData.participants}
               big
               since={since}
+              selectedMemberId={selectedMemberId}
+              onMemberSelect={(memberId) => {
+                setSelectedMemberId(memberId);
+                setShowAllDetails(false);
+              }}
             />
           </div>
         )}
@@ -243,6 +269,29 @@ export default function BalancePage() {
           <div className="px-5 mb-5">
             <CollapsibleSection title={t("view_contribution_detail")} defaultOpen>
               <div className="bg-white2 rounded-2xl p-4">
+                {selectedMemberId && (
+                  <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-paper/60 px-3 py-2">
+                    <p className="text-xs text-muted">
+                      {t("balance_filtered_for").replace(
+                        "{name}",
+                        members.find((member) => member.id === selectedMemberId)?.first_name || ""
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMemberId(null);
+                        setShowAllDetails(false);
+                      }}
+                      className="shrink-0 text-xs font-medium text-mustard hover:underline"
+                    >
+                      {t("balance_show_household")}
+                    </button>
+                  </div>
+                )}
+                {selectedMemberId && filteredDetailContributions.length === 0 ? (
+                  <p className="py-5 text-center text-xs text-muted">{t("balance_member_no_contribution")}</p>
+                ) : (
                 <div className="space-y-5">
                   {groupedDetailContributions.map((group) => (
                     <div key={group.key}>
@@ -284,12 +333,13 @@ export default function BalancePage() {
                     </div>
                   ))}
                 </div>
-                {detailContributions.length > 5 && (
+                )}
+                {filteredDetailContributions.length > 5 && (
                   <div className="pt-3 text-center">
                     <p className="text-[11px] text-muted mb-2">
                       {t("balance_detail_count")
                         .replace("{shown}", String(visibleDetailContributions.length))
-                        .replace("{total}", String(detailContributions.length))}
+                        .replace("{total}", String(filteredDetailContributions.length))}
                     </p>
                     <button
                       type="button"
