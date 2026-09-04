@@ -51,6 +51,7 @@ export default function BalancePage() {
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [balanceSection, setBalanceSection] = useState<"overview" | "contributions" | "redistribute">("overview");
+  const [showCalculationInfo, setShowCalculationInfo] = useState(false);
   const [historicalContributionId, setHistoricalContributionId] = useState<string | null>(null);
   const [confirmingHistoricalPerformer, setConfirmingHistoricalPerformer] = useState(false);
   const t = useT();
@@ -287,7 +288,17 @@ export default function BalancePage() {
                 {(confirmedContributionCount === 1 ? t("balance_partial_data_one") : t("balance_partial_data")).replace("{count}", String(confirmedContributionCount))}
               </p>
             </div>
-            <BalanceBar
+            <div className="mt-1 mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowCalculationInfo(true)}
+              className="text-[11px] text-mustard hover:underline"
+            >
+              {t("balance_how_calculated")}
+            </button>
+          </div>
+
+          <BalanceBar
               members={members}
               contributions={balanceData.contributions}
               participants={balanceData.participants}
@@ -336,6 +347,25 @@ export default function BalancePage() {
         )}
       </div>
 
+          <div className="mx-5 mb-5 rounded-2xl border border-borderLight/60 bg-white2/55 px-4 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-ink">{t("balance_redistribute_preview_title")}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  {confirmedContributionCount < 4
+                    ? t("balance_redistribute_preview_partial")
+                    : t("balance_redistribute_preview_ready")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBalanceSection("redistribute")}
+                className="shrink-0 text-xs font-medium text-mustard hover:underline"
+              >
+                {t("balance_redistribute_preview_action")}
+              </button>
+            </div>
+          </div>
         </>
       )}
 
@@ -454,6 +484,40 @@ export default function BalancePage() {
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
             {t("balance_redistribute_text")}
           </p>
+        </div>
+      )}
+
+      {showCalculationInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4"
+          onClick={() => setShowCalculationInfo(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="balance-calculation-title"
+            className="w-full max-w-md rounded-3xl bg-paper p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
+            <h2 id="balance-calculation-title" className="text-base font-semibold text-ink">
+              {t("balance_how_calculated_title")}
+            </h2>
+            <div className="mt-4 space-y-3 text-sm leading-6 text-muted">
+              <p>{t("balance_how_calculated_completed")}</p>
+              <p>{t("balance_how_calculated_effort")}</p>
+              <p>{t("balance_how_calculated_shared")}</p>
+              <p>{t("balance_how_calculated_not_score")}</p>
+              <p className="font-medium text-ink">{t("balance_how_calculated_not_5050")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCalculationInfo(false)}
+              className="mt-5 w-full rounded-2xl border border-borderLight px-4 py-3 text-sm font-medium text-ink"
+            >
+              {t("cancel")}
+            </button>
+          </div>
         </div>
       )}
 
