@@ -505,7 +505,7 @@ export default function BalancePage() {
               onClick={() => setShowCalculationInfo(false)}
               className="mt-5 w-full rounded-2xl border border-borderLight px-4 py-3 text-sm font-medium text-ink"
             >
-              {t("cancel")}
+              {t("close")}
             </button>
           </div>
         </div>
