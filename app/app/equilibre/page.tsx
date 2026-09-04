@@ -156,11 +156,24 @@ export default function BalancePage() {
     : null;
 
   const suggestedRedistributionMember = (() => {
-    if (confirmedContributionCount < 4 || balanceLevel === "healthy" || members.length < 2) return null;
+    // Phase 6.3C.3 — temporary, URL-scoped production test.
+    // It never writes simulated percentages to Supabase and only affects the redistribution suggestion.
+    const redistributionTestMode =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("dabo_test") === "marked";
 
-    const shares = members.map((member) => ({
+    if (!redistributionTestMode && (confirmedContributionCount < 4 || balanceLevel === "healthy" || members.length < 2)) return null;
+    if (members.length < 2) return null;
+
+    const shares = members.map((member, index) => ({
       member,
-      share: percentages.get(member.id) ?? 0,
+      share: redistributionTestMode
+        ? index === 0
+          ? 75
+          : index === 1
+            ? 25
+            : 0
+        : percentages.get(member.id) ?? 0,
     }));
     const lowestShare = Math.min(...shares.map((item) => item.share));
     const lowestMembers = shares.filter((item) => item.share === lowestShare);
