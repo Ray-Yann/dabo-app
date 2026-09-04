@@ -81,6 +81,9 @@ export function BalanceBar({
                 <Avatar member={member} members={members} size={28} />
                 <div className="min-w-0 text-left">
                   <div className="text-xs text-ink truncate">{member.first_name}</div>
+                  {member.left_at && (
+                    <div className="text-[10px] leading-4 text-muted">{t("balance_former_member")}</div>
+                  )}
                   <div className="text-sm font-medium text-ink">{percentages.get(member.id) ?? 0}%</div>
                 </div>
               </button>

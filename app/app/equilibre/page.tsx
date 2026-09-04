@@ -44,7 +44,7 @@ function effortLabel(key: string | null): string | null {
 }
 
 export default function BalancePage() {
-  const { loading, household, members, supabase } = useHousehold();
+  const { loading, household, members, allMembers, supabase } = useHousehold();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [period, setPeriod] = useState<Period>("week");
@@ -72,15 +72,43 @@ export default function BalancePage() {
 
   const since = useMemo(() => startOfPeriod(period), [period]);
 
+  const periodMembers = useMemo(() => {
+    const sinceMs = since.getTime();
+
+    return allMembers
+      .filter((member) => {
+        const leftAt = member.left_at ? new Date(member.left_at).getTime() : null;
+        return leftAt === null || leftAt >= sinceMs;
+      })
+      .map((member) =>
+        member.left_at
+          ? {
+              ...member,
+              avatar_color: member.archived_avatar_color || member.avatar_color,
+            }
+          : member
+      );
+  }, [allMembers, since]);
+
+  const householdChangedDuringPeriod = useMemo(() => {
+    const sinceMs = since.getTime();
+
+    return allMembers.some((member) => {
+      const joinedAt = new Date(member.created_at).getTime();
+      const leftAt = member.left_at ? new Date(member.left_at).getTime() : null;
+      return joinedAt >= sinceMs || (leftAt !== null && leftAt >= sinceMs);
+    });
+  }, [allMembers, since]);
+
   if (loading || !household) return <LoadingState />;
 
   const pointsByMember = computeContributionMemberPoints(
-    members.map((member) => member.id),
+    periodMembers.map((member) => member.id),
     balanceData.contributions,
     balanceData.participants,
     since
   );
-  const totals = members.map((member) => ({
+  const totals = periodMembers.map((member) => ({
     id: member.id,
     first_name: member.first_name,
     pts: pointsByMember.get(member.id) || 0,
@@ -93,9 +121,9 @@ export default function BalancePage() {
   const percentages = computeMemberPercentages(totals.map((member) => ({ id: member.id, pts: member.pts })));
   const memberShares = totals.map((member) => percentages.get(member.id) ?? 0);
   const highestShare = memberShares.length ? Math.max(...memberShares) : 0;
-  const idealShare = members.length > 0 ? 100 / members.length : 100;
+  const idealShare = periodMembers.length > 0 ? 100 / periodMembers.length : 100;
   const balanceLevel: "healthy" | "gentle" | "marked" =
-    members.length === 2
+    periodMembers.length === 2
       ? highestShare < 60
         ? "healthy"
         : highestShare < 70
@@ -113,7 +141,7 @@ export default function BalancePage() {
   balanceData.participants.forEach((participant) => {
     const names = participantsByContribution.get(participant.contribution_id) || [];
     const ids = participantIdsByContribution.get(participant.contribution_id) || [];
-    const member = members.find((candidate) => candidate.id === participant.member_id);
+    const member = allMembers.find((candidate) => candidate.id === participant.member_id);
     if (member) names.push(member.first_name);
     ids.push(participant.member_id);
     participantsByContribution.set(participant.contribution_id, names);
@@ -377,7 +405,7 @@ export default function BalancePage() {
               </p>
             </div>
             <BalanceBar
-              members={members}
+              members={periodMembers}
               contributions={balanceData.contributions}
               participants={balanceData.participants}
               big
@@ -409,7 +437,7 @@ export default function BalancePage() {
               </p>
             </div>
             <BalanceBar
-              members={members}
+              members={periodMembers}
               contributions={balanceData.contributions}
               participants={balanceData.participants}
               big
@@ -472,6 +500,12 @@ export default function BalancePage() {
             ))}
           </div>
 
+          {householdChangedDuringPeriod && (
+            <p className="mx-5 mb-4 rounded-2xl border border-borderLight/70 bg-white2/60 px-4 py-3 text-xs leading-5 text-muted">
+              {t("balance_household_evolved_period")}
+            </p>
+          )}
+
           <div className="mx-5 mb-4 flex gap-2 overflow-x-auto pb-1">
             <button
               type="button"
@@ -487,7 +521,7 @@ export default function BalancePage() {
             >
               {t("balance_all_household")}
             </button>
-            {members.map((member) => (
+            {periodMembers.map((member) => (
               <button
                 key={member.id}
                 type="button"
@@ -508,7 +542,14 @@ export default function BalancePage() {
                 >
                   {member.first_name.slice(0, 2).toUpperCase()}
                 </span>
-                {member.first_name}
+                <span className="min-w-0 text-left">
+                  <span className="block truncate">{member.first_name}</span>
+                  {member.left_at && (
+                    <span className="block text-[10px] font-normal leading-4 text-muted">
+                      {t("balance_former_member")}
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
           </div>
