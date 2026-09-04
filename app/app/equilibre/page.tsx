@@ -155,8 +155,17 @@ export default function BalancePage() {
   })();
 
   const todayKey = new Date().toISOString().slice(0, 10);
+  const redistributionEmptyTestMode =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("dabo_test") === "empty";
+
   const redistributionSuggestions = tasks
-    .filter((task) => task.status === "pending" && (!task.due_date || task.due_date >= todayKey))
+    .filter(
+      (task) =>
+        !redistributionEmptyTestMode &&
+        task.status === "pending" &&
+        (!task.due_date || task.due_date >= todayKey)
+    )
     .sort((a, b) => {
       // Unassigned tasks remain the clearest household decision, so they always come first.
       const aUnassigned = a.assigned_to ? 1 : 0;
