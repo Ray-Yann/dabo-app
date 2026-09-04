@@ -54,6 +54,8 @@ export default function BalancePage() {
   const [showCalculationInfo, setShowCalculationInfo] = useState(false);
   const [historicalContributionId, setHistoricalContributionId] = useState<string | null>(null);
   const [confirmingHistoricalPerformer, setConfirmingHistoricalPerformer] = useState(false);
+  const [redistributionTaskId, setRedistributionTaskId] = useState<string | null>(null);
+  const [savingRedistribution, setSavingRedistribution] = useState(false);
   const t = useT();
 
   useEffect(() => {
@@ -137,6 +139,45 @@ export default function BalancePage() {
   const hasHistoricalUnknowns =
     !selectedMemberId &&
     detailContributions.some((contribution) => contribution.performer_status === "unknown");
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const redistributionSuggestions = tasks
+    .filter((task) => task.status === "pending" && (!task.due_date || task.due_date >= todayKey))
+    .sort((a, b) => {
+      const aUnassigned = a.assigned_to ? 1 : 0;
+      const bUnassigned = b.assigned_to ? 1 : 0;
+      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned;
+      return (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31");
+    })
+    .slice(0, 3);
+
+  const redistributionTask = redistributionTaskId
+    ? tasks.find((task) => task.id === redistributionTaskId) || null
+    : null;
+
+  async function assignRedistributionTask(memberId: string | null) {
+    if (!redistributionTask || savingRedistribution) return;
+    setSavingRedistribution(true);
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ assigned_to: memberId })
+        .eq("id", redistributionTask.id)
+        .eq("household_id", household.id);
+      if (error) throw error;
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === redistributionTask.id ? { ...task, assigned_to: memberId } : task
+        )
+      );
+      setRedistributionTaskId(null);
+    } catch (error) {
+      console.error("DABO redistribution update failed", error);
+      alert(t("balance_redistribute_error"));
+    } finally {
+      setSavingRedistribution(false);
+    }
+  }
 
   const groupedDetailContributions = (() => {
     const groups = new Map<string, typeof visibleDetailContributions>();
@@ -515,12 +556,109 @@ export default function BalancePage() {
       )}
 
       {balanceSection === "redistribute" && (
-        <div className="mx-5 mb-5 rounded-2xl border border-borderLight/70 bg-white2/70 p-6 text-center">
-          <div className="text-2xl" aria-hidden="true">🌿</div>
-          <p className="mt-2 text-base font-medium text-ink">{t("balance_redistribute_title")}</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
-            {t("balance_redistribute_text")}
-          </p>
+        <div className="px-5 mb-5">
+          <div className="mb-4">
+            <p className="text-base font-medium text-ink">{t("balance_redistribute_title")}</p>
+            <p className="mt-1 text-sm leading-6 text-muted">{t("balance_redistribute_text")}</p>
+          </div>
+
+          {redistributionSuggestions.length > 0 ? (
+            <div className="space-y-3">
+              {redistributionSuggestions.map((task) => {
+                const assignedMember = members.find((member) => member.id === task.assigned_to);
+                const duration = durationLabel(task.duration_key);
+                const effort = effortLabel(task.effort_level);
+                const meta = [duration, effort ? `${t("effort_label")} ${effort.toLowerCase()}` : null]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <div key={task.id} className="rounded-2xl border border-borderLight/70 bg-white2/70 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{task.name}</p>
+                        {meta && <p className="mt-1 text-xs text-muted">{meta}</p>}
+                        {task.due_date && (
+                          <p className="mt-1 text-xs text-muted">
+                            {t("balance_redistribute_due")} {new Intl.DateTimeFormat(t("balance_date_locale"), { day: "numeric", month: "short" }).format(new Date(`${task.due_date}T12:00:00`))}
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] text-muted">
+                          {assignedMember ? t("balance_redistribute_current") : t("balance_redistribute_unassigned")}
+                        </p>
+                        {assignedMember && <p className="text-xs text-muted">{assignedMember.first_name}</p>}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRedistributionTaskId(task.id)}
+                      className="mt-3 text-xs font-medium text-mustard hover:underline"
+                    >
+                      {assignedMember ? t("balance_redistribute_review") : t("balance_redistribute_choose")} →
+                    </button>
+                  </div>
+                );
+              })}
+              <p className="px-1 pt-1 text-[11px] leading-5 text-muted">
+                {t("balance_redistribute_no_immediate_effect")}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-borderLight/70 bg-white2/70 p-6 text-center">
+              <p className="font-medium text-ink">{t("balance_redistribute_empty_title")}</p>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
+                {t("balance_redistribute_empty_text")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {redistributionTask && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4"
+          onClick={() => !savingRedistribution && setRedistributionTaskId(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-3xl bg-paper p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
+            <h2 className="text-base font-semibold text-ink">{t("balance_redistribute_sheet_title")}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted">{redistributionTask.name}</p>
+            <div className="mt-4 space-y-2">
+              {members.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  disabled={savingRedistribution}
+                  onClick={() => assignRedistributionTask(member.id)}
+                  className="w-full rounded-2xl border border-borderLight px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
+                >
+                  {member.first_name}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={savingRedistribution}
+                onClick={() => assignRedistributionTask(null)}
+                className="w-full rounded-2xl border border-borderLight px-4 py-3 text-left text-sm text-muted disabled:opacity-50"
+              >
+                {t("balance_redistribute_leave_unassigned")}
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={savingRedistribution}
+              onClick={() => setRedistributionTaskId(null)}
+              className="mt-4 w-full px-4 py-2 text-sm text-muted disabled:opacity-50"
+            >
+              {t("cancel")}
+            </button>
+          </div>
         </div>
       )}
 
