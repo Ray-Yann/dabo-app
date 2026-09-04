@@ -275,13 +275,6 @@ export default function BalancePage() {
       </div>
 
       <div className="mx-5 mb-5 bg-white2/70 rounded-2xl p-5 border border-borderLight/70 relative">
-        <button
-          type="button"
-          onClick={() => setShowCalculationInfo(true)}
-          className="absolute right-4 top-4 text-[10px] text-mustard hover:underline"
-        >
-          {t("balance_how_calculated")}
-        </button>
         {!household.equity_score_enabled ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
         ) : detailContributions.length === 0 ? (
@@ -571,6 +564,15 @@ export default function BalancePage() {
       )}
 
       <p className="text-center text-xs text-muted italic mt-2">{t("balance_footnote")}</p>
+      <div className="mt-2 flex justify-center">
+        <button
+          type="button"
+          onClick={() => setShowCalculationInfo(true)}
+          className="text-[11px] font-medium text-mustard hover:underline"
+        >
+          {t("balance_how_calculated")} →
+        </button>
+      </div>
     </div>
   );
 }
