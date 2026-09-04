@@ -118,7 +118,7 @@ export default function BalancePage() {
   const visibleDetailContributions = showAllDetails ? detailContributions : detailContributions.slice(0, 5);
   const hasHistoricalUnknowns = detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
-  const groupedDetailContributions = useMemo(() => {
+  const groupedDetailContributions = (() => {
     const groups = new Map<string, typeof visibleDetailContributions>();
     visibleDetailContributions.forEach((contribution) => {
       const date = new Date(contribution.completed_at);
@@ -132,7 +132,7 @@ export default function BalancePage() {
       date: new Date(contributions[0].completed_at),
       contributions,
     }));
-  }, [visibleDetailContributions]);
+  })();
 
   function formatDayLabel(date: Date) {
     const today = new Date();
