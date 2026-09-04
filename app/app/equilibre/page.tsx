@@ -610,16 +610,20 @@ export default function BalancePage() {
         </div>
       )}
 
-      <p className="text-center text-xs text-muted italic mt-2">{t("balance_footnote")}</p>
-      <div className="mt-2 flex justify-center">
-        <button
-          type="button"
-          onClick={() => setShowCalculationInfo(true)}
-          className="text-[11px] font-medium text-mustard hover:underline"
-        >
-          {t("balance_how_calculated")} →
-        </button>
-      </div>
+      {balanceSection === "overview" && (
+        <>
+          <p className="text-center text-xs text-muted italic mt-2">{t("balance_footnote")}</p>
+          <div className="mt-2 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowCalculationInfo(true)}
+              className="text-[11px] font-medium text-mustard hover:underline"
+            >
+              {t("balance_how_calculated")} →
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
