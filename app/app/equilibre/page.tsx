@@ -390,6 +390,12 @@ export default function BalancePage() {
         ))}
       </div>
 
+      {householdChangedDuringPeriod && (
+        <p className="mx-5 mb-4 rounded-2xl border border-borderLight/70 bg-white2/60 px-4 py-3 text-xs leading-5 text-muted">
+          {t("balance_household_evolved_period")}
+        </p>
+      )}
+
       <div className="mx-5 mb-5 bg-white2/70 rounded-2xl p-5 border border-borderLight/70 relative">
         {!household.equity_score_enabled ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
