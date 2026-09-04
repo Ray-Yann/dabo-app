@@ -174,6 +174,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Équilibre",
     balance_this_week: "Cette semaine",
+    balance_analysis_week: "Analyse sur la semaine",
+    balance_analysis_month: "Analyse sur le mois",
+    balance_analysis_3_months: "Analyse sur les 3 derniers mois",
     balance_this_month: "Ce mois",
     balance_last_3_months: "3 derniers mois",
     rebalance_suggestion: "La répartition est un peu déséquilibrée cette semaine. DABO suggère d'attribuer la prochaine tâche à {name}.",
@@ -441,6 +444,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Balans",
     balance_this_week: "Deze week",
+    balance_analysis_week: "Analyse van deze week",
+    balance_analysis_month: "Analyse van deze maand",
+    balance_analysis_3_months: "Analyse van de laatste 3 maanden",
     balance_this_month: "Deze maand",
     balance_last_3_months: "Laatste 3 maanden",
     rebalance_suggestion: "De verdeling is deze week een beetje onevenwichtig. DABO stelt voor om de volgende taak toe te wijzen aan {name}.",
@@ -708,6 +714,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Balance",
     balance_this_week: "This week",
+    balance_analysis_week: "Analysis for this week",
+    balance_analysis_month: "Analysis for this month",
+    balance_analysis_3_months: "Analysis for the last 3 months",
     balance_this_month: "This month",
     balance_last_3_months: "Last 3 months",
     rebalance_suggestion: "The split is a bit unbalanced this week. Dabo suggests assigning the next task to {name}.",
