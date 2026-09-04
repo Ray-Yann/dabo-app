@@ -10,7 +10,7 @@ export type Household = {
 export type Member = {
   id: string;
   household_id: string;
-  user_id: string;
+  user_id: string | null;
   first_name: string;
   role: "creator" | "member";
   rotation_order: number;

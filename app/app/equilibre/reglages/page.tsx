@@ -31,7 +31,13 @@ export default function SettingsPage() {
   async function leaveHousehold() {
     if (!me) return;
     if (!confirm("Quitter ce foyer ? Tu pourras rejoindre un autre foyer ensuite.")) return;
-    await supabase.from("members").delete().eq("id", me.id);
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+    const res = await fetch("/api/leave-household", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (!res.ok) return;
     router.replace("/");
   }
   async function signOut() {

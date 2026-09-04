@@ -156,9 +156,19 @@ export default function SettingsPage() {
   }
   async function removeMember(memberId: string, name: string) {
     if (!confirm(t("confirm_remove_member").replace("{name}", name))) return;
-    const { error } = await supabase.from("members").delete().eq("id", memberId);
-    if (error) {
-      alert("Erreur lors du retrait : " + error.message);
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+    const res = await fetch("/api/remove-member", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${data.session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ memberId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert("Erreur lors du retrait : " + (body.error || "erreur inconnue"));
       return;
     }
     refresh();

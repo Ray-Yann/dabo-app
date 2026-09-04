@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
   }
 
   for (const [householdId, titles] of householdsToNotify.entries()) {
-    const { data: householdMembers } = await supabase.from("members").select("id, language").eq("household_id", householdId);
+    const { data: householdMembers } = await supabase.from("members").select("id, language").eq("household_id", householdId).is("left_at", null).not("user_id", "is", null);
     for (const member of householdMembers || []) {
       const lang: Lang = (member.language as Lang) || "fr";
       const body = titles.length === 1

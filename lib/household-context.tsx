@@ -10,6 +10,7 @@ type HouseholdContextValue = {
   household: Household | null;
   me: Member | null;
   members: Member[];
+  allMembers: Member[];
   refresh: () => Promise<void>;
   supabase: ReturnType<typeof createClient>;
 };
@@ -23,6 +24,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   const [household, setHousehold] = useState<Household | null>(null);
   const [me, setMe] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
 
   const refresh = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -34,6 +36,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       .from("members")
       .select("*")
       .eq("user_id", sessionData.session.user.id)
+      .is("left_at", null)
       .order("created_at", { ascending: true })
       .limit(1);
     const myMember = myMembers?.[0];
@@ -51,12 +54,15 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
     setHousehold(householdData as Household);
 
-    const { data: allMembers } = await supabase
+    const { data: householdMembers } = await supabase
       .from("members")
       .select("*")
       .eq("household_id", myMember.household_id)
       .order("rotation_order", { ascending: true });
-    setMembers((allMembers as Member[]) || []);
+
+    const historicalMembers = (householdMembers as Member[]) || [];
+    setAllMembers(historicalMembers);
+    setMembers(historicalMembers.filter((member) => !member.left_at && member.user_id));
 
     setLoading(false);
   }, []);
@@ -67,7 +73,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   return (
-    <HouseholdContext.Provider value={{ loading, household, me, members, refresh, supabase }}>
+    <HouseholdContext.Provider value={{ loading, household, me, members, allMembers, refresh, supabase }}>
       {children}
     </HouseholdContext.Provider>
   );

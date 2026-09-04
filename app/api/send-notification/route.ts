@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     .eq("id", excludeMemberId)
     .eq("household_id", householdId)
     .eq("user_id", userData.id)
+    .is("left_at", null)
     .maybeSingle();
 
   if (!callerMember) {
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
     .from("members")
     .select("id, language")
     .eq("household_id", householdId)
+    .is("left_at", null)
+    .not("user_id", "is", null)
     .neq("id", excludeMemberId || "");
 
   if (!members || members.length === 0) return NextResponse.json({ sent: 0 });

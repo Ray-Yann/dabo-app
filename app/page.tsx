@@ -174,7 +174,9 @@ export default function OnboardingPage() {
     const { count } = await supabase
       .from("members")
       .select("*", { count: "exact", head: true })
-      .eq("household_id", household.id);
+      .eq("household_id", household.id)
+      .is("left_at", null)
+      .not("user_id", "is", null);
 
     const { error: mErr } = await supabase.from("members").insert({
       household_id: household.id,

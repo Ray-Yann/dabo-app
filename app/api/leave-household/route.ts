@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, transferCreatorAndRemove, verifyUserToken } from "@/lib/supabase-admin";
+import { createAdminClient, transferCreatorAndArchive, verifyUserToken } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -20,7 +20,14 @@ export async function POST(req: NextRequest) {
     .limit(1);
 
   if (member && member.length > 0) {
-    await transferCreatorAndRemove(admin, member[0].id);
+    try {
+      await transferCreatorAndArchive(admin, member[0].id);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Impossible de quitter le foyer" },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ success: true });

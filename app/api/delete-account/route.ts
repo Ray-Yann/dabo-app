@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, transferCreatorAndRemove, verifyUserToken } from "@/lib/supabase-admin";
+import { createAdminClient, transferCreatorAndArchive, verifyUserToken } from "@/lib/supabase-admin";
 
 // Supprime définitivement le compte de la personne qui fait la demande.
 // L'identité est vérifiée ici, côté serveur, à partir du jeton envoyé —
@@ -20,12 +20,19 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
 
   // Retire la personne de tout foyer dont elle est membre, en transmettant
-  // d'abord le rôle de créateur si nécessaire (voir transferCreatorAndRemove).
+  // d'abord le rôle de créateur si nécessaire (voir transferCreatorAndArchive).
   // Les tâches et courses qui lui étaient assignées repassent automatiquement
   // en "non assigné", ses commentaires sont supprimés avec elle.
   const { data: memberships } = await admin.from("members").select("id").eq("user_id", userId);
   for (const m of memberships || []) {
-    await transferCreatorAndRemove(admin, m.id);
+    try {
+      await transferCreatorAndArchive(admin, m.id);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Impossible d'archiver l'historique du membre" },
+        { status: 500 }
+      );
+    }
   }
 
   // Supprime le compte d'authentification lui-même — email, mot de passe,
