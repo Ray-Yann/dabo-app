@@ -50,6 +50,8 @@ export default function BalancePage() {
   const [period, setPeriod] = useState<Period>("week");
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [historicalContributionId, setHistoricalContributionId] = useState<string | null>(null);
+  const [confirmingHistoricalPerformer, setConfirmingHistoricalPerformer] = useState(false);
   const t = useT();
 
   useEffect(() => {
@@ -163,6 +165,42 @@ export default function BalancePage() {
       month: "long",
     }).format(date);
     return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
+  async function confirmHistoricalPerformer(memberIds: string[]) {
+    if (!historicalContributionId || memberIds.length === 0 || confirmingHistoricalPerformer) return;
+    setConfirmingHistoricalPerformer(true);
+    try {
+      const { error } = await supabase.rpc("confirm_historical_task_contribution", {
+        p_contribution_id: historicalContributionId,
+        p_member_ids: memberIds,
+      });
+      if (error) throw error;
+
+      setBalanceData((current) => ({
+        contributions: current.contributions.map((contribution) =>
+          contribution.id === historicalContributionId
+            ? { ...contribution, performer_status: "confirmed" }
+            : contribution
+        ),
+        participants: [
+          ...current.participants.filter(
+            (participant) => participant.contribution_id !== historicalContributionId
+          ),
+          ...memberIds.map((memberId) => ({
+            contribution_id: historicalContributionId,
+            member_id: memberId,
+            share_weight: 1,
+          })),
+        ],
+      }));
+      setHistoricalContributionId(null);
+    } catch (error) {
+      console.error("DABO historical performer confirmation failed", error);
+      alert(t("balance_confirm_performer_error"));
+    } finally {
+      setConfirmingHistoricalPerformer(false);
+    }
   }
 
   function shareReport() {
@@ -323,7 +361,15 @@ export default function BalancePage() {
                               <div className={`shrink-0 text-right max-w-[42%] ${isUnknown ? "text-muted/70" : "text-muted"}`}>
                                 <div className="text-[10px] mb-0.5">{t("balance_done_by")}</div>
                                 <div className="leading-4">
-                                  {isUnknown ? t("balance_performer_unknown") : performers.join(" & ")}
+                                  {isUnknown ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setHistoricalContributionId(contribution.id)}
+                                      className="text-mustard hover:underline text-right"
+                                    >
+                                      {t("balance_performer_unknown")}
+                                    </button>
+                                  ) : performers.join(" & ")}
                                 </div>
                               </div>
                             </div>
@@ -357,6 +403,58 @@ export default function BalancePage() {
             )}
           </div>
         </>
+      )}
+
+      {historicalContributionId && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4"
+          onClick={() => !confirmingHistoricalPerformer && setHistoricalContributionId(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="historical-performer-title"
+            className="w-full max-w-md rounded-3xl bg-paper p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
+            <h2 id="historical-performer-title" className="text-base font-semibold text-ink">
+              {t("balance_confirm_performer_title")}
+            </h2>
+            <p className="mt-1 text-sm text-muted">{t("balance_confirm_performer_text")}</p>
+            <div className="mt-5 space-y-2">
+              {members.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  disabled={confirmingHistoricalPerformer}
+                  onClick={() => confirmHistoricalPerformer([member.id])}
+                  className="w-full rounded-2xl border border-border bg-white2 px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
+                >
+                  {member.first_name}
+                </button>
+              ))}
+              {members.length > 1 && (
+                <button
+                  type="button"
+                  disabled={confirmingHistoricalPerformer}
+                  onClick={() => confirmHistoricalPerformer(members.map((member) => member.id))}
+                  className="w-full rounded-2xl border border-border bg-white2 px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
+                >
+                  {t("balance_confirm_performer_together")}
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={confirmingHistoricalPerformer}
+              onClick={() => setHistoricalContributionId(null)}
+              className="mt-3 w-full py-2 text-sm text-muted disabled:opacity-50"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
       )}
 
       <p className="text-center text-xs text-muted italic mt-2">{t("balance_footnote")}</p>
