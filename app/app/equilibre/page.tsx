@@ -50,6 +50,7 @@ export default function BalancePage() {
   const [period, setPeriod] = useState<Period>("week");
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [balanceSection, setBalanceSection] = useState<"overview" | "contributions" | "redistribute">("overview");
   const [historicalContributionId, setHistoricalContributionId] = useState<string | null>(null);
   const [confirmingHistoricalPerformer, setConfirmingHistoricalPerformer] = useState(false);
   const t = useT();
@@ -223,6 +224,25 @@ export default function BalancePage() {
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
 
+      <div className="mx-5 mb-4 rounded-2xl bg-white2 p-1.5 grid grid-cols-3 gap-1">
+        {(["overview", "contributions", "redistribute"] as const).map((section) => (
+          <button
+            key={section}
+            type="button"
+            onClick={() => setBalanceSection(section)}
+            className={`py-2.5 px-2 rounded-xl text-xs transition-colors ${
+              balanceSection === section
+                ? "bg-paper text-ink shadow-sm font-medium"
+                : "text-muted hover:text-ink"
+            }`}
+          >
+            {t(`balance_section_${section}`)}
+          </button>
+        ))}
+      </div>
+
+      {balanceSection === "overview" && (
+        <>
       <div className="mx-5 mb-4 rounded-2xl bg-white2 p-1.5 flex gap-1">
         {(["week", "month", "quarter"] as Period[]).map((p) => (
           <button
@@ -259,6 +279,7 @@ export default function BalancePage() {
               onMemberSelect={(memberId) => {
                 setSelectedMemberId(memberId);
                 setShowAllDetails(false);
+                setBalanceSection("contributions");
               }}
             />
           </div>
@@ -290,21 +311,21 @@ export default function BalancePage() {
               onMemberSelect={(memberId) => {
                 setSelectedMemberId(memberId);
                 setShowAllDetails(false);
+                setBalanceSection("contributions");
               }}
             />
           </div>
         )}
       </div>
 
+        </>
+      )}
+
+      {balanceSection === "contributions" && (
+        <>
       {household.equity_score_enabled && detailContributions.length > 0 && (
         <>
-          {confirmedContributionCount >= 4 && (
-            <button onClick={shareReport} className="mx-5 mb-3 flex items-center justify-center gap-2 w-full border border-border rounded-xl py-2.5 text-sm text-muted">
-              <Share2 size={14} /> {t("share_report")}
-            </button>
-          )}
-
-          <div className="px-5 mb-5">
+<div className="px-5 mb-5">
             <CollapsibleSection title={t("view_contribution_detail")} defaultOpen>
               <div className="bg-white2 rounded-2xl p-4">
                 {selectedMemberId && (
@@ -403,6 +424,19 @@ export default function BalancePage() {
             )}
           </div>
         </>
+      )}
+
+        </>
+      )}
+
+      {balanceSection === "redistribute" && (
+        <div className="mx-5 mb-5 rounded-2xl border border-borderLight/70 bg-white2/70 p-6 text-center">
+          <div className="text-2xl" aria-hidden="true">🌿</div>
+          <p className="mt-2 text-base font-medium text-ink">{t("balance_redistribute_title")}</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
+            {t("balance_redistribute_text")}
+          </p>
+        </div>
       )}
 
       {historicalContributionId && (
