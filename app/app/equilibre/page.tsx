@@ -639,6 +639,9 @@ export default function BalancePage() {
                   className="w-full rounded-2xl border border-borderLight px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
                 >
                   {member.first_name}
+                  {redistributionTask.assigned_to === member.id && (
+                    <span className="font-normal text-muted"> · {t("balance_redistribute_current")}</span>
+                  )}
                 </button>
               ))}
               <button
