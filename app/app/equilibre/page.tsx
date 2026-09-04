@@ -118,6 +118,37 @@ export default function BalancePage() {
   const visibleDetailContributions = showAllDetails ? detailContributions : detailContributions.slice(0, 5);
   const hasHistoricalUnknowns = detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
+  const groupedDetailContributions = useMemo(() => {
+    const groups = new Map<string, typeof visibleDetailContributions>();
+    visibleDetailContributions.forEach((contribution) => {
+      const date = new Date(contribution.completed_at);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const current = groups.get(key) || [];
+      current.push(contribution);
+      groups.set(key, current);
+    });
+    return Array.from(groups.entries()).map(([key, contributions]) => ({
+      key,
+      date: new Date(contributions[0].completed_at),
+      contributions,
+    }));
+  }, [visibleDetailContributions]);
+
+  function formatDayLabel(date: Date) {
+    const today = new Date();
+    const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diff = Math.round((startToday.getTime() - startDate.getTime()) / 86400000);
+    if (diff === 0) return t("balance_today");
+    if (diff === 1) return t("balance_yesterday");
+    const label = new Intl.DateTimeFormat(t("balance_date_locale"), {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    }).format(date);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
   function shareReport() {
     const periodLabel = period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months");
     const lines = totals.map((member) => `${member.first_name} : ${percentages.get(member.id) ?? 0}%`).join("\n");
@@ -133,7 +164,7 @@ export default function BalancePage() {
   return (
     <div>
       <Header
-        eyebrow={period === "week" ? t("balance_analysis_week") : period === "month" ? t("balance_analysis_month") : t("balance_analysis_3_months")}
+        eyebrow={period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months")}
         title={t("balance_title")}
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
@@ -212,29 +243,46 @@ export default function BalancePage() {
           <div className="px-5 mb-5">
             <CollapsibleSection title={t("view_contribution_detail")} defaultOpen>
               <div className="bg-white2 rounded-2xl p-4">
-                <div className="space-y-2">
-                  {visibleDetailContributions.map((contribution) => {
-                    const task = taskById.get(contribution.task_id);
-                    const duration = durationLabel(contribution.duration_key);
-                    const effort = effortLabel(contribution.effort_level);
-                    const meta = [duration, effort ? `${t("effort_label")} ${effort.toLowerCase()}` : null]
-                      .filter(Boolean)
-                      .join(" · ");
-                    const performers = participantsByContribution.get(contribution.id) || [];
-                    return (
-                      <div key={contribution.id} className="flex items-start justify-between gap-3 text-xs border-b border-borderLight pb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-ink">{task?.name || t("tasks_title")}</div>
-                          <div className="text-muted">{meta || t("effort_not_provided")}</div>
-                        </div>
-                        <span className="text-muted shrink-0 text-right">
-                          {contribution.performer_status === "unknown" || performers.length === 0
-                            ? t("balance_performer_unknown")
-                            : performers.join(" & ")}
-                        </span>
+                <div className="space-y-5">
+                  {groupedDetailContributions.map((group) => (
+                    <div key={group.key}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted whitespace-nowrap">
+                          {formatDayLabel(group.date)}
+                        </p>
+                        <div className="h-px flex-1 bg-borderLight" />
                       </div>
-                    );
-                  })}
+                      <div className="space-y-0">
+                        {group.contributions.map((contribution, index) => {
+                          const task = taskById.get(contribution.task_id);
+                          const duration = durationLabel(contribution.duration_key);
+                          const effort = effortLabel(contribution.effort_level);
+                          const meta = [duration, effort ? `${t("effort_label")} ${effort.toLowerCase()}` : null]
+                            .filter(Boolean)
+                            .join(" · ");
+                          const performers = participantsByContribution.get(contribution.id) || [];
+                          const isUnknown = contribution.performer_status === "unknown" || performers.length === 0;
+                          return (
+                            <div
+                              key={contribution.id}
+                              className={`flex items-start justify-between gap-3 py-2.5 text-xs ${index < group.contributions.length - 1 ? "border-b border-borderLight" : ""}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-ink font-medium">{task?.name || t("tasks_title")}</div>
+                                <div className="text-muted mt-0.5">{meta || t("effort_not_provided")}</div>
+                              </div>
+                              <div className={`shrink-0 text-right max-w-[42%] ${isUnknown ? "text-muted/70" : "text-muted"}`}>
+                                <div className="text-[10px] mb-0.5">{t("balance_done_by")}</div>
+                                <div className="leading-4">
+                                  {isUnknown ? t("balance_performer_unknown") : performers.join(" & ")}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
                 {detailContributions.length > 5 && (
                   <div className="pt-3 text-center">
