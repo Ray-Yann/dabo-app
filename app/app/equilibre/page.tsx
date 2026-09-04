@@ -155,6 +155,25 @@ export default function BalancePage() {
     ? tasks.find((task) => task.id === redistributionTaskId) || null
     : null;
 
+  const suggestedRedistributionMember = (() => {
+    if (confirmedContributionCount < 4 || balanceLevel === "healthy" || members.length < 2) return null;
+
+    const shares = members.map((member) => ({
+      member,
+      share: percentages.get(member.id) ?? 0,
+    }));
+    const lowestShare = Math.min(...shares.map((item) => item.share));
+    const lowestMembers = shares.filter((item) => item.share === lowestShare);
+
+    // No personal recommendation when the signal does not identify one member clearly.
+    if (lowestMembers.length !== 1) return null;
+
+    const suggested = lowestMembers[0].member;
+    // If the task is already assigned to that member, there is nothing useful to suggest.
+    if (redistributionTask?.assigned_to === suggested.id) return null;
+    return suggested;
+  })();
+
   async function assignRedistributionTask(memberId: string | null) {
     if (!redistributionTask || savingRedistribution) return;
     setSavingRedistribution(true);
@@ -629,6 +648,22 @@ export default function BalancePage() {
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
             <h2 className="text-base font-semibold text-ink">{t("balance_redistribute_sheet_title")}</h2>
             <p className="mt-1 text-sm leading-6 text-muted">{redistributionTask.name}</p>
+            {(redistributionTask.duration_key || redistributionTask.effort_level) && (
+              <p className="mt-1 text-sm text-muted">
+                {[
+                  redistributionTask.duration_key ? t(`duration_${redistributionTask.duration_key}`) : null,
+                  redistributionTask.effort_level ? t(`effort_${redistributionTask.effort_level}`) : null,
+                ].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {suggestedRedistributionMember && (
+              <div className="mt-4 rounded-2xl border border-mustard/30 bg-mustard/5 px-4 py-3">
+                <p className="text-sm font-medium text-ink">{t("balance_redistribute_suggestion_title")}</p>
+                <p className="mt-1 text-sm leading-5 text-muted">
+                  {t("balance_redistribute_suggestion_text")}
+                </p>
+              </div>
+            )}
             <div className="mt-4 space-y-2">
               {members.map((member) => (
                 <button
@@ -636,11 +671,18 @@ export default function BalancePage() {
                   type="button"
                   disabled={savingRedistribution}
                   onClick={() => assignRedistributionTask(member.id)}
-                  className="w-full rounded-2xl border border-borderLight px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
+                  className={`w-full rounded-2xl border px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50 ${
+                    suggestedRedistributionMember?.id === member.id
+                      ? "border-mustard/60 bg-mustard/5"
+                      : "border-borderLight"
+                  }`}
                 >
                   {member.first_name}
                   {redistributionTask.assigned_to === member.id && (
                     <span className="font-normal text-muted"> · {t("balance_redistribute_current")}</span>
+                  )}
+                  {suggestedRedistributionMember?.id === member.id && (
+                    <span className="font-normal text-mustard"> · {t("balance_redistribute_suggested")}</span>
                   )}
                 </button>
               ))}
