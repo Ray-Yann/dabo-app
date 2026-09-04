@@ -264,7 +264,11 @@ export default function BalancePage() {
                 : "text-muted hover:text-ink"
             }`}
           >
-            {t(`balance_${p}`)}
+            {p === "week"
+              ? t("balance_period_week")
+              : p === "month"
+                ? t("balance_period_month")
+                : t("balance_period_quarter")}
           </button>
         ))}
       </div>
