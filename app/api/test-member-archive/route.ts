@@ -53,7 +53,9 @@ export async function POST(req: NextRequest) {
       .select("id")
       .single();
     if (memberError || !member) throw memberError || new Error("Création du membre test impossible");
-    testMemberId = member.id;
+
+    const createdMemberId = member.id as string;
+    testMemberId = createdMemberId;
 
     const { data: task, error: taskError } = await admin
       .from("tasks")
@@ -63,37 +65,47 @@ export async function POST(req: NextRequest) {
         weight_points: 5,
         duration_key: "5min",
         effort_level: "faible",
-        assigned_to: testMemberId,
+        assigned_to: createdMemberId,
         status: "pending",
         urgent: false,
       })
       .select("id")
       .single();
     if (taskError || !task) throw taskError || new Error("Création de la tâche test impossible");
-    taskId = task.id;
+
+    const createdTaskId = task.id as string;
+    taskId = createdTaskId;
 
     const { data: shopping, error: shoppingError } = await admin
       .from("shopping_items")
       .insert({
         household_id: caller.household_id,
         name: `Test archivage course ${marker.slice(0, 6)}`,
-        assigned_to: testMemberId,
+        assigned_to: createdMemberId,
         status: "to_buy",
         urgent: false,
       })
       .select("id")
       .single();
     if (shoppingError || !shopping) throw shoppingError || new Error("Création de la course test impossible");
-    shoppingId = shopping.id;
 
-    await transferCreatorAndArchive(admin, testMemberId);
+    const createdShoppingId = shopping.id as string;
+    shoppingId = createdShoppingId;
 
-    const [{ data: archivedMember }, { data: archivedTask }, { data: archivedShopping }, { count: activeCount }, { count: historicalCount }] = await Promise.all([
-      admin.from("members").select("id, user_id, left_at, avatar_color, archived_avatar_color").eq("id", testMemberId).single(),
-      admin.from("tasks").select("id, assigned_to").eq("id", taskId).single(),
-      admin.from("shopping_items").select("id, assigned_to").eq("id", shoppingId).single(),
-      admin.from("members").select("id", { count: "exact", head: true }).eq("id", testMemberId).is("left_at", null).not("user_id", "is", null),
-      admin.from("members").select("id", { count: "exact", head: true }).eq("id", testMemberId),
+    await transferCreatorAndArchive(admin, createdMemberId);
+
+    const [
+      { data: archivedMember },
+      { data: archivedTask },
+      { data: archivedShopping },
+      { count: activeCount },
+      { count: historicalCount },
+    ] = await Promise.all([
+      admin.from("members").select("id, user_id, left_at, avatar_color, archived_avatar_color").eq("id", createdMemberId).single(),
+      admin.from("tasks").select("id, assigned_to").eq("id", createdTaskId).single(),
+      admin.from("shopping_items").select("id, assigned_to").eq("id", createdShoppingId).single(),
+      admin.from("members").select("id", { count: "exact", head: true }).eq("id", createdMemberId).is("left_at", null).not("user_id", "is", null),
+      admin.from("members").select("id", { count: "exact", head: true }).eq("id", createdMemberId),
     ]);
 
     const checks = {
@@ -114,7 +126,6 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    // Nettoyage systématique : aucune donnée de test ne doit rester dans le foyer.
     if (taskId) await admin.from("tasks").delete().eq("id", taskId);
     if (shoppingId) await admin.from("shopping_items").delete().eq("id", shoppingId);
     if (testMemberId) await admin.from("members").delete().eq("id", testMemberId);
