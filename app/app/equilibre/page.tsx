@@ -163,7 +163,7 @@ export default function BalancePage() {
         .from("tasks")
         .update({ assigned_to: memberId })
         .eq("id", redistributionTask.id)
-        .eq("household_id", household.id);
+        .eq("household_id", household?.id ?? "");
       if (error) throw error;
       setTasks((current) =>
         current.map((task) =>
