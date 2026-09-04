@@ -175,7 +175,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Équilibre",
     balance_section_overview: "Vue d’ensemble",
-    balance_section_contributions: "Contributions",
+    balance_section_contributions: "Contributions",    
+    balance_all_household: "Tout le foyer",
+    balance_confirm_performer_action: "Confirmer le réalisateur",
     balance_section_redistribute: "À répartir",
     balance_how_calculated: "Comment DABO calcule ?",
     balance_how_calculated_title: "Comment DABO calcule ?",
@@ -473,7 +475,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Balans",
     balance_section_overview: "Overzicht",
-    balance_section_contributions: "Bijdragen",
+    balance_section_contributions: "Bijdragen",    
+    balance_all_household: "Heel het huishouden",
+    balance_confirm_performer_action: "Uitvoerder bevestigen",
     balance_section_redistribute: "Te verdelen",
     balance_how_calculated: "Hoe berekent DABO dit?",
     balance_how_calculated_title: "Hoe berekent DABO dit?",
@@ -771,7 +775,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     balance_title: "Balance",
     balance_section_overview: "Overview",
-    balance_section_contributions: "Contributions",
+    balance_section_contributions: "Contributions",    
+    balance_all_household: "Whole household",
+    balance_confirm_performer_action: "Confirm who did it",
     balance_section_redistribute: "To share",
     balance_how_calculated: "How does DABO calculate this?",
     balance_how_calculated_title: "How does DABO calculate this?",

@@ -361,84 +361,131 @@ export default function BalancePage() {
 
       {balanceSection === "contributions" && (
         <>
-      {household.equity_score_enabled && detailContributions.length > 0 && (
-        <>
-<div className="px-5 mb-5">
-            <CollapsibleSection title={t("view_contribution_detail")} defaultOpen>
+          <div className="mx-5 mb-4 flex items-center justify-center gap-1 rounded-xl border border-borderLight/60 px-1 py-1">
+            {(["week", "month", "quarter"] as Period[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => {
+                  setPeriod(p);
+                  setSelectedMemberId(null);
+                  setShowAllDetails(false);
+                }}
+                className={`flex-1 rounded-lg px-2 py-2 text-[11px] transition-colors ${
+                  period === p ? "bg-white2 text-ink font-medium" : "text-muted hover:text-ink"
+                }`}
+              >
+                {p === "week"
+                  ? t("balance_this_week")
+                  : p === "month"
+                    ? t("balance_this_month")
+                    : t("balance_last_3_months")}
+              </button>
+            ))}
+          </div>
+
+          <div className="mx-5 mb-4 flex gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMemberId(null);
+                setShowAllDetails(false);
+              }}
+              className={`shrink-0 rounded-full border px-3 py-2 text-xs transition-colors ${
+                selectedMemberId === null
+                  ? "border-mustard/60 bg-white2 text-ink font-medium"
+                  : "border-borderLight text-muted"
+              }`}
+            >
+              {t("balance_all_household")}
+            </button>
+            {members.map((member) => (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => {
+                  setSelectedMemberId(member.id);
+                  setShowAllDetails(false);
+                }}
+                className={`shrink-0 flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs transition-colors ${
+                  selectedMemberId === member.id
+                    ? "border-mustard/60 bg-white2 text-ink font-medium"
+                    : "border-borderLight text-muted"
+                }`}
+              >
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] text-ink"
+                  style={{ backgroundColor: member.avatar_color || undefined }}
+                  aria-hidden="true"
+                >
+                  {member.first_name.slice(0, 2).toUpperCase()}
+                </span>
+                {member.first_name}
+              </button>
+            ))}
+          </div>
+
+          {household.equity_score_enabled && detailContributions.length > 0 && (
+            <div className="px-5 mb-5">
               <div className="bg-white2 rounded-2xl p-4">
-                {selectedMemberId && (
-                  <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-paper/60 px-3 py-2">
-                    <p className="text-xs text-muted">
-                      {t("balance_filtered_for").replace(
-                        "{name}",
-                        members.find((member) => member.id === selectedMemberId)?.first_name || ""
-                      )}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedMemberId(null);
-                        setShowAllDetails(false);
-                      }}
-                      className="shrink-0 text-xs font-medium text-mustard hover:underline"
-                    >
-                      {t("balance_show_household")}
-                    </button>
-                  </div>
-                )}
                 {selectedMemberId && filteredDetailContributions.length === 0 ? (
                   <p className="py-5 text-center text-xs text-muted">{t("balance_member_no_contribution")}</p>
                 ) : (
-                <div className="space-y-5">
-                  {groupedDetailContributions.map((group) => (
-                    <div key={group.key}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted whitespace-nowrap">
-                          {formatDayLabel(group.date)}
-                        </p>
-                        <div className="h-px flex-1 bg-borderLight" />
-                      </div>
-                      <div className="space-y-0">
-                        {group.contributions.map((contribution, index) => {
-                          const task = taskById.get(contribution.task_id);
-                          const duration = durationLabel(contribution.duration_key);
-                          const effort = effortLabel(contribution.effort_level);
-                          const meta = [duration, effort ? `${t("effort_label")} ${effort.toLowerCase()}` : null]
-                            .filter(Boolean)
-                            .join(" · ");
-                          const performers = participantsByContribution.get(contribution.id) || [];
-                          const isUnknown = contribution.performer_status === "unknown" || performers.length === 0;
-                          return (
-                            <div
-                              key={contribution.id}
-                              className={`flex items-start justify-between gap-3 py-2.5 text-xs ${index < group.contributions.length - 1 ? "border-b border-borderLight" : ""}`}
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="text-ink font-medium">{task?.name || t("tasks_title")}</div>
-                                <div className="text-muted mt-0.5">{meta || t("effort_not_provided")}</div>
-                              </div>
-                              <div className={`shrink-0 text-right max-w-[42%] ${isUnknown ? "text-muted/70" : "text-muted"}`}>
-                                <div className="text-[10px] mb-0.5">{t("balance_done_by")}</div>
-                                <div className="leading-4">
+                  <div className="space-y-5">
+                    {groupedDetailContributions.map((group) => (
+                      <div key={group.key}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted whitespace-nowrap">
+                            {formatDayLabel(group.date)}
+                          </p>
+                          <div className="h-px flex-1 bg-borderLight" />
+                        </div>
+                        <div>
+                          {group.contributions.map((contribution, index) => {
+                            const task = taskById.get(contribution.task_id);
+                            const duration = durationLabel(contribution.duration_key);
+                            const effort = effortLabel(contribution.effort_level);
+                            const meta = [duration, effort ? `${t("effort_label")} ${effort.toLowerCase()}` : null]
+                              .filter(Boolean)
+                              .join(" · ");
+                            const performers = participantsByContribution.get(contribution.id) || [];
+                            const isUnknown = contribution.performer_status === "unknown" || performers.length === 0;
+                            return (
+                              <div
+                                key={contribution.id}
+                                className={`flex items-start justify-between gap-3 py-2.5 text-xs ${
+                                  index < group.contributions.length - 1 ? "border-b border-borderLight" : ""
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-ink font-medium">{task?.name || t("tasks_title")}</div>
+                                  <div className="text-muted mt-0.5">{meta || t("effort_not_provided")}</div>
+                                </div>
+                                <div className="shrink-0 text-right max-w-[46%] text-muted">
                                   {isUnknown ? (
                                     <button
                                       type="button"
                                       onClick={() => setHistoricalContributionId(contribution.id)}
-                                      className="text-mustard hover:underline text-right"
+                                      className="text-mustard hover:underline text-right leading-4"
                                     >
-                                      {t("balance_performer_unknown")}
+                                      {t("balance_confirm_performer_action")} →
                                     </button>
-                                  ) : performers.join(" & ")}
+                                  ) : (
+                                    <>
+                                      <div className="text-[10px] mb-0.5">{t("balance_done_by")}</div>
+                                      <div className="leading-4">{performers.join(" & ")}</div>
+                                    </>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
                 )}
+
                 {filteredDetailContributions.length > 5 && (
                   <div className="pt-3 text-center">
                     <p className="text-[11px] text-muted mb-2">
@@ -456,14 +503,14 @@ export default function BalancePage() {
                   </div>
                 )}
               </div>
-            </CollapsibleSection>
-            {hasHistoricalUnknowns && (
-              <p className="text-[11px] text-muted mt-3 px-1">{t("balance_historical_unknown_note")}</p>
-            )}
-          </div>
-        </>
-      )}
 
+              {hasHistoricalUnknowns && (
+                <p className="text-[11px] leading-5 text-muted mt-3 px-1">
+                  {t("balance_historical_unknown_note")}
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
 
