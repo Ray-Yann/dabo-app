@@ -300,7 +300,15 @@ export default function BalancePage() {
   return (
     <div>
       <Header
-        eyebrow={period === "week" ? t("balance_analysis_week") : period === "month" ? t("balance_analysis_month") : t("balance_analysis_3_months")}
+        eyebrow={
+          section === "redistribute"
+            ? t("balance_redistribute_eyebrow")
+            : period === "week"
+              ? t("balance_analysis_week")
+              : period === "month"
+                ? t("balance_analysis_month")
+                : t("balance_analysis_3_months")
+        }
         title={t("balance_title")}
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
