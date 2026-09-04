@@ -274,7 +274,14 @@ export default function BalancePage() {
         ))}
       </div>
 
-      <div className="mx-5 mb-5 bg-white2/70 rounded-2xl p-5 border border-borderLight/70">
+      <div className="mx-5 mb-5 bg-white2/70 rounded-2xl p-5 border border-borderLight/70 relative">
+        <button
+          type="button"
+          onClick={() => setShowCalculationInfo(true)}
+          className="absolute right-4 top-4 text-[10px] text-mustard hover:underline"
+        >
+          {t("balance_how_calculated")}
+        </button>
         {!household.equity_score_enabled ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
         ) : detailContributions.length === 0 ? (
@@ -288,17 +295,7 @@ export default function BalancePage() {
                 {(confirmedContributionCount === 1 ? t("balance_partial_data_one") : t("balance_partial_data")).replace("{count}", String(confirmedContributionCount))}
               </p>
             </div>
-            <div className="mt-1 mb-3 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowCalculationInfo(true)}
-              className="text-[11px] text-mustard hover:underline"
-            >
-              {t("balance_how_calculated")}
-            </button>
-          </div>
-
-          <BalanceBar
+            <BalanceBar
               members={members}
               contributions={balanceData.contributions}
               participants={balanceData.participants}
