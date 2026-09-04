@@ -140,22 +140,7 @@ export default function BalancePage() {
     !selectedMemberId &&
     detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const redistributionSuggestions = tasks
-    .filter((task) => task.status === "pending" && (!task.due_date || task.due_date >= todayKey))
-    .sort((a, b) => {
-      const aUnassigned = a.assigned_to ? 1 : 0;
-      const bUnassigned = b.assigned_to ? 1 : 0;
-      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned;
-      return (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31");
-    })
-    .slice(0, 3);
-
-  const redistributionTask = redistributionTaskId
-    ? tasks.find((task) => task.id === redistributionTaskId) || null
-    : null;
-
-  const suggestedRedistributionMember = (() => {
+  const balanceSuggestedMember = (() => {
     if (confirmedContributionCount < 4 || balanceLevel === "healthy" || members.length < 2) return null;
 
     const shares = members.map((member) => ({
@@ -166,13 +151,48 @@ export default function BalancePage() {
     const lowestMembers = shares.filter((item) => item.share === lowestShare);
 
     // No personal recommendation when the signal does not identify one member clearly.
-    if (lowestMembers.length !== 1) return null;
-
-    const suggested = lowestMembers[0].member;
-    // If the task is already assigned to that member, there is nothing useful to suggest.
-    if (redistributionTask?.assigned_to === suggested.id) return null;
-    return suggested;
+    return lowestMembers.length === 1 ? lowestMembers[0].member : null;
   })();
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const redistributionSuggestions = tasks
+    .filter((task) => task.status === "pending" && (!task.due_date || task.due_date >= todayKey))
+    .sort((a, b) => {
+      // Unassigned tasks remain the clearest household decision, so they always come first.
+      const aUnassigned = a.assigned_to ? 1 : 0;
+      const bUnassigned = b.assigned_to ? 1 : 0;
+      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned;
+
+      // When DABO has a meaningful balance signal, surface tasks whose current
+      // assignment could actually be reconsidered before tasks already assigned
+      // to the suggested member. This changes visibility only, never assignment.
+      if (balanceSuggestedMember && a.assigned_to && b.assigned_to) {
+        const aAlreadySuggested = a.assigned_to === balanceSuggestedMember.id ? 1 : 0;
+        const bAlreadySuggested = b.assigned_to === balanceSuggestedMember.id ? 1 : 0;
+        if (aAlreadySuggested !== bAlreadySuggested) return aAlreadySuggested - bAlreadySuggested;
+      }
+
+      const dueComparison = (a.due_date || "9999-12-31").localeCompare(
+        b.due_date || "9999-12-31"
+      );
+      if (dueComparison !== 0) return dueComparison;
+
+      // For an otherwise equal choice, show the more substantial task first.
+      const weightComparison = (b.weight_points ?? 0) - (a.weight_points ?? 0);
+      if (weightComparison !== 0) return weightComparison;
+
+      return a.id.localeCompare(b.id);
+    })
+    .slice(0, 3);
+
+  const redistributionTask = redistributionTaskId
+    ? tasks.find((task) => task.id === redistributionTaskId) || null
+    : null;
+
+  const suggestedRedistributionMember =
+    balanceSuggestedMember && redistributionTask?.assigned_to !== balanceSuggestedMember.id
+      ? balanceSuggestedMember
+      : null;
 
   async function assignRedistributionTask(memberId: string | null) {
     if (!redistributionTask || savingRedistribution) return;
