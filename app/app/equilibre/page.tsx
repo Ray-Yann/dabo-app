@@ -224,33 +224,47 @@ export default function BalancePage() {
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
 
-      <div className="mx-5 mb-4 rounded-2xl bg-white2 p-1.5 grid grid-cols-3 gap-1">
+      <div className="mx-5 mb-5 grid grid-cols-3 border-b border-borderLight/70">
         {(["overview", "contributions", "redistribute"] as const).map((section) => (
           <button
             key={section}
             type="button"
             onClick={() => setBalanceSection(section)}
-            className={`py-2.5 px-2 rounded-xl text-xs transition-colors ${
+            className={`relative px-2 pb-3 pt-1 text-xs transition-colors ${
               balanceSection === section
-                ? "bg-paper text-ink shadow-sm font-medium"
+                ? "text-ink font-semibold"
                 : "text-muted hover:text-ink"
             }`}
           >
             {t(`balance_section_${section}`)}
+            {balanceSection === section && (
+              <span
+                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-mustard"
+                aria-hidden="true"
+              />
+            )}
           </button>
         ))}
       </div>
 
       {balanceSection === "overview" && (
         <>
-      <div className="mx-5 mb-4 rounded-2xl bg-white2 p-1.5 flex gap-1">
+      <div className="mx-5 mb-4 flex items-center justify-center gap-1 rounded-xl border border-borderLight/60 px-1 py-1">
         {(["week", "month", "quarter"] as Period[]).map((p) => (
           <button
             key={p}
-            onClick={() => { setPeriod(p); setShowAllDetails(false); setSelectedMemberId(null); }}
-            className={`flex-1 py-2.5 px-2 rounded-xl text-xs transition-colors ${period === p ? "bg-paper text-ink shadow-sm font-medium" : "text-muted hover:text-ink"}`}
+            onClick={() => {
+              setPeriod(p);
+              setSelectedMemberId(null);
+              setShowAllDetails(false);
+            }}
+            className={`flex-1 rounded-lg px-2 py-2 text-[11px] transition-colors ${
+              period === p
+                ? "bg-white2 text-ink font-medium"
+                : "text-muted hover:text-ink"
+            }`}
           >
-            {p === "week" ? t("balance_this_week") : p === "month" ? t("balance_this_month") : t("balance_last_3_months")}
+            {t(`balance_${p}`)}
           </button>
         ))}
       </div>
