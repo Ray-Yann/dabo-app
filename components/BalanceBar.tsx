@@ -3,6 +3,7 @@
 import { Member } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { startOfWeek, computeMemberPercentages, memberColor } from "@/lib/utils";
+import { useT } from "@/lib/language-context";
 import {
   TaskContribution,
   TaskContributionParticipant,
@@ -22,6 +23,7 @@ export function BalanceBar({
   big?: boolean;
   since?: Date;
 }) {
+  const t = useT();
   const periodStart = since || startOfWeek();
   const points = computeContributionMemberPoints(
     members.map((member) => member.id),
@@ -58,7 +60,7 @@ export function BalanceBar({
       </div>
 
       {big && totals.length === 2 && (
-        <div className="mt-1 text-center text-[10px] text-muted">50/50</div>
+        <div className="mt-1 text-center text-[10px] text-muted">{t("balance_reference_50_50")}</div>
       )}
 
       {big && (

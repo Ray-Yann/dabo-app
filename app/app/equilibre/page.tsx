@@ -132,7 +132,10 @@ export default function BalancePage() {
 
   return (
     <div>
-      <Header eyebrow={t("balance_this_week")} title={t("balance_title")} />
+      <Header
+        eyebrow={period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months")}
+        title={t("balance_title")}
+      />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
 
       <div className="mx-5 mb-4 rounded-2xl bg-white2 p-1.5 flex gap-1">
@@ -147,7 +150,7 @@ export default function BalancePage() {
         ))}
       </div>
 
-      <div className="mx-5 mb-5 bg-white2 rounded-2xl p-5 border border-borderLight">
+      <div className="mx-5 mb-5 bg-white2/70 rounded-2xl p-5 border border-borderLight/70">
         {!household.equity_score_enabled ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
         ) : detailContributions.length === 0 ? (
@@ -158,7 +161,7 @@ export default function BalancePage() {
               <p className="text-base text-ink font-medium">{t("balance_building_title")}</p>
               <p className="text-sm text-muted mt-1">{t("balance_building_text")}</p>
               <p className="text-[11px] text-muted mt-2">
-                {t("balance_partial_data").replace("{count}", String(confirmedContributionCount))}
+                {(confirmedContributionCount === 1 ? t("balance_partial_data_one") : t("balance_partial_data")).replace("{count}", String(confirmedContributionCount))}
               </p>
             </div>
             <BalanceBar
