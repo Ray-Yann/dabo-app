@@ -6,11 +6,10 @@ import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
-import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus } from "lucide-react";
+import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2 } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { enableNotifications, disableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
-import { Share2 } from "lucide-react";
 import { useT } from "@/lib/language-context";
 import { Lang } from "@/lib/i18n";
 
@@ -27,6 +26,10 @@ export default function SettingsPage() {
   const [householdName, setHouseholdName] = useState(household?.name || "");
   const [savingHouseholdName, setSavingHouseholdName] = useState(false);
   const [householdNameSaved, setHouseholdNameSaved] = useState(false);
+  const [editingHouseholdName, setEditingHouseholdName] = useState(false);
+  const [editingHouseholdType, setEditingHouseholdType] = useState(false);
+  const [householdType, setHouseholdType] = useState(household?.household_type || "couple");
+  const [memberActionsId, setMemberActionsId] = useState<string | null>(null);
 
   useEffect(() => {
     if (me) {
@@ -39,6 +42,7 @@ export default function SettingsPage() {
     if (household) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHouseholdName(household.name);
+      setHouseholdType(household.household_type);
     }
   }, [household?.id]);
 
@@ -133,9 +137,10 @@ export default function SettingsPage() {
     await supabase.from("members").update({ dark_mode: !me.dark_mode }).eq("id", me.id);
     refresh();
   }
-  async function changeType(type: string) {
+  async function saveHouseholdType() {
     if (!household) return;
-    await supabase.from("households").update({ household_type: type }).eq("id", household.id);
+    await supabase.from("households").update({ household_type: householdType }).eq("id", household.id);
+    setEditingHouseholdType(false);
     refresh();
   }
   async function saveHouseholdName() {
@@ -144,12 +149,30 @@ export default function SettingsPage() {
     await supabase.from("households").update({ name: householdName.trim() }).eq("id", household.id);
     setSavingHouseholdName(false);
     setHouseholdNameSaved(true);
+    setEditingHouseholdName(false);
     setTimeout(() => setHouseholdNameSaved(false), 1500);
     refresh();
   }
   function copyCode() {
     if (!household) return;
     navigator.clipboard?.writeText(household.invite_code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+  async function shareInvite() {
+    if (!household) return;
+    const text = t("settings_invite_share_message")
+      .replace("{household}", household.name)
+      .replace("{code}", household.invite_code);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "DABO", text });
+      } catch {
+        // Partage annulé — rien à faire.
+      }
+      return;
+    }
+    await navigator.clipboard?.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
@@ -295,71 +318,116 @@ export default function SettingsPage() {
           </div>
 
           <div className="bg-white2 rounded-2xl p-4 mb-3">
-            <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-start justify-between gap-3 mb-5">
               <div className="min-w-0">
                 <div className="text-base font-semibold text-ink truncate">{household.name}</div>
                 <div className="text-xs text-muted mt-0.5">{householdTypeLabel} · {members.length} {members.length === 1 ? t("settings_member_singular") : t("settings_member_plural")}</div>
               </div>
               <span className="text-xl" aria-hidden="true">🏡</span>
             </div>
-            <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_name")}</div>
-            <input
-              value={householdName}
-              onChange={(e) => setHouseholdName(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2 bg-white2 text-ink"
-            />
-            <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50 mb-4">
-              {savingHouseholdName ? "..." : householdNameSaved ? t("saved") : t("save")}
-            </button>
-            <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_type")}</div>
-            <select
-              value={household.household_type}
-              onChange={(e) => changeType(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink"
-            >
-              <option value="couple">{t("household_couple")}</option>
-              <option value="coloc">{t("household_coloc")}</option>
-              <option value="famille">{t("household_famille")}</option>
-            </select>
+
+            <div className="py-3 border-t border-border">
+              {!editingHouseholdName ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted">{t("settings_household_name")}</div>
+                    <div className="text-sm text-ink font-medium truncate mt-0.5">{household.name}</div>
+                  </div>
+                  <button onClick={() => { setHouseholdName(household.name); setEditingHouseholdName(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
+                    <Pencil size={13} /> {t("settings_edit")}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_name")}</div>
+                  <input value={householdName} onChange={(e) => setHouseholdName(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2 bg-white2 text-ink" autoFocus />
+                  <div className="flex gap-2">
+                    <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">{savingHouseholdName ? "..." : householdNameSaved ? t("saved") : t("save")}</button>
+                    <button onClick={() => { setHouseholdName(household.name); setEditingHouseholdName(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="py-3 border-t border-border">
+              {!editingHouseholdType ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-muted">{t("settings_household_type")}</div>
+                    <div className="text-sm text-ink font-medium mt-0.5">{householdTypeLabel}</div>
+                  </div>
+                  <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
+                    <Pencil size={13} /> {t("settings_edit")}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_type")}</div>
+                  <select value={householdType} onChange={(e) => setHouseholdType(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink mb-2">
+                    <option value="couple">{t("household_couple")}</option>
+                    <option value="coloc">{t("household_coloc")}</option>
+                    <option value="famille">{t("household_famille")}</option>
+                  </select>
+                  <div className="flex gap-2">
+                    <button onClick={saveHouseholdType} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">{t("save")}</button>
+                    <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="bg-white2 rounded-2xl p-4 mb-3">
             <div className="text-sm text-ink font-medium mb-1">{t("settings_invite_member")}</div>
             <p className="text-xs text-muted mb-3">{t("settings_invite_desc")}</p>
-            <div className="flex items-center justify-between bg-paper rounded-xl px-3 py-2">
-              <span className="font-mono text-sm text-ink">{household.invite_code}</span>
+            <div className="flex items-center justify-between bg-paper rounded-xl px-3 py-2 mb-3">
+              <span className="font-mono text-sm text-ink tracking-wider">{household.invite_code}</span>
               <button onClick={copyCode} className="flex items-center gap-1 text-xs text-muted">
                 <Copy size={14} /> {copied ? t("copied") : t("copy")}
               </button>
             </div>
+            <button onClick={shareInvite} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink font-medium flex items-center justify-center gap-2">
+              <Share2 size={15} /> {t("settings_share_invite")}
+            </button>
           </div>
 
           <div className="bg-white2 rounded-2xl p-4">
             <div className="text-sm font-medium text-ink mb-3">{t("settings_members")}</div>
-            <div className="space-y-3">
-              {members.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Avatar member={m} members={members} size={28} />
-                    <div className="min-w-0">
-                      <div className="text-sm text-ink font-medium truncate">{m.first_name}</div>
-                      <div className="text-xs text-muted">{m.role === "creator" ? t("settings_household_creator") : t("settings_member")}</div>
+            <div className="space-y-1">
+              {members.map((m) => {
+                const canManage = me.role === "creator" && m.id !== me.id;
+                const actionsOpen = memberActionsId === m.id;
+                return (
+                  <div key={m.id} className="border-b border-border last:border-b-0 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar member={m} members={members} size={32} />
+                        <div className="min-w-0">
+                          <div className="text-sm text-ink font-medium truncate">{m.first_name}{m.id === me.id ? ` · ${t("settings_you")}` : ""}</div>
+                          <div className="text-xs text-muted">{m.role === "creator" ? t("settings_household_creator") : t("settings_member")}</div>
+                        </div>
+                      </div>
+                      {canManage && (
+                        <button onClick={() => setMemberActionsId(actionsOpen ? null : m.id)} className="p-2 text-muted rounded-lg" aria-label={t("settings_member_actions")}>
+                          <MoreHorizontal size={18} />
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {me.role === "creator" && m.id !== me.id && m.role !== "creator" && (
-                      <button onClick={() => promoteToCreator(m.id, m.first_name)} className="text-muted p-1" title={t("promote_creator")}>
-                        <ShieldPlus size={16} />
-                      </button>
+                    {canManage && actionsOpen && (
+                      <div className="mt-3 ml-10 rounded-xl bg-paper p-2 space-y-1">
+                        {m.role !== "creator" && (
+                          <button onClick={() => { setMemberActionsId(null); promoteToCreator(m.id, m.first_name); }} className="w-full px-2.5 py-2 text-sm text-ink text-left flex items-center gap-2 rounded-lg">
+                            <ShieldPlus size={15} className="text-muted" /> {t("promote_creator")}
+                          </button>
+                        )}
+                        <button onClick={() => { setMemberActionsId(null); removeMember(m.id, m.first_name); }} className="w-full px-2.5 py-2 text-sm text-red-700/80 text-left flex items-center gap-2 rounded-lg">
+                          <UserMinus size={15} /> {t("settings_remove_member")}
+                        </button>
+                      </div>
                     )}
-                    {me.role === "creator" && m.id !== me.id && (
-                      <button onClick={() => removeMember(m.id, m.first_name)} className="text-muted p-1" title={t("settings_remove_member")}>
-                        <UserMinus size={16} />
-                      </button>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
