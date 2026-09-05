@@ -114,6 +114,7 @@ export default function TasksPage() {
   const [taskContributions, setTaskContributions] = useState<Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }>>({});
   const [historyActionTask, setHistoryActionTask] = useState<Task | null>(null);
   const [addedConfirmation, setAddedConfirmation] = useState(false);
+  const [completedConfirmation, setCompletedConfirmation] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const topAddRef = useRef<HTMLButtonElement | null>(null);
 
@@ -292,6 +293,9 @@ export default function TasksPage() {
       );
       if (!result.ok && result.reason === "contribution_error") {
         alert(t("task_completion_error"));
+      } else if (result.ok) {
+        setCompletedConfirmation(true);
+        window.setTimeout(() => setCompletedConfirmation(false), 2200);
       }
     } finally {
       setAnimatingId(null);
@@ -543,6 +547,12 @@ export default function TasksPage() {
 
       {addedConfirmation && (
         <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>
+      )}
+
+      {completedConfirmation && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg" role="status" aria-live="polite">
+          ✓ {t("task_completed_confirmation")}
+        </div>
       )}
 
       {showAdd && (

@@ -69,6 +69,7 @@ export default function CoursesPage() {
   const [boughtSearch, setBoughtSearch] = useState("");
   const [showAllBought, setShowAllBought] = useState(false);
   const [addConfirmation, setAddConfirmation] = useState(false);
+  const [boughtConfirmation, setBoughtConfirmation] = useState(false);
   const [suggestionPreferences, setSuggestionPreferences] = useState<ShoppingSuggestionPreference[]>([]);
   const [handledSuggestionKeys, setHandledSuggestionKeys] = useState<string[]>([]);
   const [suggestionsHandledThisVisit, setSuggestionsHandledThisVisit] = useState(0);
@@ -161,10 +162,15 @@ export default function CoursesPage() {
       await new Promise((r) => setTimeout(r, 260));
     }
     const status = goingToBought ? "bought" : "to_buy";
-    await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
+    const { error } = await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
     setAnimatingId(null);
-    if (status === "bought" && household && me) {
-      notifyHousehold(supabase, household.id, me.id, "notif_item_bought", { name: me.first_name, item: item.name });
+    if (error) return;
+    if (status === "bought") {
+      setBoughtConfirmation(true);
+      window.setTimeout(() => setBoughtConfirmation(false), 2200);
+      if (household && me) {
+        notifyHousehold(supabase, household.id, me.id, "notif_item_bought", { name: me.first_name, item: item.name });
+      }
     }
     loadItems();
   }
@@ -603,6 +609,12 @@ export default function CoursesPage() {
       {addConfirmation && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg">
           {t("courses_added_confirmation")}
+        </div>
+      )}
+
+      {boughtConfirmation && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg" role="status" aria-live="polite">
+          ✓ {t("courses_bought_confirmation")}
         </div>
       )}
 
