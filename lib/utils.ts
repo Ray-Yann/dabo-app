@@ -74,9 +74,17 @@ export function nextOccurrence(eventDate: string, recurring: boolean): Date {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const next = new Date(today.getFullYear(), original.getMonth(), original.getDate());
+
+  const anchorMonth = original.getMonth();
+  const anchorDay = original.getDate();
+  const occurrenceForYear = (year: number) => {
+    const lastDayOfMonth = new Date(year, anchorMonth + 1, 0).getDate();
+    return new Date(year, anchorMonth, Math.min(anchorDay, lastDayOfMonth));
+  };
+
+  let next = occurrenceForYear(today.getFullYear());
   if (next.getTime() < today.getTime()) {
-    next.setFullYear(next.getFullYear() + 1);
+    next = occurrenceForYear(today.getFullYear() + 1);
   }
   return next;
 }
