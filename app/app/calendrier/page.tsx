@@ -27,6 +27,7 @@ export default function CalendarPage() {
   const [editRecurring, setEditRecurring] = useState(false);
   const [editReminderDays, setEditReminderDays] = useState(7);
   const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
 
   async function loadEvents() {
     if (!household) return;
@@ -58,8 +59,9 @@ export default function CalendarPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm(t("confirm_delete_event"))) return;
-    await supabase.from("calendar_events").delete().eq("id", id);
+    const { error } = await supabase.from("calendar_events").delete().eq("id", id);
+    if (error) return;
+    setDeleteTarget(null);
     loadEvents();
   }
 
@@ -251,7 +253,7 @@ export default function CalendarPage() {
                         <button onClick={() => startEditing(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("calendar_edit_event")}>
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => remove(e.id)} className="rounded-lg p-1.5 text-muted" aria-label={t("delete")}>
+                        <button onClick={() => setDeleteTarget(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("delete")}>
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -311,6 +313,53 @@ export default function CalendarPage() {
           ))}
         </div>
       </div>
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calendar-delete-title"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl border border-borderLight bg-white2 p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-paper text-muted">
+              <Trash2 size={18} />
+            </div>
+            <div id="calendar-delete-title" className="text-center text-base font-semibold text-ink">
+              {t("calendar_delete_title")}
+            </div>
+            <div className="mt-2 text-center text-sm leading-5 text-muted">
+              {t("calendar_delete_intro")} <span className="font-medium text-ink">“{deleteTarget.title}”</span>.
+            </div>
+            {deleteTarget.recurring && (
+              <div className="mt-3 rounded-2xl bg-paper/60 px-3 py-2.5 text-center text-xs leading-5 text-muted">
+                {t("calendar_delete_recurring_note")}
+              </div>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(deleteTarget.id)}
+                className="flex-1 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-paper"
+              >
+                {t("delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -116,6 +116,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     event_in: "dans",
     event_days: "jours",
     confirm_delete_event: "Supprimer cet événement ?",
+    calendar_delete_title: "Supprimer cet événement ?",
+    calendar_delete_intro: "Vous êtes sur le point de supprimer",
+    calendar_delete_recurring_note: "Comme cet événement revient chaque année, toutes ses prochaines occurrences seront supprimées.",
 
     tasks_title: "Tâches",
     intro_tasks_title: "À chacun sa part, plus simplement 🏠",
@@ -457,6 +460,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     event_in: "over",
     event_days: "dagen",
     confirm_delete_event: "Dit evenement verwijderen?",
+    calendar_delete_title: "Dit evenement verwijderen?",
+    calendar_delete_intro: "Je staat op het punt om te verwijderen",
+    calendar_delete_recurring_note: "Omdat dit evenement elk jaar terugkomt, worden ook alle volgende herhalingen verwijderd.",
 
     tasks_title: "Taken",
     intro_tasks_title: "Ieders deel, eenvoudiger 🏠",
@@ -798,6 +804,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     event_in: "in",
     event_days: "days",
     confirm_delete_event: "Delete this event?",
+    calendar_delete_title: "Delete this event?",
+    calendar_delete_intro: "You’re about to delete",
+    calendar_delete_recurring_note: "Because this event repeats every year, all of its future occurrences will be removed too.",
 
     tasks_title: "Tasks",
     intro_tasks_title: "Everyone’s part, made simpler 🏠",
