@@ -92,7 +92,11 @@ export default function SettingsPage() {
 
   async function chooseLanguage(lang: Lang) {
     if (!me) return;
-    await supabase.from("members").update({ language: lang }).eq("id", me.id);
+    const { error } = await supabase.from("members").update({ language: lang }).eq("id", me.id);
+    if (error) {
+      showFeedback("error", t("settings_error_save"));
+      return;
+    }
     refresh();
   }
 
@@ -109,8 +113,13 @@ export default function SettingsPage() {
         // Partage annulé par la personne — rien à faire.
       }
     } else {
-      navigator.clipboard?.writeText(`${shareData.text} ${shareData.url}`);
-      showFeedback("success", t("share_app_copied"));
+      try {
+        if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+        showFeedback("success", t("share_app_copied"));
+      } catch {
+        showFeedback("error", t("settings_error_copy"));
+      }
     }
   }
 
@@ -169,35 +178,56 @@ export default function SettingsPage() {
 
   async function toggleEquity() {
     if (!household) return;
-    await supabase.from("households").update({ equity_score_enabled: !household.equity_score_enabled }).eq("id", household.id);
+    const { error } = await supabase.from("households").update({ equity_score_enabled: !household.equity_score_enabled }).eq("id", household.id);
+    if (error) {
+      showFeedback("error", t("settings_error_save"));
+      return;
+    }
     refresh();
   }
   async function toggleDarkMode() {
     if (!me) return;
-    await supabase.from("members").update({ dark_mode: !me.dark_mode }).eq("id", me.id);
+    const { error } = await supabase.from("members").update({ dark_mode: !me.dark_mode }).eq("id", me.id);
+    if (error) {
+      showFeedback("error", t("settings_error_save"));
+      return;
+    }
     refresh();
   }
   async function saveHouseholdType() {
     if (!household) return;
-    await supabase.from("households").update({ household_type: householdType }).eq("id", household.id);
+    const { error } = await supabase.from("households").update({ household_type: householdType }).eq("id", household.id);
+    if (error) {
+      showFeedback("error", t("settings_error_save"));
+      return;
+    }
     setEditingHouseholdType(false);
     refresh();
   }
   async function saveHouseholdName() {
     if (!household || !householdName.trim()) return;
     setSavingHouseholdName(true);
-    await supabase.from("households").update({ name: householdName.trim() }).eq("id", household.id);
+    const { error } = await supabase.from("households").update({ name: householdName.trim() }).eq("id", household.id);
     setSavingHouseholdName(false);
+    if (error) {
+      showFeedback("error", t("settings_error_save"));
+      return;
+    }
     setHouseholdNameSaved(true);
     setEditingHouseholdName(false);
     setTimeout(() => setHouseholdNameSaved(false), 1500);
     refresh();
   }
-  function copyCode() {
+  async function copyCode() {
     if (!household) return;
-    navigator.clipboard?.writeText(household.invite_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(household.invite_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      showFeedback("error", t("settings_error_copy"));
+    }
   }
   async function shareInvite() {
     if (!household) return;
@@ -212,9 +242,14 @@ export default function SettingsPage() {
       }
       return;
     }
-    await navigator.clipboard?.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      showFeedback("error", t("settings_error_copy"));
+    }
   }
   async function removeMember(memberId: string) {
     const { data } = await supabase.auth.getSession();
@@ -337,7 +372,7 @@ export default function SettingsPage() {
               <Avatar member={me} members={members} size={42} />
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-ink truncate">{me.first_name}</div>
-                <div className="text-xs text-muted">{t("settings_member")}</div>
+                <div className="text-xs text-muted">{me.role === "creator" ? t("settings_household_creator") : t("settings_member")}</div>
               </div>
             </div>
             <div className="border-t border-border pt-3 mb-4">
@@ -395,6 +430,7 @@ export default function SettingsPage() {
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ background: c }}
                   aria-label={t("settings_avatar_color")}
+                  aria-pressed={me.avatar_color === c}
                 >
                   {me.avatar_color === c && <Check size={14} color="#F0EFE6" />}
                 </button>
@@ -407,6 +443,7 @@ export default function SettingsPage() {
                   key={l.code}
                   onClick={() => chooseLanguage(l.code)}
                   className={`px-3 py-1.5 rounded-full text-xs border ${me.language === l.code ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
+                  aria-pressed={me.language === l.code}
                 >
                   {l.label}
                 </button>
@@ -547,7 +584,7 @@ export default function SettingsPage() {
                 <div className="text-sm text-ink font-medium">{t("settings_dark_mode")}</div>
                 <div className="text-xs text-muted">{t("settings_dark_mode_desc")}</div>
               </div>
-              <button onClick={toggleDarkMode} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${me.dark_mode ? "bg-ink" : "bg-border"}`}>
+              <button onClick={toggleDarkMode} role="switch" aria-checked={me.dark_mode} aria-label={t("settings_dark_mode")} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${me.dark_mode ? "bg-ink" : "bg-border"}`}>
                 <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${me.dark_mode ? "left-5" : "left-0.5"}`} />
               </button>
             </div>
@@ -556,7 +593,7 @@ export default function SettingsPage() {
                 <div className="text-sm text-ink font-medium">{t("settings_equity_toggle")}</div>
                 <div className="text-xs text-muted">{t("settings_equity_toggle_desc")}</div>
               </div>
-              <button onClick={toggleEquity} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${household.equity_score_enabled ? "bg-ink" : "bg-border"}`}>
+              <button onClick={toggleEquity} role="switch" aria-checked={household.equity_score_enabled} aria-label={t("settings_equity_toggle")} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${household.equity_score_enabled ? "bg-ink" : "bg-border"}`}>
                 <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${household.equity_score_enabled ? "left-5" : "left-0.5"}`} />
               </button>
             </div>
