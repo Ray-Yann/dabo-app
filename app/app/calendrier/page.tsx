@@ -9,7 +9,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
-import { Trash2, Repeat, PartyPopper } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays } from "lucide-react";
 
 export default function CalendarPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -57,10 +57,40 @@ export default function CalendarPage() {
 
   if (loading || !household) return <LoadingState />;
 
+  const locale = me?.language === "nl" ? "nl-BE" : me?.language === "en" ? "en-GB" : "fr-BE";
+
+  function formatEventDate(date: Date) {
+    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(date);
+  }
+
+  function proximityLabel(date: Date) {
+    const days = daysUntil(date);
+    if (days === 0) return t("event_today");
+    if (days === 1) return t("event_tomorrow");
+    return `${t("event_in")} ${days} ${t("event_days")}`;
+  }
+
   const upcoming = events
     .map((e) => ({ ...e, next: nextOccurrence(e.event_date, e.recurring) }))
     .filter((e) => e.recurring || e.next.getTime() >= new Date(new Date().setHours(0, 0, 0, 0)).getTime())
     .sort((a, b) => a.next.getTime() - b.next.getTime());
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(todayStart);
+  const daysToSunday = (7 - endOfWeek.getDay()) % 7;
+  endOfWeek.setDate(endOfWeek.getDate() + daysToSunday);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  const todayEvents = upcoming.filter((event) => daysUntil(event.next) === 0);
+  const weekEvents = upcoming.filter((event) => daysUntil(event.next) > 0 && event.next <= endOfWeek);
+  const laterEvents = upcoming.filter((event) => event.next > endOfWeek);
+
+  const sections = [
+    { key: "today", label: t("calendar_section_today"), events: todayEvents },
+    { key: "week", label: t("calendar_section_week"), events: weekEvents },
+    { key: "later", label: t("calendar_section_later"), events: laterEvents },
+  ].filter((section) => section.events.length > 0);
 
   return (
     <div>
@@ -70,7 +100,7 @@ export default function CalendarPage() {
           {t("add")}
         </button>
       </div>
-      <IntroTip id="calendar" text={t("intro_calendar")} />
+      <IntroTip id="calendar-v2" title={t("intro_calendar_title")} text={t("intro_calendar")} />
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
@@ -104,27 +134,48 @@ export default function CalendarPage() {
 
       <div className="px-5">
         {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={() => setShowAdd(true)} />}
-        <div className="space-y-1">
-          {upcoming.map((e) => {
-            const days = daysUntil(e.next);
-            return (
-              <div key={e.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                <div className="w-9 h-9 rounded-full bg-mustardBg flex items-center justify-center shrink-0 text-mustard">
-                  <PartyPopper size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-ink flex items-center gap-1.5">
-                    {e.recurring && <Repeat size={11} className="text-muted" />}
-                    {e.title}
-                  </div>
-                  <div className="text-[11px] text-muted">
-                    {days === 0 ? t("event_today") : days === 1 ? t("event_tomorrow") : `${t("event_in")} ${days} ${t("event_days")}`}
-                  </div>
-                </div>
-                <button onClick={() => remove(e.id)} className="text-muted"><Trash2 size={16} /></button>
+        <div className="space-y-6 pb-6">
+          {sections.map((section) => (
+            <section key={section.key}>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                {section.label}
               </div>
-            );
-          })}
+              <div className="space-y-2">
+                {section.events.map((e) => {
+                  const isToday = daysUntil(e.next) === 0;
+                  return (
+                    <div
+                      key={e.id}
+                      className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
+                        isToday ? "border-mustard/30 bg-mustardBg" : "border-borderLight bg-white2"
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-paper text-mustard" : "bg-mustardBg text-mustard"}`}>
+                        {e.recurring ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-ink truncate">{e.title}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted">
+                          <span>{formatEventDate(e.next)}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className={isToday ? "font-medium text-mustard" : ""}>{proximityLabel(e.next)}</span>
+                          {e.recurring && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="inline-flex items-center gap-1"><Repeat size={10} />{t("event_every_year")}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => remove(e.id)} className="rounded-lg p-1.5 text-muted" aria-label={t("delete")}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
     </div>
