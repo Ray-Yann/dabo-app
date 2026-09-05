@@ -13,6 +13,12 @@ import { MEMBER_COLORS } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
 import { Lang } from "@/lib/i18n";
 
+type SettingsConfirmation =
+  | { kind: "promote"; memberId: string; name: string }
+  | { kind: "remove"; memberId: string; name: string }
+  | { kind: "leave" }
+  | { kind: "delete" };
+
 export default function SettingsPage() {
   const { loading, household, me, members, supabase, refresh } = useHousehold();
   const router = useRouter();
@@ -30,6 +36,21 @@ export default function SettingsPage() {
   const [editingHouseholdType, setEditingHouseholdType] = useState(false);
   const [householdType, setHouseholdType] = useState(household?.household_type || "couple");
   const [memberActionsId, setMemberActionsId] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<SettingsConfirmation | null>(null);
+  const [confirmationLoading, setConfirmationLoading] = useState(false);
+  const [deletePhrase, setDeletePhrase] = useState("");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  function showFeedback(type: "success" | "error", text: string) {
+    setFeedback({ type, text });
+    window.setTimeout(() => setFeedback(null), 3500);
+  }
+
+  function closeConfirmation() {
+    if (confirmationLoading) return;
+    setConfirmation(null);
+    setDeletePhrase("");
+  }
 
   useEffect(() => {
     if (me) {
@@ -52,7 +73,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from("members").update({ first_name: firstName.trim() }).eq("id", me.id);
     setSavingProfile(false);
     if (error) {
-      alert("Erreur lors de l'enregistrement : " + error.message);
+      showFeedback("error", t("settings_error_save"));
       return;
     }
     setProfileSaved(true);
@@ -64,7 +85,7 @@ export default function SettingsPage() {
     if (!me) return;
     const { error } = await supabase.from("members").update({ avatar_color: color }).eq("id", me.id);
     if (error) {
-      alert("Erreur lors de l'enregistrement : " + error.message);
+      showFeedback("error", t("settings_error_save"));
       return;
     }
     refresh();
@@ -90,7 +111,7 @@ export default function SettingsPage() {
       }
     } else {
       navigator.clipboard?.writeText(`${shareData.text} ${shareData.url}`);
-      alert(t("share_app_copied"));
+      showFeedback("success", t("share_app_copied"));
     }
   }
 
@@ -176,10 +197,12 @@ export default function SettingsPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
-  async function removeMember(memberId: string, name: string) {
-    if (!confirm(t("confirm_remove_member").replace("{name}", name))) return;
+  async function removeMember(memberId: string) {
     const { data } = await supabase.auth.getSession();
-    if (!data.session) return;
+    if (!data.session) {
+      showFeedback("error", t("settings_error_session"));
+      return false;
+    }
     const res = await fetch("/api/remove-member", {
       method: "POST",
       headers: {
@@ -189,55 +212,80 @@ export default function SettingsPage() {
       body: JSON.stringify({ memberId }),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      alert("Erreur lors du retrait : " + (body.error || "erreur inconnue"));
-      return;
+      showFeedback("error", t("settings_error_remove_member"));
+      return false;
     }
-    refresh();
+    await refresh();
+    showFeedback("success", t("settings_member_removed"));
+    return true;
   }
 
-  async function promoteToCreator(memberId: string, name: string) {
-    if (!confirm(t("confirm_promote_creator").replace("{name}", name))) return;
+  async function promoteToCreator(memberId: string) {
     const { error } = await supabase.from("members").update({ role: "creator" }).eq("id", memberId);
     if (error) {
-      alert("Erreur : " + error.message);
-      return;
+      showFeedback("error", t("settings_error_promote"));
+      return false;
     }
-    refresh();
+    await refresh();
+    showFeedback("success", t("settings_creator_updated"));
+    return true;
   }
 
   async function leaveHousehold() {
-    if (!me) return;
-    if (!confirm(t("confirm_leave"))) return;
     const { data } = await supabase.auth.getSession();
-    if (!data.session) return;
-    await fetch("/api/leave-household", {
+    if (!data.session) {
+      showFeedback("error", t("settings_error_session"));
+      return false;
+    }
+    const res = await fetch("/api/leave-household", {
       method: "POST",
       headers: { Authorization: `Bearer ${data.session.access_token}` },
     });
+    if (!res.ok) {
+      showFeedback("error", t("settings_error_leave"));
+      return false;
+    }
     router.replace("/");
+    return true;
   }
+
   async function signOut() {
     await supabase.auth.signOut();
     router.replace("/");
   }
 
   async function deleteAccount() {
-    if (!confirm(t("confirm_delete_account_1"))) return;
-    if (!confirm(t("confirm_delete_account_2"))) return;
     const { data } = await supabase.auth.getSession();
-    if (!data.session) return;
+    if (!data.session) {
+      showFeedback("error", t("settings_error_session"));
+      return false;
+    }
     const res = await fetch("/api/delete-account", {
       method: "POST",
       headers: { Authorization: `Bearer ${data.session.access_token}` },
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      alert("Erreur lors de la suppression : " + (body.error || "erreur inconnue"));
-      return;
+      showFeedback("error", t("settings_error_delete_account"));
+      return false;
     }
     await supabase.auth.signOut();
     router.replace("/");
+    return true;
+  }
+
+  async function confirmSensitiveAction() {
+    if (!confirmation) return;
+    setConfirmationLoading(true);
+    let completed = false;
+    if (confirmation.kind === "promote") completed = await promoteToCreator(confirmation.memberId);
+    if (confirmation.kind === "remove") completed = await removeMember(confirmation.memberId);
+    if (confirmation.kind === "leave") completed = await leaveHousehold();
+    if (confirmation.kind === "delete") completed = await deleteAccount();
+    setConfirmationLoading(false);
+    if (completed) {
+      setConfirmation(null);
+      setDeletePhrase("");
+    }
   }
 
   if (loading || !household || !me) return <LoadingState />;
@@ -416,11 +464,11 @@ export default function SettingsPage() {
                     {canManage && actionsOpen && (
                       <div className="mt-3 ml-10 rounded-xl bg-paper p-2 space-y-1">
                         {m.role !== "creator" && (
-                          <button onClick={() => { setMemberActionsId(null); promoteToCreator(m.id, m.first_name); }} className="w-full px-2.5 py-2 text-sm text-ink text-left flex items-center gap-2 rounded-lg">
+                          <button onClick={() => { setMemberActionsId(null); setConfirmation({ kind: "promote", memberId: m.id, name: m.first_name }); }} className="w-full px-2.5 py-2 text-sm text-ink text-left flex items-center gap-2 rounded-lg">
                             <ShieldPlus size={15} className="text-muted" /> {t("promote_creator")}
                           </button>
                         )}
-                        <button onClick={() => { setMemberActionsId(null); removeMember(m.id, m.first_name); }} className="w-full px-2.5 py-2 text-sm text-red-700/80 text-left flex items-center gap-2 rounded-lg">
+                        <button onClick={() => { setMemberActionsId(null); setConfirmation({ kind: "remove", memberId: m.id, name: m.first_name }); }} className="w-full px-2.5 py-2 text-sm text-red-700/80 text-left flex items-center gap-2 rounded-lg">
                           <UserMinus size={15} /> {t("settings_remove_member")}
                         </button>
                       </div>
@@ -502,16 +550,70 @@ export default function SettingsPage() {
             <p className="text-xs text-muted mt-0.5">{t("settings_sensitive_actions_desc")}</p>
           </div>
           <div className="border border-border rounded-2xl p-4 space-y-1">
-            <button onClick={leaveHousehold} className="w-full py-2.5 text-sm text-muted text-left">
+            <button onClick={() => setConfirmation({ kind: "leave" })} className="w-full py-2.5 text-sm text-muted text-left">
               {t("settings_leave")}
             </button>
             <div className="h-px bg-border" />
-            <button onClick={deleteAccount} className="w-full py-2.5 text-sm text-red-700/80 text-left">
+            <button onClick={() => setConfirmation({ kind: "delete" })} className="w-full py-2.5 text-sm text-red-700/80 text-left">
               {t("settings_delete_account")}
             </button>
           </div>
         </section>
       </div>
+
+      {feedback && (
+        <div className="fixed left-4 right-4 bottom-24 z-50 flex justify-center pointer-events-none">
+          <div className={`max-w-sm w-full rounded-2xl border px-4 py-3 text-sm shadow-lg ${feedback.type === "error" ? "border-red-200 bg-paper text-red-700" : "border-border bg-paper text-ink"}`}>
+            {feedback.text}
+          </div>
+        </div>
+      )}
+
+      {confirmation && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 px-0 sm:px-4" onClick={closeConfirmation}>
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-paper p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5 sm:hidden" />
+            <h3 className="text-lg font-semibold text-ink">
+              {confirmation.kind === "promote" && t("settings_confirm_promote_title").replace("{name}", confirmation.name)}
+              {confirmation.kind === "remove" && t("settings_confirm_remove_title").replace("{name}", confirmation.name)}
+              {confirmation.kind === "leave" && t("settings_confirm_leave_title").replace("{household}", household.name)}
+              {confirmation.kind === "delete" && t("settings_confirm_delete_title")}
+            </h3>
+            <p className="text-sm text-muted mt-2 leading-relaxed">
+              {confirmation.kind === "promote" && t("settings_confirm_promote_desc")}
+              {confirmation.kind === "remove" && t("settings_confirm_remove_desc").replace("{name}", confirmation.name)}
+              {confirmation.kind === "leave" && t("settings_confirm_leave_desc")}
+              {confirmation.kind === "delete" && t("settings_confirm_delete_desc")}
+            </p>
+
+            {confirmation.kind === "delete" && (
+              <div className="mt-5">
+                <label className="block text-xs font-medium text-ink mb-1.5">{t("settings_delete_phrase_label")}</label>
+                <input
+                  value={deletePhrase}
+                  onChange={(e) => setDeletePhrase(e.target.value)}
+                  placeholder={t("settings_delete_phrase")}
+                  autoComplete="off"
+                  className="w-full border border-border rounded-xl bg-white2 px-3 py-2.5 text-sm text-ink outline-none focus:border-ink"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-6">
+              <button disabled={confirmationLoading} onClick={closeConfirmation} className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink disabled:opacity-50">
+                {t("cancel")}
+              </button>
+              <button
+                disabled={confirmationLoading || (confirmation.kind === "delete" && deletePhrase.trim().toUpperCase() !== t("settings_delete_phrase").toUpperCase())}
+                onClick={confirmSensitiveAction}
+                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-40 ${confirmation.kind === "remove" || confirmation.kind === "leave" || confirmation.kind === "delete" ? "bg-red-700 text-white" : "bg-ink text-paper"}`}
+              >
+                {confirmationLoading ? "…" : confirmation.kind === "promote" ? t("settings_confirm_promote_action") : confirmation.kind === "remove" ? t("settings_confirm_remove_action") : confirmation.kind === "leave" ? t("settings_confirm_leave_action") : t("settings_confirm_delete_action")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
