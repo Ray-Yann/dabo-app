@@ -27,7 +27,7 @@ export default function TodayPage() {
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
-  const [upcomingEvent, setUpcomingEvent] = useState<{ title: string; days: number } | null>(null);
+  const [upcomingEvent, setUpcomingEvent] = useState<{ id: string; title: string; days: number } | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
@@ -75,7 +75,7 @@ export default function TodayPage() {
       setRoutines((routineData as Routine[]) || []);
 
       const withNext = householdEvents
-        .map((e) => ({ title: e.title, days: daysUntil(nextOccurrence(e.event_date, e.recurring)) }))
+        .map((e) => ({ id: e.id, title: e.title, days: daysUntil(nextOccurrence(e.event_date, e.recurring)) }))
         .filter((e) => e.days >= 0 && e.days <= 7)
         .sort((a, b) => a.days - b.days);
       setUpcomingEvent(withNext[0] || null);
@@ -149,7 +149,11 @@ export default function TodayPage() {
   const sortedItems = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const sortedTasks = [...tasks].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
 
-  const hasDaboEventInsight = daboInsights.some((insight) => insight.type === "upcoming_event");
+  const hasDaboInsightForUpcomingEvent = upcomingEvent
+    ? daboInsights.some(
+        (insight) => insight.type === "upcoming_event" && insight.relatedEntityId === upcomingEvent.id
+      )
+    : false;
 
   function insightDetails(insight: DaboInsight) {
     const task = insight.relatedEntityId
@@ -255,7 +259,7 @@ export default function TodayPage() {
         </section>
       )}
 
-      {upcomingEvent && !hasDaboEventInsight && (
+      {upcomingEvent && !hasDaboInsightForUpcomingEvent && (
         <div className="mx-5 mb-4 flex items-center gap-2 bg-mustardBg rounded-xl p-3 text-sm text-ink">
           <PartyPopper size={16} className="text-mustard shrink-0" />
           <span className="flex-1">
