@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const t = useT();
   const [copied, setCopied] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error" | "checking">("checking");
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error" | "checking" | "blocked" | "unsupported">("checking");
   const [notifError, setNotifError] = useState("");
   const [firstName, setFirstName] = useState(me?.first_name || "");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -117,7 +117,17 @@ export default function SettingsPage() {
 
   useEffect(() => {
     (async () => {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window) || Notification.permission !== "granted") {
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setNotifStatus("unsupported");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setNotifStatus("blocked");
+        return;
+      }
+      if (Notification.permission !== "granted") {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setNotifStatus("idle");
         return;
@@ -136,16 +146,26 @@ export default function SettingsPage() {
     try {
       await enableNotifications(supabase, me.id);
       setNotifStatus("done");
-    } catch (e: unknown) {
-      setNotifError(e instanceof Error ? e.message : "Une erreur est survenue.");
+    } catch {
+      if ("Notification" in window && Notification.permission === "denied") {
+        setNotifStatus("blocked");
+        return;
+      }
+      setNotifError(t("settings_notifications_error"));
       setNotifStatus("error");
     }
   }
 
   async function handleDisableNotifications() {
     setNotifStatus("loading");
-    await disableNotifications(supabase);
-    setNotifStatus("idle");
+    setNotifError("");
+    try {
+      await disableNotifications(supabase);
+      setNotifStatus("idle");
+    } catch {
+      setNotifError(t("settings_notifications_error"));
+      setNotifStatus("error");
+    }
   }
 
   async function toggleEquity() {
@@ -505,15 +525,34 @@ export default function SettingsPage() {
               </button>
             </div>
             <div className="bg-white2 rounded-2xl p-4">
-              <div className="text-sm text-ink font-medium flex items-center gap-2 mb-1"><Bell size={15} /> {t("settings_notifications")}</div>
-              <p className="text-xs text-muted mb-3">{notifStatus === "checking" ? "" : notifStatus === "done" ? t("settings_notifications_done") : t("settings_notifications_desc")}</p>
-              {notifStatus !== "done" && notifStatus !== "checking" && (
-                <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm text-ink font-medium flex items-center gap-2 mb-1"><Bell size={15} /> {t("settings_notifications")}</div>
+                  <p className="text-xs text-muted">
+                    {notifStatus === "checking" ? t("settings_notifications_checking") :
+                      notifStatus === "done" ? t("settings_notifications_done") :
+                      notifStatus === "blocked" ? t("settings_notifications_blocked") :
+                      notifStatus === "unsupported" ? t("settings_notifications_unsupported") :
+                      t("settings_notifications_desc")}
+                  </p>
+                </div>
+                {notifStatus === "done" && (
+                  <span className="text-[11px] font-medium text-ink bg-paper border border-border rounded-full px-2.5 py-1 shrink-0">
+                    {t("settings_notifications_active")}
+                  </span>
+                )}
+              </div>
+              {(notifStatus === "idle" || notifStatus === "error" || notifStatus === "loading") && (
+                <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="mt-3 bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
                   {notifStatus === "loading" ? "..." : t("settings_notifications_enable")}
                 </button>
               )}
-              {notifStatus === "done" && <button onClick={handleDisableNotifications} className="text-xs text-muted underline">{t("settings_notifications_disable")}</button>}
-              {notifStatus === "error" && <p className="text-xs text-red-700 mt-2">{notifError}</p>}
+              {notifStatus === "done" && (
+                <button onClick={handleDisableNotifications} className="mt-3 text-xs text-muted underline">
+                  {t("settings_notifications_disable")}
+                </button>
+              )}
+              {notifStatus === "error" && notifError && <p className="text-xs text-red-700 mt-2">{notifError}</p>}
             </div>
           </div>
         </section>
