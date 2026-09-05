@@ -363,7 +363,7 @@ export default function SettingsPage() {
               ) : (
                 <div>
                   <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_type")}</div>
-                  <select value={householdType} onChange={(e) => setHouseholdType(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink mb-2">
+                  <select value={householdType} onChange={(e) => setHouseholdType(e.target.value as "couple" | "coloc" | "famille")} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink mb-2">
                     <option value="couple">{t("household_couple")}</option>
                     <option value="coloc">{t("household_coloc")}</option>
                     <option value="famille">{t("household_famille")}</option>
