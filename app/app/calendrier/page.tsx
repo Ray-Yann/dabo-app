@@ -9,7 +9,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
-import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil } from "lucide-react";
 
 export default function CalendarPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -21,6 +21,12 @@ export default function CalendarPage() {
   const [recurring, setRecurring] = useState(false);
   const [reminderDays, setReminderDays] = useState(7);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editRecurring, setEditRecurring] = useState(false);
+  const [editReminderDays, setEditReminderDays] = useState(7);
+  const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
 
   async function loadEvents() {
     if (!household) return;
@@ -54,6 +60,38 @@ export default function CalendarPage() {
   async function remove(id: string) {
     if (!confirm(t("confirm_delete_event"))) return;
     await supabase.from("calendar_events").delete().eq("id", id);
+    loadEvents();
+  }
+
+  function startEditing(event: CalendarEvent) {
+    setEditingId(event.id);
+    setEditTitle(event.title);
+    setEditDate(event.event_date);
+    setEditRecurring(event.recurring);
+    setEditReminderDays(event.reminder_days_before ?? 7);
+    setShowEditMoreOptions(false);
+    setShowAdd(false);
+    setShowMoreOptions(false);
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setShowEditMoreOptions(false);
+  }
+
+  async function saveEvent() {
+    if (!editingId || !editTitle.trim() || !editDate) return;
+    const { error } = await supabase
+      .from("calendar_events")
+      .update({
+        title: editTitle.trim(),
+        event_date: editDate,
+        recurring: editRecurring,
+        reminder_days_before: editReminderDays,
+      })
+      .eq("id", editingId);
+    if (error) return;
+    cancelEditing();
     loadEvents();
   }
 
@@ -186,8 +224,8 @@ export default function CalendarPage() {
                 {section.events.map((e) => {
                   const isToday = daysUntil(e.next) === 0;
                   return (
+                    <div key={e.id}>
                     <div
-                      key={e.id}
                       className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
                         isToday ? "border-mustard/30 bg-mustardBg" : "border-borderLight bg-white2"
                       }`}
@@ -209,10 +247,63 @@ export default function CalendarPage() {
                           )}
                         </div>
                       </div>
-                      <button onClick={() => remove(e.id)} className="rounded-lg p-1.5 text-muted" aria-label={t("delete")}>
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button onClick={() => startEditing(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("calendar_edit_event")}>
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => remove(e.id)} className="rounded-lg p-1.5 text-muted" aria-label={t("delete")}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
+                    {editingId === e.id && (
+                      <div className="mt-2 rounded-2xl border border-borderLight bg-white2 p-4">
+                        <div className="mb-4">
+                          <div className="text-sm font-semibold text-ink">{t("calendar_edit_event")}</div>
+                          <div className="mt-0.5 text-xs text-muted">{t("calendar_edit_event_hint")}</div>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_name")}</label>
+                            <input autoFocus value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_date")}</label>
+                            <input type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+                          </div>
+                          <button type="button" onClick={() => setShowEditMoreOptions((value) => !value)} className="flex w-full items-center justify-between rounded-xl py-1.5 text-sm font-medium text-ink" aria-expanded={showEditMoreOptions}>
+                            <span>{t("calendar_more_options")}</span>
+                            <ChevronDown size={16} className={`text-muted transition-transform ${showEditMoreOptions ? "rotate-180" : ""}`} />
+                          </button>
+                          {showEditMoreOptions && (
+                            <div className="space-y-3 rounded-xl bg-paper/40 p-3">
+                              <label className="flex items-center gap-2.5 text-sm text-ink">
+                                <input type="checkbox" checked={editRecurring} onChange={(event) => setEditRecurring(event.target.checked)} />
+                                {t("event_recurring")}
+                              </label>
+                              <div>
+                                <label className="text-xs text-muted block mb-1.5">{t("event_reminder_label")}</label>
+                                <select value={editReminderDays} onChange={(event) => setEditReminderDays(Number(event.target.value))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink">
+                                  <option value={0}>{t("reminder_same_day")}</option>
+                                  <option value={1}>{t("reminder_1_day")}</option>
+                                  <option value={2}>{t("reminder_2_days")}</option>
+                                  <option value={3}>{t("reminder_3_days")}</option>
+                                  <option value={7}>{t("reminder_1_week")}</option>
+                                  <option value={14}>{t("reminder_2_weeks")}</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                          <button onClick={saveEvent} disabled={!editTitle.trim() || !editDate} className="flex-1 bg-ink text-paper rounded-xl py-2.5 text-sm font-medium disabled:opacity-40">
+                            {t("calendar_save_changes")}
+                          </button>
+                          <button onClick={cancelEditing} className="px-4 text-sm text-muted">{t("cancel")}</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   );
                 })}
               </div>
