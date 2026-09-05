@@ -8,7 +8,6 @@ import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
 import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
-import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { enableNotifications, disableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
 import { Share2 } from "lucide-react";
@@ -226,37 +225,53 @@ export default function SettingsPage() {
     { code: "en", label: "English" },
   ];
 
+  const householdTypeLabel = household.household_type === "couple"
+    ? t("household_couple")
+    : household.household_type === "coloc"
+      ? t("household_coloc")
+      : t("household_famille");
+
   return (
     <div>
       <Header title={t("settings_title")} />
       <IntroTip id="settings" text={t("intro_settings")} />
 
-      <div className="px-5 space-y-4">
-        <CollapsibleSection title={t("settings_my_profile")}>
+      <div className="px-5 pb-8 space-y-7">
+        <section>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-ink">{t("settings_my_profile")}</h2>
+            <p className="text-xs text-muted mt-0.5">{t("settings_profile_desc")}</p>
+          </div>
           <div className="bg-white2 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Avatar member={me} members={members} size={20} />
+            <div className="flex items-center gap-3 mb-4">
+              <Avatar member={me} members={members} size={42} />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-ink truncate">{me.first_name}</div>
+                <div className="text-xs text-muted">{t("settings_member")}</div>
+              </div>
             </div>
+            <div className="text-xs font-medium text-ink mb-1.5">{t("settings_first_name")}</div>
             <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-3"
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-3 bg-white2 text-ink"
             />
             <div className="text-xs text-muted mb-2">{t("settings_avatar_color")}</div>
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-4 flex-wrap">
               {MEMBER_COLORS.map((c) => (
                 <button
                   key={c}
                   onClick={() => chooseColor(c)}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ background: c }}
+                  aria-label={t("settings_avatar_color")}
                 >
                   {me.avatar_color === c && <Check size={14} color="#F0EFE6" />}
                 </button>
               ))}
             </div>
             <div className="text-xs text-muted mb-2">{t("settings_language")}</div>
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-4 flex-wrap">
               {LANGUAGES.map((l) => (
                 <button
                   key={l.code}
@@ -271,40 +286,32 @@ export default function SettingsPage() {
               {savingProfile ? "..." : profileSaved ? t("saved") : t("save")}
             </button>
           </div>
-        </CollapsibleSection>
+        </section>
 
-        <CollapsibleSection title={t("settings_section_household")}>
-          <div className="bg-white2 rounded-2xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">{t("settings_invite")}</div>
-            <p className="text-xs text-muted mb-2">{t("settings_invite_desc")}</p>
-            <div className="flex items-center justify-between bg-paper rounded-xl px-3 py-2">
-              <span className="font-mono text-sm text-ink">{household.invite_code}</span>
-              <button onClick={copyCode} className="flex items-center gap-1 text-xs text-muted">
-                <Copy size={14} /> {copied ? t("copied") : t("copy")}
-              </button>
-            </div>
+        <section>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-ink">{t("settings_section_household")}</h2>
+            <p className="text-xs text-muted mt-0.5">{t("settings_household_desc")}</p>
           </div>
 
-          <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm text-ink font-medium">{t("share_app_title")}</div>
-              <div className="text-xs text-muted">{t("share_app_desc")}</div>
+          <div className="bg-white2 rounded-2xl p-4 mb-3">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-ink truncate">{household.name}</div>
+                <div className="text-xs text-muted mt-0.5">{householdTypeLabel} · {members.length} {members.length === 1 ? t("settings_member_singular") : t("settings_member_plural")}</div>
+              </div>
+              <span className="text-xl" aria-hidden="true">🏡</span>
             </div>
-            <button onClick={shareApp} className="bg-ink text-paper rounded-xl p-2.5 shrink-0">
-              <Share2 size={16} />
-            </button>
-          </div>
-
-          <div className="bg-white2 rounded-2xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("settings_household")}</div>
+            <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_name")}</div>
             <input
               value={householdName}
               onChange={(e) => setHouseholdName(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2"
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2 bg-white2 text-ink"
             />
-            <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50 mb-3">
+            <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50 mb-4">
               {savingHouseholdName ? "..." : householdNameSaved ? t("saved") : t("save")}
             </button>
+            <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_type")}</div>
             <select
               value={household.household_type}
               onChange={(e) => changeType(e.target.value)}
@@ -316,25 +323,38 @@ export default function SettingsPage() {
             </select>
           </div>
 
+          <div className="bg-white2 rounded-2xl p-4 mb-3">
+            <div className="text-sm text-ink font-medium mb-1">{t("settings_invite_member")}</div>
+            <p className="text-xs text-muted mb-3">{t("settings_invite_desc")}</p>
+            <div className="flex items-center justify-between bg-paper rounded-xl px-3 py-2">
+              <span className="font-mono text-sm text-ink">{household.invite_code}</span>
+              <button onClick={copyCode} className="flex items-center gap-1 text-xs text-muted">
+                <Copy size={14} /> {copied ? t("copied") : t("copy")}
+              </button>
+            </div>
+          </div>
+
           <div className="bg-white2 rounded-2xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">{t("settings_members")}</div>
-            <div className="space-y-2">
+            <div className="text-sm font-medium text-ink mb-3">{t("settings_members")}</div>
+            <div className="space-y-3">
               {members.map((m) => (
-                <div key={m.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Avatar member={m} members={members} size={20} />
-                    <span className="text-sm text-ink">{m.first_name}</span>
+                <div key={m.id} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar member={m} members={members} size={28} />
+                    <div className="min-w-0">
+                      <div className="text-sm text-ink font-medium truncate">{m.first_name}</div>
+                      <div className="text-xs text-muted">{m.role === "creator" ? t("settings_household_creator") : t("settings_member")}</div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted">{m.role === "creator" ? t("settings_creator") : t("settings_member")}</span>
+                  <div className="flex items-center gap-2 shrink-0">
                     {me.role === "creator" && m.id !== me.id && m.role !== "creator" && (
-                      <button onClick={() => promoteToCreator(m.id, m.first_name)} className="text-muted" title={t("promote_creator")}>
-                        <ShieldPlus size={15} />
+                      <button onClick={() => promoteToCreator(m.id, m.first_name)} className="text-muted p-1" title={t("promote_creator")}>
+                        <ShieldPlus size={16} />
                       </button>
                     )}
                     {me.role === "creator" && m.id !== me.id && (
-                      <button onClick={() => removeMember(m.id, m.first_name)} className="text-muted">
-                        <UserMinus size={15} />
+                      <button onClick={() => removeMember(m.id, m.first_name)} className="text-muted p-1" title={t("settings_remove_member")}>
+                        <UserMinus size={16} />
                       </button>
                     )}
                   </div>
@@ -342,67 +362,87 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
-        </CollapsibleSection>
+        </section>
 
-        <CollapsibleSection title={t("settings_section_preferences")}>
-          <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm text-ink font-medium">{t("settings_dark_mode")}</div>
-              <div className="text-xs text-muted">{t("settings_dark_mode_desc")}</div>
+        <section>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-ink">{t("settings_section_preferences")}</h2>
+            <p className="text-xs text-muted mt-0.5">{t("settings_preferences_desc")}</p>
+          </div>
+          <div className="space-y-3">
+            <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm text-ink font-medium">{t("settings_dark_mode")}</div>
+                <div className="text-xs text-muted">{t("settings_dark_mode_desc")}</div>
+              </div>
+              <button onClick={toggleDarkMode} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${me.dark_mode ? "bg-ink" : "bg-border"}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${me.dark_mode ? "left-5" : "left-0.5"}`} />
+              </button>
             </div>
-            <button
-              onClick={toggleDarkMode}
-              className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${me.dark_mode ? "bg-ink" : "bg-border"}`}
-            >
-              <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${me.dark_mode ? "left-5" : "left-0.5"}`} />
+            <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm text-ink font-medium">{t("settings_equity_toggle")}</div>
+                <div className="text-xs text-muted">{t("settings_equity_toggle_desc")}</div>
+              </div>
+              <button onClick={toggleEquity} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${household.equity_score_enabled ? "bg-ink" : "bg-border"}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${household.equity_score_enabled ? "left-5" : "left-0.5"}`} />
+              </button>
+            </div>
+            <div className="bg-white2 rounded-2xl p-4">
+              <div className="text-sm text-ink font-medium flex items-center gap-2 mb-1"><Bell size={15} /> {t("settings_notifications")}</div>
+              <p className="text-xs text-muted mb-3">{notifStatus === "checking" ? "" : notifStatus === "done" ? t("settings_notifications_done") : t("settings_notifications_desc")}</p>
+              {notifStatus !== "done" && notifStatus !== "checking" && (
+                <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
+                  {notifStatus === "loading" ? "..." : t("settings_notifications_enable")}
+                </button>
+              )}
+              {notifStatus === "done" && <button onClick={handleDisableNotifications} className="text-xs text-muted underline">{t("settings_notifications_disable")}</button>}
+              {notifStatus === "error" && <p className="text-xs text-red-700 mt-2">{notifError}</p>}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-ink">DABO</h2>
+          </div>
+          <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm text-ink font-medium">{t("share_app_title")}</div>
+              <div className="text-xs text-muted">{t("share_app_desc")}</div>
+            </div>
+            <button onClick={shareApp} className="bg-ink text-paper rounded-xl p-2.5 shrink-0" aria-label={t("share_app_title")}>
+              <Share2 size={16} />
             </button>
           </div>
+        </section>
 
-          <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm text-ink font-medium">{t("settings_equity_toggle")}</div>
-              <div className="text-xs text-muted">{t("settings_equity_toggle_desc")}</div>
-            </div>
-            <button
-              onClick={toggleEquity}
-              className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${household.equity_score_enabled ? "bg-ink" : "bg-border"}`}
-            >
-              <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${household.equity_score_enabled ? "left-5" : "left-0.5"}`} />
-            </button>
+        <section>
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-ink">{t("settings_section_account")}</h2>
           </div>
-
           <div className="bg-white2 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-sm text-ink font-medium flex items-center gap-2"><Bell size={15} /> {t("settings_notifications")}</div>
-            </div>
-            <p className="text-xs text-muted mb-3">
-              {notifStatus === "checking" ? "" : notifStatus === "done" ? t("settings_notifications_done") : t("settings_notifications_desc")}
-            </p>
-            {notifStatus !== "done" && notifStatus !== "checking" && (
-              <button onClick={handleEnableNotifications} disabled={notifStatus === "loading"} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
-                {notifStatus === "loading" ? "..." : t("settings_notifications_enable")}
-              </button>
-            )}
-            {notifStatus === "done" && (
-              <button onClick={handleDisableNotifications} className="text-xs text-muted underline">
-                {t("settings_notifications_disable")}
-              </button>
-            )}
-            {notifStatus === "error" && <p className="text-xs text-red-700 mt-2">{notifError}</p>}
+            <button onClick={signOut} className="w-full text-sm text-ink py-1 flex items-center justify-between">
+              <span>{t("settings_signout")}</span><LogOut size={16} className="text-muted" />
+            </button>
           </div>
-        </CollapsibleSection>
+        </section>
 
-        <CollapsibleSection title={t("settings_section_account")} defaultOpen={false}>
-          <button onClick={leaveHousehold} className="w-full border border-border rounded-xl py-3 text-sm text-muted flex items-center justify-center gap-2">
-            <LogOut size={14} /> {t("settings_leave")}
-          </button>
-          <button onClick={signOut} className="w-full text-sm text-muted py-2">
-            {t("settings_signout")}
-          </button>
-          <button onClick={deleteAccount} className="w-full text-xs text-red-700/70 py-2">
-            {t("settings_delete_account")}
-          </button>
-        </CollapsibleSection>
+        <section>
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-red-700/80">{t("settings_sensitive_actions")}</h2>
+            <p className="text-xs text-muted mt-0.5">{t("settings_sensitive_actions_desc")}</p>
+          </div>
+          <div className="border border-border rounded-2xl p-4 space-y-1">
+            <button onClick={leaveHousehold} className="w-full py-2.5 text-sm text-muted text-left">
+              {t("settings_leave")}
+            </button>
+            <div className="h-px bg-border" />
+            <button onClick={deleteAccount} className="w-full py-2.5 text-sm text-red-700/80 text-left">
+              {t("settings_delete_account")}
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );
