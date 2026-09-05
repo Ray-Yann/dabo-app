@@ -100,6 +100,16 @@ export default function BalancePage() {
     });
   }, [allMembers, since]);
 
+  const memberLeftDuringPeriod = useMemo(() => {
+    const sinceMs = since.getTime();
+    const nowMs = Date.now();
+
+    return allMembers.some((member) => {
+      const leftAt = member.left_at ? new Date(member.left_at).getTime() : null;
+      return leftAt !== null && leftAt >= sinceMs && leftAt <= nowMs;
+    });
+  }, [allMembers, since]);
+
   const householdChangedDuringPeriod = useMemo(() => {
     const sinceMs = since.getTime();
 
@@ -181,7 +191,7 @@ export default function BalancePage() {
   const balanceSuggestedMember = (() => {
     if (
       confirmedContributionCount < 4 ||
-      memberJoinedDuringPeriod ||
+      (memberJoinedDuringPeriod || memberLeftDuringPeriod) ||
       balanceLevel === "healthy" ||
       members.length < 2
     ) return null;
@@ -443,8 +453,8 @@ export default function BalancePage() {
           <div>
             <div className="text-center mb-5">
               <p className="text-base text-ink font-medium">
-                {memberJoinedDuringPeriod
-                  ? t("balance_new_member_period_title")
+                {memberJoinedDuringPeriod || memberLeftDuringPeriod
+                  ? t("balance_membership_change_period_title")
                   : balanceLevel === "healthy"
                     ? t("balance_healthy_title")
                     : balanceLevel === "gentle"
@@ -452,8 +462,8 @@ export default function BalancePage() {
                       : t("balance_marked_title")}
               </p>
               <p className="text-sm text-muted mt-1 max-w-sm mx-auto">
-                {memberJoinedDuringPeriod
-                  ? t("balance_new_member_period_text")
+                {memberJoinedDuringPeriod || memberLeftDuringPeriod
+                  ? t("balance_membership_change_period_text")
                   : balanceLevel === "healthy"
                     ? t("balance_healthy_text")
                     : balanceLevel === "gentle"
