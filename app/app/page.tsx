@@ -27,7 +27,6 @@ export default function TodayPage() {
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
-  const [upcomingEvent, setUpcomingEvent] = useState<{ id: string; title: string; days: number } | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
@@ -74,11 +73,6 @@ export default function TodayPage() {
       setCalendarEvents(householdEvents);
       setRoutines((routineData as Routine[]) || []);
 
-      const withNext = householdEvents
-        .map((e) => ({ id: e.id, title: e.title, days: daysUntil(nextOccurrence(e.event_date, e.recurring)) }))
-        .filter((e) => e.days >= 0 && e.days <= 7)
-        .sort((a, b) => a.days - b.days);
-      setUpcomingEvent(withNext[0] || null);
     })();
   }, [household, me]);
 
@@ -149,11 +143,26 @@ export default function TodayPage() {
   const sortedItems = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const sortedTasks = [...tasks].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
 
-  const hasDaboInsightForUpcomingEvent = upcomingEvent
-    ? daboInsights.some(
-        (insight) => insight.type === "upcoming_event" && insight.relatedEntityId === upcomingEvent.id
-      )
-    : false;
+  // Keep one supplemental calendar event visible when the DABO cards already
+  // represent another event. This matters when several events share the same
+  // day: the first event returned by Supabase must not hide the others.
+  const upcomingEvents = calendarEvents
+    .map((event) => ({
+      id: event.id,
+      title: event.title,
+      days: daysUntil(nextOccurrence(event.event_date, event.recurring)),
+    }))
+    .filter((event) => event.days >= 0 && event.days <= 7)
+    .sort((a, b) => a.days - b.days || a.title.localeCompare(b.title));
+
+  const representedUpcomingEventIds = new Set(
+    daboInsights
+      .filter((insight) => insight.type === "upcoming_event" && insight.relatedEntityId)
+      .map((insight) => insight.relatedEntityId as string)
+  );
+
+  const supplementalUpcomingEvent =
+    upcomingEvents.find((event) => !representedUpcomingEventIds.has(event.id)) || null;
 
   function insightDetails(insight: DaboInsight) {
     const task = insight.relatedEntityId
@@ -259,12 +268,12 @@ export default function TodayPage() {
         </section>
       )}
 
-      {upcomingEvent && !hasDaboInsightForUpcomingEvent && (
+      {supplementalUpcomingEvent && (
         <div className="mx-5 mb-4 flex items-center gap-2 bg-mustardBg rounded-xl p-3 text-sm text-ink">
           <PartyPopper size={16} className="text-mustard shrink-0" />
           <span className="flex-1">
-            {upcomingEvent.title} —{" "}
-            {upcomingEvent.days === 0 ? t("event_today") : upcomingEvent.days === 1 ? t("event_tomorrow") : `${t("event_in")} ${upcomingEvent.days} ${t("event_days")}`}
+            {supplementalUpcomingEvent.title} —{" "}
+            {supplementalUpcomingEvent.days === 0 ? t("event_today") : supplementalUpcomingEvent.days === 1 ? t("event_tomorrow") : `${t("event_in")} ${supplementalUpcomingEvent.days} ${t("event_days")}`}
           </span>
         </div>
       )}
