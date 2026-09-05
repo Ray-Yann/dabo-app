@@ -44,7 +44,7 @@ function effortLabel(key: string | null): string | null {
 }
 
 export default function BalancePage() {
-  const { loading, household, members, allMembers, supabase } = useHousehold();
+  const { loading, household, me, members, allMembers, supabase } = useHousehold();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [period, setPeriod] = useState<Period>("week");
@@ -54,6 +54,8 @@ export default function BalancePage() {
   const [showCalculationInfo, setShowCalculationInfo] = useState(false);
   const [historicalContributionId, setHistoricalContributionId] = useState<string | null>(null);
   const [confirmingHistoricalPerformer, setConfirmingHistoricalPerformer] = useState(false);
+  const [editingContributionId, setEditingContributionId] = useState<string | null>(null);
+  const [savingContributionPerformer, setSavingContributionPerformer] = useState(false);
   const [redistributionTaskId, setRedistributionTaskId] = useState<string | null>(null);
   const [savingRedistribution, setSavingRedistribution] = useState(false);
   const t = useT();
@@ -338,6 +340,49 @@ export default function BalancePage() {
     }
   }
 
+  async function updateContributionPerformer(memberIds: string[]) {
+    if (!editingContributionId || memberIds.length === 0 || savingContributionPerformer) return;
+    setSavingContributionPerformer(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("missing_session");
+
+      const response = await fetch("/api/update-contribution-performers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          contributionId: editingContributionId,
+          memberIds,
+        }),
+      });
+      if (!response.ok) throw new Error("update_failed");
+
+      setBalanceData((current) => ({
+        contributions: current.contributions,
+        participants: [
+          ...current.participants.filter(
+            (participant) => participant.contribution_id !== editingContributionId
+          ),
+          ...memberIds.map((memberId) => ({
+            contribution_id: editingContributionId,
+            member_id: memberId,
+            share_weight: 1,
+          })),
+        ],
+      }));
+      setEditingContributionId(null);
+    } catch (error) {
+      console.error("DABO contribution performer update failed", error);
+      alert(t("balance_edit_performer_error"));
+    } finally {
+      setSavingContributionPerformer(false);
+    }
+  }
+
   function shareReport() {
     const periodLabel = period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months");
     const lines = totals.map((member) => `${member.first_name} : ${percentages.get(member.id) ?? 0}%`).join("\n");
@@ -388,6 +433,58 @@ export default function BalancePage() {
           </button>
         ))}
       </div>
+
+      {editingContributionId && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4"
+          onClick={() => !savingContributionPerformer && setEditingContributionId(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-performer-title"
+            className="w-full max-w-md rounded-3xl bg-paper p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
+            <h2 id="edit-performer-title" className="text-base font-semibold text-ink">
+              {t("balance_edit_performer_title")}
+            </h2>
+            <p className="mt-1 text-sm text-muted">{t("balance_edit_performer_text")}</p>
+            <div className="mt-5 space-y-2">
+              {members.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  disabled={savingContributionPerformer}
+                  onClick={() => updateContributionPerformer([member.id])}
+                  className="w-full rounded-2xl border border-border bg-white2 px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
+                >
+                  {member.first_name}
+                </button>
+              ))}
+              {members.length > 1 && (
+                <button
+                  type="button"
+                  disabled={savingContributionPerformer}
+                  onClick={() => updateContributionPerformer(members.map((member) => member.id))}
+                  className="w-full rounded-2xl border border-border bg-white2 px-4 py-3 text-left text-sm font-medium text-ink disabled:opacity-50"
+                >
+                  {t("balance_confirm_performer_together")}
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={savingContributionPerformer}
+              onClick={() => setEditingContributionId(null)}
+              className="mt-3 w-full py-2 text-sm text-muted disabled:opacity-50"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {balanceSection === "overview" && (
         <>
@@ -638,6 +735,15 @@ export default function BalancePage() {
                                     <>
                                       <div className="text-[10px] mb-0.5">{t("balance_done_by")}</div>
                                       <div className="leading-4">{performers.join(" & ")}</div>
+                                      {me && (participantIdsByContribution.get(contribution.id) || []).includes(me.id) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingContributionId(contribution.id)}
+                                          className="mt-1 text-[11px] text-mustard hover:underline"
+                                        >
+                                          {t("balance_edit_performer_action")}
+                                        </button>
+                                      )}
                                     </>
                                   )}
                                 </div>
