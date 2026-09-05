@@ -90,6 +90,16 @@ export default function BalancePage() {
       );
   }, [allMembers, since]);
 
+  const memberJoinedDuringPeriod = useMemo(() => {
+    const sinceMs = since.getTime();
+    const nowMs = Date.now();
+
+    return allMembers.some((member) => {
+      const joinedAt = new Date(member.created_at).getTime();
+      return joinedAt >= sinceMs && joinedAt <= nowMs;
+    });
+  }, [allMembers, since]);
+
   const householdChangedDuringPeriod = useMemo(() => {
     const sinceMs = since.getTime();
 
@@ -169,7 +179,12 @@ export default function BalancePage() {
     detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
   const balanceSuggestedMember = (() => {
-    if (confirmedContributionCount < 4 || balanceLevel === "healthy" || members.length < 2) return null;
+    if (
+      confirmedContributionCount < 4 ||
+      memberJoinedDuringPeriod ||
+      balanceLevel === "healthy" ||
+      members.length < 2
+    ) return null;
 
     const shares = members.map((member) => ({
       member,
@@ -428,18 +443,22 @@ export default function BalancePage() {
           <div>
             <div className="text-center mb-5">
               <p className="text-base text-ink font-medium">
-                {balanceLevel === "healthy"
-                  ? t("balance_healthy_title")
-                  : balanceLevel === "gentle"
-                    ? t("balance_gentle_title")
-                    : t("balance_marked_title")}
+                {memberJoinedDuringPeriod
+                  ? t("balance_new_member_period_title")
+                  : balanceLevel === "healthy"
+                    ? t("balance_healthy_title")
+                    : balanceLevel === "gentle"
+                      ? t("balance_gentle_title")
+                      : t("balance_marked_title")}
               </p>
               <p className="text-sm text-muted mt-1 max-w-sm mx-auto">
-                {balanceLevel === "healthy"
-                  ? t("balance_healthy_text")
-                  : balanceLevel === "gentle"
-                    ? t("balance_gentle_text")
-                    : t("balance_marked_text")}
+                {memberJoinedDuringPeriod
+                  ? t("balance_new_member_period_text")
+                  : balanceLevel === "healthy"
+                    ? t("balance_healthy_text")
+                    : balanceLevel === "gentle"
+                      ? t("balance_gentle_text")
+                      : t("balance_marked_text")}
               </p>
             </div>
             <BalanceBar
