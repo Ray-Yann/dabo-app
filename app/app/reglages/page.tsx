@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const [notifError, setNotifError] = useState("");
   const [firstName, setFirstName] = useState(me?.first_name || "");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [editingFirstName, setEditingFirstName] = useState(false);
   const [householdName, setHouseholdName] = useState(household?.name || "");
   const [savingHouseholdName, setSavingHouseholdName] = useState(false);
   const [householdNameSaved, setHouseholdNameSaved] = useState(false);
@@ -76,8 +76,7 @@ export default function SettingsPage() {
       showFeedback("error", t("settings_error_save"));
       return;
     }
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 1500);
+    setEditingFirstName(false);
     refresh();
   }
 
@@ -341,12 +340,52 @@ export default function SettingsPage() {
                 <div className="text-xs text-muted">{t("settings_member")}</div>
               </div>
             </div>
-            <div className="text-xs font-medium text-ink mb-1.5">{t("settings_first_name")}</div>
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-3 bg-white2 text-ink"
-            />
+            <div className="border-t border-border pt-3 mb-4">
+              <div className="text-xs text-muted mb-1">{t("settings_first_name")}</div>
+              {editingFirstName ? (
+                <div>
+                  <input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    autoFocus
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => {
+                        setFirstName(me.first_name);
+                        setEditingFirstName(false);
+                      }}
+                      disabled={savingProfile}
+                      className="px-3 py-2 rounded-xl text-xs border border-border text-muted disabled:opacity-50"
+                    >
+                      {t("cancel")}
+                    </button>
+                    <button
+                      onClick={saveProfile}
+                      disabled={savingProfile || !firstName.trim()}
+                      className="px-3 py-2 rounded-xl text-xs font-medium bg-ink text-paper disabled:opacity-50"
+                    >
+                      {savingProfile ? "..." : t("save")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-ink truncate">{me.first_name}</div>
+                  <button
+                    onClick={() => {
+                      setFirstName(me.first_name);
+                      setEditingFirstName(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink transition-colors shrink-0"
+                  >
+                    <Pencil size={13} />
+                    {t("edit")}
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="text-xs text-muted mb-2">{t("settings_avatar_color")}</div>
             <div className="flex gap-2 mb-4 flex-wrap">
               {MEMBER_COLORS.map((c) => (
@@ -373,9 +412,6 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
-            <button onClick={saveProfile} disabled={savingProfile || !firstName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">
-              {savingProfile ? "..." : profileSaved ? t("saved") : t("save")}
-            </button>
           </div>
         </section>
 
