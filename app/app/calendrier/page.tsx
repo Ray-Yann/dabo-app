@@ -9,7 +9,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
-import { Trash2, Repeat, PartyPopper, CalendarDays } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown } from "lucide-react";
 
 export default function CalendarPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -18,8 +18,9 @@ export default function CalendarPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
-  const [recurring, setRecurring] = useState(true);
+  const [recurring, setRecurring] = useState(false);
   const [reminderDays, setReminderDays] = useState(7);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   async function loadEvents() {
     if (!household) return;
@@ -43,8 +44,9 @@ export default function CalendarPage() {
     });
     setTitle("");
     setEventDate("");
-    setRecurring(true);
+    setRecurring(false);
     setReminderDays(7);
+    setShowMoreOptions(false);
     setShowAdd(false);
     loadEvents();
   }
@@ -103,31 +105,71 @@ export default function CalendarPage() {
       <IntroTip id="calendar-v2" title={t("intro_calendar_title")} text={t("intro_calendar")} />
 
       {showAdd && (
-        <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <input autoFocus placeholder={t("event_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
-          <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-            {t("event_recurring")}
-          </label>
-          <div>
-            <label className="text-xs text-muted block mb-1">{t("event_reminder_label")}</label>
-            <select
-              value={reminderDays}
-              onChange={(e) => setReminderDays(Number(e.target.value))}
-              className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink"
-            >
-              <option value={0}>{t("reminder_same_day")}</option>
-              <option value={1}>{t("reminder_1_day")}</option>
-              <option value={2}>{t("reminder_2_days")}</option>
-              <option value={3}>{t("reminder_3_days")}</option>
-              <option value={7}>{t("reminder_1_week")}</option>
-              <option value={14}>{t("reminder_2_weeks")}</option>
-            </select>
+        <div className="mx-5 mb-5 rounded-2xl border border-borderLight bg-white2 p-4">
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-ink">{t("calendar_new_event")}</div>
+            <div className="mt-0.5 text-xs text-muted">{t("calendar_new_event_hint")}</div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={addEvent} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
-            <button onClick={() => setShowAdd(false)} className="px-4 text-sm text-muted">{t("cancel")}</button>
+
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_name")}</label>
+              <input autoFocus placeholder={t("event_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_date")}</label>
+              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions((value) => !value)}
+              className="flex w-full items-center justify-between rounded-xl py-1.5 text-sm font-medium text-ink"
+              aria-expanded={showMoreOptions}
+            >
+              <span>{t("calendar_more_options")}</span>
+              <ChevronDown size={16} className={`text-muted transition-transform ${showMoreOptions ? "rotate-180" : ""}`} />
+            </button>
+
+            {showMoreOptions && (
+              <div className="space-y-3 rounded-xl bg-paper/40 p-3">
+                <label className="flex items-center gap-2.5 text-sm text-ink">
+                  <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+                  {t("event_recurring")}
+                </label>
+                <div>
+                  <label className="text-xs text-muted block mb-1.5">{t("event_reminder_label")}</label>
+                  <select
+                    value={reminderDays}
+                    onChange={(e) => setReminderDays(Number(e.target.value))}
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink"
+                  >
+                    <option value={0}>{t("reminder_same_day")}</option>
+                    <option value={1}>{t("reminder_1_day")}</option>
+                    <option value={2}>{t("reminder_2_days")}</option>
+                    <option value={3}>{t("reminder_3_days")}</option>
+                    <option value={7}>{t("reminder_1_week")}</option>
+                    <option value={14}>{t("reminder_2_weeks")}</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={addEvent}
+              disabled={!title.trim() || !eventDate}
+              className="flex-1 bg-ink text-paper rounded-xl py-2.5 text-sm font-medium disabled:opacity-40"
+            >
+              {t("calendar_add_event")}
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setShowMoreOptions(false); }}
+              className="px-4 text-sm text-muted"
+            >
+              {t("cancel")}
+            </button>
           </div>
         </div>
       )}
