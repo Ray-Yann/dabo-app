@@ -39,8 +39,7 @@ export default function TodayPage() {
         .from("tasks")
         .select("*")
         .eq("household_id", household.id)
-        .eq("status", "pending")
-        .or(`assigned_to.eq.${me.id},assigned_to.is.null`);
+        .eq("status", "pending");
       setTasks((myTasks as Task[]) || []);
 
       const [{ data: allTasks }, contributionData] = await Promise.all([
@@ -100,8 +99,7 @@ export default function TodayPage() {
         .from("tasks")
         .select("*")
         .eq("household_id", household.id)
-        .eq("status", "pending")
-        .or(`assigned_to.eq.${me.id},assigned_to.is.null`),
+        .eq("status", "pending"),
       supabase.from("tasks").select("*").eq("household_id", household.id),
       fetchContributionBalanceData(supabase, household.id),
     ]);
