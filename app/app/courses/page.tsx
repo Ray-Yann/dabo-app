@@ -75,6 +75,7 @@ export default function CoursesPage() {
   const [suggestionsHandledThisVisit, setSuggestionsHandledThisVisit] = useState(0);
   const [suggestionBusy, setSuggestionBusy] = useState(false);
   const [suggestionMenuOpen, setSuggestionMenuOpen] = useState(false);
+  const [actionItemId, setActionItemId] = useState<string | null>(null);
   const headerAddButtonRef = useRef<HTMLButtonElement | null>(null);
   const [headerAddButtonVisible, setHeaderAddButtonVisible] = useState(true);
 
@@ -523,9 +524,8 @@ export default function CoursesPage() {
                       </div>
                     )}
                   </div>
-                  <button onClick={() => startEdit(item)} className="text-muted"><Pencil size={16} /></button>
-                  <button onClick={() => openItemComments(item.id)} className="text-muted"><MessageCircle size={16} /></button>
-                  <button onClick={() => remove(item.id)} className="text-muted"><Trash2 size={16} /></button>
+                  <button onClick={() => startEdit(item)} className="text-muted" aria-label={t("edit")}><Pencil size={16} /></button>
+                  <button onClick={() => setActionItemId(item.id)} className="text-muted" aria-label={t("courses_item_more_actions")}><MoreHorizontal size={18} /></button>
                 </div>
               )}
               {openComments === item.id && (
@@ -605,6 +605,43 @@ export default function CoursesPage() {
       </div>
       </>
       )}
+
+      {actionItemId && (() => {
+        const actionItem = items.find((item) => item.id === actionItemId);
+        if (!actionItem) return null;
+        return (
+          <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/35" onClick={() => setActionItemId(null)}>
+            <div className="w-full max-w-xl rounded-t-[28px] bg-white2 px-5 pb-8 pt-3 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-border" />
+              <div className="mb-4">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t("courses_item_actions")}</div>
+                <div className="mt-1 text-lg font-medium text-ink">{actionItem.name}</div>
+              </div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => { setActionItemId(null); openItemComments(actionItem.id); }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border px-4 py-4 text-left text-ink"
+                >
+                  <MessageCircle size={18} />
+                  <span>{t("courses_item_comments")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActionItemId(null); remove(actionItem.id); }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border px-4 py-4 text-left text-ink"
+                >
+                  <Trash2 size={18} />
+                  <span>{t("courses_item_delete")}</span>
+                </button>
+              </div>
+              <button type="button" onClick={() => setActionItemId(null)} className="mt-5 w-full py-2 text-sm text-muted">
+                {t("cancel")}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {addConfirmation && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg">
