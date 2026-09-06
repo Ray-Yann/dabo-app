@@ -17,6 +17,7 @@ import {
   fetchContributionBalanceData,
 } from "@/lib/task-contributions";
 import { Share2 } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 
 type Period = "week" | "month" | "quarter";
 
@@ -91,6 +92,16 @@ export default function BalancePage() {
           : member
       );
   }, [allMembers, since]);
+
+  useEffect(() => {
+    if (
+      selectedMemberId &&
+      !periodMembers.some((member) => member.id === selectedMemberId)
+    ) {
+      setSelectedMemberId(null);
+      setShowAllDetails(false);
+    }
+  }, [periodMembers, selectedMemberId]);
 
   const memberJoinedDuringPeriod = useMemo(() => {
     const sinceMs = since.getTime();
@@ -494,7 +505,6 @@ export default function BalancePage() {
             key={p}
             onClick={() => {
               setPeriod(p);
-              setSelectedMemberId(null);
               setShowAllDetails(false);
             }}
             className={`flex-1 rounded-lg px-2 py-2 text-[11px] transition-colors ${
@@ -610,7 +620,6 @@ export default function BalancePage() {
                 type="button"
                 onClick={() => {
                   setPeriod(p);
-                  setSelectedMemberId(null);
                   setShowAllDetails(false);
                 }}
                 className={`flex-1 rounded-lg px-2 py-2 text-[11px] transition-colors ${
@@ -661,13 +670,7 @@ export default function BalancePage() {
                     : "border-borderLight text-muted"
                 }`}
               >
-                <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] text-ink"
-                  style={{ backgroundColor: member.avatar_color || undefined }}
-                  aria-hidden="true"
-                >
-                  {member.first_name.slice(0, 2).toUpperCase()}
-                </span>
+                <Avatar member={member} members={periodMembers} size={24} />
                 <span className="min-w-0 text-left">
                   <span className="block truncate">{member.first_name}</span>
                   {member.left_at && (
@@ -718,13 +721,16 @@ export default function BalancePage() {
                                 </div>
                                 <div className="shrink-0 text-right max-w-[46%] text-muted">
                                   {isUnknown ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setHistoricalContributionId(contribution.id)}
-                                      className="text-mustard hover:underline text-right leading-4"
-                                    >
-                                      {t("balance_confirm_performer_action")} →
-                                    </button>
+                                    <div className="leading-4">
+                                      <div className="text-[10px]">{t("balance_performer_unknown")}</div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setHistoricalContributionId(contribution.id)}
+                                        className="mt-0.5 text-mustard hover:underline text-right"
+                                      >
+                                        {t("balance_add_performer_action")} →
+                                      </button>
+                                    </div>
                                   ) : (
                                     <>
                                       <div className="text-[10px] mb-0.5">{t("balance_done_by")}</div>
