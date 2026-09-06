@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
+import { createBrowserClient } from "@supabase/ssr";
 import { genInviteCode } from "@/lib/utils";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
 
@@ -49,7 +50,17 @@ export default function OnboardingPage() {
   async function handleForgotPassword() {
     setBusy(true);
     setError("");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    // Le lien de récupération peut être ouvert depuis Gmail dans Safari,
+    // donc il ne doit pas dépendre du verifier PKCE stocké dans le navigateur
+    // qui a demandé la réinitialisation. On utilise le flux implicite uniquement
+    // pour cette demande de récupération.
+    const recoveryClient = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { flowType: "implicit" } }
+    );
+
+    const { error } = await recoveryClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setBusy(false);

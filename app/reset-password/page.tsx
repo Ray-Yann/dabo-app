@@ -142,8 +142,11 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    // Une session de récupération ne devient pas la session permanente de
+    // l'utilisateur : après le changement, on revient à la connexion.
+    await supabase.auth.signOut();
     setDone(true);
-    setTimeout(() => router.replace("/app"), 1500);
+    setTimeout(() => router.replace("/"), 1500);
   }
 
   return (
@@ -206,7 +209,7 @@ export default function ResetPasswordPage() {
           </>
         ) : (
           <p className="text-sm text-ink">
-            Mot de passe mis à jour. Direction ton tableau de bord…
+            Mot de passe mis à jour. Tu peux maintenant te reconnecter.
           </p>
         )}
       </div>
