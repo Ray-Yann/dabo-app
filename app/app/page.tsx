@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, ListChecks, PartyPopper, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight } from "lucide-react";
+import { ShoppingBag, Info, Plus, ListChecks, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
@@ -126,9 +126,36 @@ export default function TodayPage() {
       today: todayCivilDate(),
     });
 
+    // Keep Phase 7.1.R3.1 behaviour: when several events are coming up,
+    // Aujourd’hui must not silently hide the second one. Events within 7 days
+    // can join the same maximum-three Suggestions DABO area.
+    const engineEventIds = new Set(
+      insights
+        .filter((insight) => insight.type === "upcoming_event" && insight.relatedEntityId)
+        .map((insight) => insight.relatedEntityId as string)
+    );
+    const weekEventInsights: DaboInsight[] = calendarEvents
+      .map((event) => ({ event, days: daysUntil(nextOccurrence(event.event_date, event.recurring)) }))
+      .filter(({ event, days }) => days >= 0 && days <= 7 && !engineEventIds.has(event.id))
+      .map(({ event, days }) => ({
+        id: `upcoming_event_week:${event.id}`,
+        type: "upcoming_event" as const,
+        priority: 40 + (7 - days),
+        severity: "info" as const,
+        titleKey: "dabo_insight_event_title",
+        messageKey: "dabo_insight_event_message",
+        reasonKey: "dabo_insight_event_week_reason",
+        relatedEntityId: event.id,
+        metadata: { daysAway: days },
+      }));
+
     const seenTypes = new Set<DaboInsight["type"]>();
-    return insights
+    return [...insights, ...weekEventInsights]
+      .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id))
       .filter((insight) => {
+        // Several upcoming events may all matter today. Other insight types
+        // stay unique so the dashboard remains calm and varied.
+        if (insight.type === "upcoming_event") return true;
         if (seenTypes.has(insight.type)) return false;
         seenTypes.add(insight.type);
         return true;
@@ -140,29 +167,51 @@ export default function TodayPage() {
 
   const nothingToDo = tasks.length === 0 && items.length === 0;
   const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
-  const sortedItems = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-  const sortedTasks = [...tasks].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const today = todayCivilDate();
 
-  // Keep one supplemental calendar event visible when the DABO cards already
-  // represent another event. This matters when several events share the same
-  // day: the first event returned by Supabase must not hide the others.
-  const upcomingEvents = calendarEvents
-    .map((event) => ({
-      id: event.id,
-      title: event.title,
-      days: daysUntil(nextOccurrence(event.event_date, event.recurring)),
-    }))
-    .filter((event) => event.days >= 0 && event.days <= 7)
-    .sort((a, b) => a.days - b.days || a.title.localeCompare(b.title));
-
-  const representedUpcomingEventIds = new Set(
+  // Aujourd’hui only surfaces what genuinely deserves attention now.
+  // It never fills empty slots with future work.
+  const representedTaskIds = new Set(
     daboInsights
-      .filter((insight) => insight.type === "upcoming_event" && insight.relatedEntityId)
+      .filter((insight) => insight.relatedEntityId && (insight.type === "overdue_task" || insight.type === "assignment"))
       .map((insight) => insight.relatedEntityId as string)
   );
 
-  const supplementalUpcomingEvent =
-    upcomingEvents.find((event) => !representedUpcomingEventIds.has(event.id)) || null;
+  const taskPriority = (task: Task) => {
+    if (task.due_date && task.due_date < today) return 0;
+    if (task.urgent) return 1;
+    if (task.due_date === today) return 2;
+    return 3;
+  };
+
+  const essentialTasks = [...tasks]
+    .filter((task) =>
+      !representedTaskIds.has(task.id) &&
+      ((task.due_date !== null && task.due_date <= today) || task.urgent)
+    )
+    .sort((a, b) =>
+      taskPriority(a) - taskPriority(b) ||
+      (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31") ||
+      a.created_at.localeCompare(b.created_at)
+    )
+    .slice(0, 3);
+
+  const itemPriority = (item: ShoppingItem) => {
+    if (item.due_date && item.due_date < today) return 0;
+    if (item.urgent) return 1;
+    if (item.due_date === today) return 2;
+    return 3;
+  };
+
+  const essentialItem = [...items]
+    .filter((item) => (item.due_date !== null && item.due_date <= today) || item.urgent)
+    .sort((a, b) =>
+      itemPriority(a) - itemPriority(b) ||
+      (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31") ||
+      a.created_at.localeCompare(b.created_at)
+    )[0] || null;
+
+  const hasEssentials = Boolean(essentialItem) || essentialTasks.length > 0;
 
   function insightDetails(insight: DaboInsight) {
     const task = insight.relatedEntityId
@@ -268,15 +317,7 @@ export default function TodayPage() {
         </section>
       )}
 
-      {supplementalUpcomingEvent && (
-        <div className="mx-5 mb-4 flex items-center gap-2 bg-mustardBg rounded-xl p-3 text-sm text-ink">
-          <PartyPopper size={16} className="text-mustard shrink-0" />
-          <span className="flex-1">
-            {supplementalUpcomingEvent.title} —{" "}
-            {supplementalUpcomingEvent.days === 0 ? t("event_today") : supplementalUpcomingEvent.days === 1 ? t("event_tomorrow") : `${t("event_in")} ${supplementalUpcomingEvent.days} ${t("event_days")}`}
-          </span>
-        </div>
-      )}
+
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
@@ -291,63 +332,78 @@ export default function TodayPage() {
         </div>
       )}
 
-      <div className="px-5">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("today_todo")}</div>
-        {nothingToDo && (
-          isBrandNew ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
-              <div className="flex gap-2 justify-center">
-                <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
-                  <Plus size={15} /> {t("courses_title")}
-                </button>
-                <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
-                  <Plus size={15} /> {t("tasks_title")}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted italic py-2">{t("today_empty")}</p>
-          )
-        )}
+      <section className="px-5">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("today_essentials")}</div>
 
-        {sortedItems.length > 0 && (
-          <div className="mb-4">
-            <div className="text-[11px] text-muted mb-1 flex items-center gap-1.5"><ShoppingBag size={11} /> {t("courses_title")} · {sortedItems.length}</div>
-            <div className="space-y-1">
-              {sortedItems.map((i) => (
-                <div key={i.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleItem(i.id)}>
-                  <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
-                    <ShoppingBag size={11} />
+        {isBrandNew ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
+            <div className="flex gap-2 justify-center">
+              <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
+                <Plus size={15} /> {t("courses_title")}
+              </button>
+              <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
+                <Plus size={15} /> {t("tasks_title")}
+              </button>
+            </div>
+          </div>
+        ) : !hasEssentials ? (
+          <div className="bg-white2 rounded-2xl p-4 mb-3">
+            <div className="text-sm font-semibold text-ink">{t("today_nothing_pressing_title")}</div>
+            <div className="text-xs text-muted mt-1">{t("today_nothing_pressing_text")}</div>
+          </div>
+        ) : (
+          <div className="bg-white2 rounded-2xl px-4 mb-3">
+            {essentialItem && (
+              <button
+                type="button"
+                className={`w-full flex items-center gap-3 py-3.5 text-left ${essentialTasks.length > 0 ? "border-b border-borderLight" : ""}`}
+                onClick={() => void toggleItem(essentialItem.id)}
+              >
+                <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
+                  <ShoppingBag size={11} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-wide text-muted mb-0.5">{t("courses_title")}</div>
+                  <div className="text-sm text-ink flex items-center gap-1.5">
+                    {essentialItem.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
+                    <span className="truncate">{essentialItem.name}</span>
                   </div>
-                  <span className="text-sm text-ink flex items-center gap-1.5 flex-1">
-                    {i.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
-                    {i.name}
-                  </span>
                 </div>
-              ))}
-            </div>
+              </button>
+            )}
+
+            {essentialTasks.map((task, index) => (
+              <button
+                key={task.id}
+                type="button"
+                className={`w-full flex items-center gap-3 py-3.5 text-left ${index < essentialTasks.length - 1 ? "border-b border-borderLight" : ""}`}
+                onClick={() => void toggleTask(task)}
+              >
+                <div className="w-5 h-5 rounded-full border-2 border-border shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-wide text-muted mb-0.5">{t("tasks_title")}</div>
+                  <div className="text-sm text-ink flex items-center gap-1.5">
+                    {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
+                    <span className="truncate">{task.name}</span>
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
         )}
 
-        {sortedTasks.length > 0 && (
-          <div>
-            <div className="text-[11px] text-muted mb-1 flex items-center gap-1.5"><ListChecks size={11} /> {t("tasks_title")} · {sortedTasks.length}</div>
-            <div className="space-y-1">
-              {sortedTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight cursor-pointer" onClick={() => toggleTask(task)}>
-                  <div className="w-5 h-5 rounded-full border-2 border-border shrink-0" />
-                  <span className="text-sm text-ink flex-1 flex items-center gap-1.5">
-                    {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
-                    {task.name}
-                  </span>
-                  <span className="text-[11px] text-mustard bg-mustardBg rounded-full px-2 py-0.5 font-mono">{task.weight_points} pts</span>
-                </div>
-              ))}
-            </div>
+        {!isBrandNew && (
+          <div className="flex items-center justify-between gap-3 pb-2">
+            <button type="button" onClick={() => router.push("/app/courses")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
+              <ShoppingBag size={12} /> {t("today_view_courses")} <ChevronRight size={12} />
+            </button>
+            <button type="button" onClick={() => router.push("/app/taches")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
+              <ListChecks size={12} /> {t("today_view_tasks")} <ChevronRight size={12} />
+            </button>
           </div>
         )}
-      </div>
+      </section>
 
       {completionTarget && (
         <TaskCompletionDialog
