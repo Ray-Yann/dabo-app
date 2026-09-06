@@ -1,11 +1,14 @@
 "use client";
 
 import { memberColor } from "@/lib/utils";
+import Image from "next/image";
 
 type AvatarMember = {
   id: string;
   first_name: string;
   avatar_color?: string | null;
+  avatar_url?: string | null;
+  avatar_emoji?: string | null;
   created_at?: string;
 };
 
@@ -61,10 +64,46 @@ export function Avatar({
   if (!member) return null;
   const initials = singleNameInitials(member, members);
   const color = memberColor(members, member.id);
+  const sharedStyle = { width: size, height: size };
+
+  if (member.avatar_url) {
+    return (
+      <div
+        className="rounded-full overflow-hidden shrink-0"
+        style={{ ...sharedStyle, background: color }}
+        title={member.first_name}
+        aria-label={member.first_name}
+      >
+        <Image
+          src={member.avatar_url}
+          alt=""
+          width={size}
+          height={size}
+          unoptimized
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    );
+  }
+
+  if (member.avatar_emoji) {
+    return (
+      <div
+        className="rounded-full flex items-center justify-center shrink-0"
+        style={{ ...sharedStyle, background: color, fontSize: size * 0.55 }}
+        title={member.first_name}
+        aria-label={member.first_name}
+      >
+        <span aria-hidden="true">{member.avatar_emoji}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className="rounded-full flex items-center justify-center text-paper font-medium shrink-0"
-      style={{ width: size, height: size, background: color, fontSize: size * (initials.length > 2 ? 0.3 : 0.4) }}
+      style={{ ...sharedStyle, background: color, fontSize: size * (initials.length > 2 ? 0.3 : 0.4) }}
       title={member.first_name}
       aria-label={member.first_name}
     >

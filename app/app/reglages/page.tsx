@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
-import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2 } from "lucide-react";
+import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { enableNotifications, disableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
@@ -19,6 +19,9 @@ type SettingsConfirmation =
   | { kind: "leave" }
   | { kind: "delete" };
 
+const AVATAR_EMOJIS = ["🐶", "🐱", "🦊", "🐼", "🦁", "🐸", "🌿", "🌻", "🌙", "⭐", "🌊", "🔥"];
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+
 export default function SettingsPage() {
   const { loading, household, me, members, supabase, refresh } = useHousehold();
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function SettingsPage() {
   const [notifError, setNotifError] = useState("");
   const [firstName, setFirstName] = useState(me?.first_name || "");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const [editingFirstName, setEditingFirstName] = useState(false);
   const [householdName, setHouseholdName] = useState(household?.name || "");
   const [savingHouseholdName, setSavingHouseholdName] = useState(false);
@@ -90,6 +94,89 @@ export default function SettingsPage() {
       return;
     }
     refresh();
+  }
+
+  function avatarStoragePath(url: string | null | undefined) {
+    if (!url) return null;
+    const marker = "/storage/v1/object/public/member-avatars/";
+    const markerIndex = url.indexOf(marker);
+    if (markerIndex === -1) return null;
+    return decodeURIComponent(url.slice(markerIndex + marker.length));
+  }
+
+  async function removePreviousAvatar(url: string | null | undefined) {
+    const path = avatarStoragePath(url);
+    if (path) await supabase.storage.from("member-avatars").remove([path]);
+  }
+
+  async function chooseAvatarEmoji(emoji: string | null) {
+    if (!me || savingAvatar) return;
+    setSavingAvatar(true);
+    const previousUrl = me.avatar_url;
+    const { error } = await supabase
+      .from("members")
+      .update({ avatar_emoji: emoji, avatar_url: null })
+      .eq("id", me.id);
+    if (error) {
+      showFeedback("error", t("settings_avatar_error_save"));
+      setSavingAvatar(false);
+      return;
+    }
+    await removePreviousAvatar(previousUrl);
+    await refresh();
+    setSavingAvatar(false);
+  }
+
+  async function uploadAvatar(file: File | undefined) {
+    if (!me || !file || savingAvatar) return;
+    if (!file.type.startsWith("image/")) {
+      showFeedback("error", t("settings_avatar_error_type"));
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      showFeedback("error", t("settings_avatar_error_size"));
+      return;
+    }
+
+    setSavingAvatar(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      showFeedback("error", t("settings_error_session"));
+      setSavingAvatar(false);
+      return;
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${userId}/${me.id}-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from("member-avatars")
+      .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+
+    if (uploadError) {
+      showFeedback("error", t("settings_avatar_error_upload"));
+      setSavingAvatar(false);
+      return;
+    }
+
+    const { data: publicData } = supabase.storage.from("member-avatars").getPublicUrl(path);
+    const previousUrl = me.avatar_url;
+    const { error: updateError } = await supabase
+      .from("members")
+      .update({ avatar_url: publicData.publicUrl, avatar_emoji: null })
+      .eq("id", me.id);
+
+    if (updateError) {
+      await supabase.storage.from("member-avatars").remove([path]);
+      showFeedback("error", t("settings_avatar_error_save"));
+      setSavingAvatar(false);
+      return;
+    }
+
+    await removePreviousAvatar(previousUrl);
+    await refresh();
+    showFeedback("success", t("settings_avatar_saved"));
+    setSavingAvatar(false);
   }
 
   async function chooseLanguage(lang: Lang) {
@@ -422,6 +509,52 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+            <div className="border-t border-border pt-3 mb-4">
+              <div className="text-xs text-muted mb-1">{t("settings_avatar_title")}</div>
+              <div className="text-xs text-muted mb-3">{t("settings_avatar_desc")}</div>
+              <div className="grid grid-cols-6 gap-2 mb-3">
+                {AVATAR_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => chooseAvatarEmoji(emoji)}
+                    disabled={savingAvatar}
+                    className={`h-11 rounded-xl border text-xl flex items-center justify-center transition-colors disabled:opacity-50 ${me.avatar_emoji === emoji && !me.avatar_url ? "border-gold bg-gold/10" : "border-border"}`}
+                    aria-label={`${t("settings_avatar_choose")} ${emoji}`}
+                    aria-pressed={me.avatar_emoji === emoji && !me.avatar_url}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-ink text-paper cursor-pointer ${savingAvatar ? "opacity-50 pointer-events-none" : ""}`}>
+                  <ImagePlus size={14} />
+                  {savingAvatar ? t("settings_avatar_saving") : t("settings_avatar_upload")}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    disabled={savingAvatar}
+                    onChange={(event) => {
+                      void uploadAvatar(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+                {(me.avatar_url || me.avatar_emoji) && (
+                  <button
+                    type="button"
+                    onClick={() => chooseAvatarEmoji(null)}
+                    disabled={savingAvatar}
+                    className="px-3 py-2 rounded-xl text-xs border border-border text-muted disabled:opacity-50"
+                  >
+                    {t("settings_avatar_use_initials")}
+                  </button>
+                )}
+              </div>
+              <div className="text-[11px] text-muted mt-2">{t("settings_avatar_formats")}</div>
             </div>
             <div className="text-xs text-muted mb-2">{t("settings_avatar_color")}</div>
             <div className="flex gap-2 mb-4 flex-wrap">
