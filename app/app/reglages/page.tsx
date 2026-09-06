@@ -36,6 +36,8 @@ export default function SettingsPage() {
   const [editingHouseholdType, setEditingHouseholdType] = useState(false);
   const [householdType, setHouseholdType] = useState(household?.household_type || "couple");
   const [memberActionsId, setMemberActionsId] = useState<string | null>(null);
+  const [householdDetailsOpen, setHouseholdDetailsOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<SettingsConfirmation | null>(null);
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState("");
@@ -459,77 +461,105 @@ export default function SettingsPage() {
           </div>
 
           <div className="bg-white2 rounded-2xl p-4 mb-3">
-            <div className="flex items-start justify-between gap-3 mb-5">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-base font-semibold text-ink truncate">{household.name}</div>
                 <div className="text-xs text-muted mt-0.5">{householdTypeLabel} · {members.length} {members.length === 1 ? t("settings_member_singular") : t("settings_member_plural")}</div>
               </div>
-              <span className="text-xl" aria-hidden="true">🏡</span>
+              <button
+                onClick={() => setHouseholdDetailsOpen((open) => !open)}
+                className="inline-flex items-center gap-1.5 text-xs text-muted shrink-0 px-1 py-1"
+                aria-expanded={householdDetailsOpen}
+              >
+                <Pencil size={13} /> {t("settings_edit")}
+              </button>
             </div>
 
-            <div className="py-3 border-t border-border">
-              {!editingHouseholdName ? (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-xs text-muted">{t("settings_household_name")}</div>
-                    <div className="text-sm text-ink font-medium truncate mt-0.5">{household.name}</div>
-                  </div>
-                  <button onClick={() => { setHouseholdName(household.name); setEditingHouseholdName(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
-                    <Pencil size={13} /> {t("settings_edit")}
-                  </button>
+            {householdDetailsOpen && (
+              <div className="mt-4 border-t border-border">
+                <div className="py-3">
+                  {!editingHouseholdName ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted">{t("settings_household_name")}</div>
+                        <div className="text-sm text-ink font-medium truncate mt-0.5">{household.name}</div>
+                      </div>
+                      <button onClick={() => { setHouseholdName(household.name); setEditingHouseholdName(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
+                        <Pencil size={13} /> {t("settings_edit")}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_name")}</div>
+                      <input value={householdName} onChange={(e) => setHouseholdName(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2 bg-white2 text-ink" autoFocus />
+                      <div className="flex gap-2">
+                        <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">{savingHouseholdName ? "..." : householdNameSaved ? t("saved") : t("save")}</button>
+                        <button onClick={() => { setHouseholdName(household.name); setEditingHouseholdName(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div>
-                  <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_name")}</div>
-                  <input value={householdName} onChange={(e) => setHouseholdName(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink mb-2 bg-white2 text-ink" autoFocus />
-                  <div className="flex gap-2">
-                    <button onClick={saveHouseholdName} disabled={savingHouseholdName || !householdName.trim()} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50">{savingHouseholdName ? "..." : householdNameSaved ? t("saved") : t("save")}</button>
-                    <button onClick={() => { setHouseholdName(household.name); setEditingHouseholdName(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            <div className="py-3 border-t border-border">
-              {!editingHouseholdType ? (
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs text-muted">{t("settings_household_type")}</div>
-                    <div className="text-sm text-ink font-medium mt-0.5">{householdTypeLabel}</div>
-                  </div>
-                  <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
-                    <Pencil size={13} /> {t("settings_edit")}
-                  </button>
+                <div className="py-3 border-t border-border">
+                  {!editingHouseholdType ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-muted">{t("settings_household_type")}</div>
+                        <div className="text-sm text-ink font-medium mt-0.5">{householdTypeLabel}</div>
+                      </div>
+                      <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
+                        <Pencil size={13} /> {t("settings_edit")}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_type")}</div>
+                      <select value={householdType} onChange={(e) => setHouseholdType(e.target.value as "couple" | "coloc" | "famille")} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink mb-2">
+                        <option value="couple">{t("household_couple")}</option>
+                        <option value="coloc">{t("household_coloc")}</option>
+                        <option value="famille">{t("household_famille")}</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <button onClick={saveHouseholdType} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">{t("save")}</button>
+                        <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div>
-                  <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_type")}</div>
-                  <select value={householdType} onChange={(e) => setHouseholdType(e.target.value as "couple" | "coloc" | "famille")} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink mb-2">
-                    <option value="couple">{t("household_couple")}</option>
-                    <option value="coloc">{t("household_coloc")}</option>
-                    <option value="famille">{t("household_famille")}</option>
-                  </select>
-                  <div className="flex gap-2">
-                    <button onClick={saveHouseholdType} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">{t("save")}</button>
-                    <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-white2 rounded-2xl p-4 mb-3">
-            <div className="text-sm text-ink font-medium mb-1">{t("settings_invite_member")}</div>
-            <p className="text-xs text-muted mb-3">{t("settings_invite_desc")}</p>
-            <div className="flex items-center justify-between bg-paper rounded-xl px-3 py-2 mb-3">
-              <span className="font-mono text-sm text-ink tracking-wider">{household.invite_code}</span>
-              <button onClick={copyCode} className="flex items-center gap-1 text-xs text-muted">
-                <Copy size={14} /> {copied ? t("copied") : t("copy")}
+            {!inviteOpen ? (
+              <button
+                onClick={() => setInviteOpen(true)}
+                className="w-full text-sm text-ink font-medium flex items-center justify-between gap-3"
+                aria-expanded={inviteOpen}
+              >
+                <span>+ {t("settings_invite_member")}</span>
+                <span className="text-muted" aria-hidden="true">›</span>
               </button>
-            </div>
-            <button onClick={shareInvite} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink font-medium flex items-center justify-center gap-2">
-              <Share2 size={15} /> {t("settings_share_invite")}
-            </button>
+            ) : (
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-sm text-ink font-medium mb-1">{t("settings_invite_member")}</div>
+                    <p className="text-xs text-muted">{t("settings_invite_desc")}</p>
+                  </div>
+                  <button onClick={() => setInviteOpen(false)} className="text-xs text-muted px-1 py-1">{t("cancel")}</button>
+                </div>
+                <div className="flex items-center justify-between bg-paper rounded-xl px-3 py-2 mb-3">
+                  <span className="font-mono text-sm text-ink tracking-wider">{household.invite_code}</span>
+                  <button onClick={copyCode} className="flex items-center gap-1 text-xs text-muted">
+                    <Copy size={14} /> {copied ? t("copied") : t("copy")}
+                  </button>
+                </div>
+                <button onClick={shareInvite} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink font-medium flex items-center justify-center gap-2">
+                  <Share2 size={15} /> {t("settings_share_invite")}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="bg-white2 rounded-2xl p-4">
