@@ -2,12 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase-client";
+import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { CheckSquare, Eye, EyeOff } from "lucide-react";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(
+    () =>
+      createRecoveryClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            flowType: "implicit",
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: true,
+          },
+        }
+      ),
+    []
+  );
 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,25 +66,8 @@ export default function ResetPasswordPage() {
     async function prepareRecoverySession() {
       try {
         const url = new URL(window.location.href);
-        const code = url.searchParams.get("code");
-
-        // @supabase/ssr utilise PKCE par défaut : le lien de récupération
-        // revient avec un code qu'il faut échanger contre une session.
-        if (code) {
-          const { data, error: exchangeError } =
-            await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError || !data.session) {
-            markRecoveryError();
-            return;
-          }
-
-          window.history.replaceState({}, "", "/reset-password");
-          markRecoveryReady();
-          return;
-        }
-
-        // Filet de sécurité pour un éventuel lien en flux implicite.
+        // R4.2 : la récupération utilise un client Auth isolé en flux implicite.
+        // Le lien doit donc transporter la session dans le fragment (#...).
         const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const accessToken = hash.get("access_token");
         const refreshToken = hash.get("refresh_token");
@@ -90,8 +88,8 @@ export default function ResetPasswordPage() {
           return;
         }
 
-        // Si Supabase a déjà restauré la session dans le navigateur,
-        // on l'accepte sans demander un second échange.
+        // detectSessionInUrl peut avoir restauré la session automatiquement
+        // avant l'exécution de ce code.
         const { data, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !data.session) {
           markRecoveryError();

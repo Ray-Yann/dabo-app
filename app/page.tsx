@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { genInviteCode } from "@/lib/utils";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
 
@@ -54,10 +54,17 @@ export default function OnboardingPage() {
     // donc il ne doit pas dépendre du verifier PKCE stocké dans le navigateur
     // qui a demandé la réinitialisation. On utilise le flux implicite uniquement
     // pour cette demande de récupération.
-    const recoveryClient = createBrowserClient(
+    const recoveryClient = createRecoveryClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { flowType: "implicit" } }
+      {
+        auth: {
+          flowType: "implicit",
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
     );
 
     const { error } = await recoveryClient.auth.resetPasswordForEmail(email, {
