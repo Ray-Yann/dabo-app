@@ -113,6 +113,7 @@ export default function TasksPage() {
   const [showFloatingAdd, setShowFloatingAdd] = useState(false);
   const [taskContributions, setTaskContributions] = useState<Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }>>({});
   const [historyActionTask, setHistoryActionTask] = useState<Task | null>(null);
+  const [activeActionTask, setActiveActionTask] = useState<Task | null>(null);
   const [addedConfirmation, setAddedConfirmation] = useState(false);
   const [completedConfirmation, setCompletedConfirmation] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
@@ -491,6 +492,27 @@ export default function TasksPage() {
         />
       )}
 
+      {activeActionTask && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4" onClick={() => setActiveActionTask(null)}>
+          <div className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5 sm:hidden" />
+            <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_item_actions")}</div>
+            <h2 className="font-serif text-xl text-ink mb-5">{activeActionTask.name}</h2>
+            <div className="space-y-2">
+              <button type="button" onClick={() => { const taskId = activeActionTask.id; setActiveActionTask(null); void openTaskComments(taskId); }} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors flex items-center gap-3">
+                <MessageCircle size={18} className="text-muted shrink-0" />
+                <span className="text-sm font-medium text-ink">{t("task_item_comments")}</span>
+              </button>
+              <button type="button" onClick={() => { const task = activeActionTask; setActiveActionTask(null); void remove(task); }} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors flex items-center gap-3">
+                <Trash2 size={18} className="text-muted shrink-0" />
+                <span className="text-sm font-medium text-ink">{t("task_item_delete")}</span>
+              </button>
+              <button type="button" onClick={() => setActiveActionTask(null)} className="w-full py-3 text-sm text-muted font-medium">{t("cancel")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {historyActionTask && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4" onClick={() => setHistoryActionTask(null)}>
           <div className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -594,9 +616,8 @@ export default function TasksPage() {
                       {!task.assigned_to && !task.due_date && !task.routine_id && <span>{t("unassigned")}</span>}
                     </div>
                   </div>
-                  <button onClick={() => startEdit(task)} className="text-muted"><Pencil size={16} /></button>
-                  <button onClick={() => openTaskComments(task.id)} className="text-muted"><MessageCircle size={16} /></button>
-                  <button onClick={() => remove(task)} className="text-muted"><Trash2 size={16} /></button>
+                  <button onClick={() => startEdit(task)} className="text-muted" aria-label={t("edit")}><Pencil size={16} /></button>
+                  <button onClick={() => setActiveActionTask(task)} className="text-muted" aria-label={t("task_item_actions")}><MoreHorizontal size={18} /></button>
                 </div>
               )}
               {openComments === task.id && (
