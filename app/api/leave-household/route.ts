@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
     .from("members")
     .select("id")
     .eq("user_id", userData.id)
+    .is("left_at", null)
+    .order("created_at", { ascending: false })
     .limit(1);
 
   if (member && member.length > 0) {

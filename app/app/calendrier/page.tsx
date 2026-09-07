@@ -14,7 +14,7 @@ import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil, LockKey
 type CalendarView = "household" | "personal";
 
 export default function CalendarPage() {
-  const { loading, household, me, members, supabase } = useHousehold();
+  const { loading, household, me, supabase } = useHousehold();
   const t = useT();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [view, setView] = useState<CalendarView>("household");
@@ -31,10 +31,16 @@ export default function CalendarPage() {
   const [editReminderDays, setEditReminderDays] = useState(7);
   const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function loadEvents() {
     if (!household) return;
-    const { data } = await supabase.from("calendar_events").select("*").eq("household_id", household.id);
+    const { data, error } = await supabase.from("calendar_events").select("*").eq("household_id", household.id);
+    if (error) {
+      setErrorMessage(t("calendar_error_load"));
+      return;
+    }
+    setErrorMessage("");
     setEvents((data as CalendarEvent[]) || []);
   }
   useEffect(() => {
@@ -44,7 +50,7 @@ export default function CalendarPage() {
 
   async function addEvent() {
     if (!title.trim() || !eventDate || !household || !me) return;
-    await supabase.from("calendar_events").insert({
+    const { error } = await supabase.from("calendar_events").insert({
       household_id: household.id,
       created_by: me.id,
       title: title.trim(),
@@ -54,6 +60,11 @@ export default function CalendarPage() {
       visibility: view,
       private_owner_id: view === "personal" ? me.id : null,
     });
+    if (error) {
+      setErrorMessage(t("calendar_error_save"));
+      return;
+    }
+    setErrorMessage("");
     setTitle("");
     setEventDate("");
     setRecurring(false);
@@ -65,12 +76,17 @@ export default function CalendarPage() {
 
   async function remove(id: string) {
     const { error } = await supabase.from("calendar_events").delete().eq("id", id);
-    if (error) return;
+    if (error) {
+      setErrorMessage(t("calendar_error_delete"));
+      return;
+    }
+    setErrorMessage("");
     setDeleteTarget(null);
     loadEvents();
   }
 
   function startEditing(event: CalendarEvent) {
+    setErrorMessage("");
     setEditingId(event.id);
     setEditTitle(event.title);
     setEditDate(event.event_date);
@@ -91,6 +107,7 @@ export default function CalendarPage() {
     setShowAdd(false);
     setShowMoreOptions(false);
     cancelEditing();
+    setErrorMessage("");
   }
 
   async function saveEvent() {
@@ -104,7 +121,11 @@ export default function CalendarPage() {
         reminder_days_before: editReminderDays,
       })
       .eq("id", editingId);
-    if (error) return;
+    if (error) {
+      setErrorMessage(t("calendar_error_save"));
+      return;
+    }
+    setErrorMessage("");
     cancelEditing();
     loadEvents();
   }
@@ -182,6 +203,12 @@ export default function CalendarPage() {
         title={t(view === "personal" ? "intro_calendar_personal_title" : "intro_calendar_title")}
         text={t(view === "personal" ? "intro_calendar_personal" : "intro_calendar")}
       />
+
+      {errorMessage && (
+        <div className="mx-5 mb-4 rounded-xl border border-mustard/30 bg-mustardBg px-3 py-2.5 text-sm text-ink" role="alert">
+          {errorMessage}
+        </div>
+      )}
 
       {showAdd && (
         <div className="mx-5 mb-5 rounded-2xl border border-borderLight bg-white2 p-4">

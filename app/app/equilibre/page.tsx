@@ -6,7 +6,6 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { IntroTip } from "@/components/IntroTip";
-import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { Task, DURATION_OPTIONS, EFFORT_OPTIONS } from "@/lib/types";
 import { useT } from "@/lib/language-context";
 import { computeMemberPercentages } from "@/lib/utils";
@@ -16,7 +15,6 @@ import {
   countConfirmedContributionsSince,
   fetchContributionBalanceData,
 } from "@/lib/task-contributions";
-import { Share2 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 
 type Period = "week" | "month" | "quarter";
@@ -59,6 +57,7 @@ export default function BalancePage() {
   const [savingContributionPerformer, setSavingContributionPerformer] = useState(false);
   const [redistributionTaskId, setRedistributionTaskId] = useState<string | null>(null);
   const [savingRedistribution, setSavingRedistribution] = useState(false);
+  const [referenceNow] = useState(() => Date.now());
   const t = useT();
 
   useEffect(() => {
@@ -93,35 +92,23 @@ export default function BalancePage() {
       );
   }, [allMembers, since]);
 
-  useEffect(() => {
-    if (
-      selectedMemberId &&
-      !periodMembers.some((member) => member.id === selectedMemberId)
-    ) {
-      setSelectedMemberId(null);
-      setShowAllDetails(false);
-    }
-  }, [periodMembers, selectedMemberId]);
-
   const memberJoinedDuringPeriod = useMemo(() => {
     const sinceMs = since.getTime();
-    const nowMs = Date.now();
 
     return allMembers.some((member) => {
       const joinedAt = new Date(member.created_at).getTime();
-      return joinedAt >= sinceMs && joinedAt <= nowMs;
+      return joinedAt >= sinceMs && joinedAt <= referenceNow;
     });
-  }, [allMembers, since]);
+  }, [allMembers, since, referenceNow]);
 
   const memberLeftDuringPeriod = useMemo(() => {
     const sinceMs = since.getTime();
-    const nowMs = Date.now();
 
     return allMembers.some((member) => {
       const leftAt = member.left_at ? new Date(member.left_at).getTime() : null;
-      return leftAt !== null && leftAt >= sinceMs && leftAt <= nowMs;
+      return leftAt !== null && leftAt >= sinceMs && leftAt <= referenceNow;
     });
-  }, [allMembers, since]);
+  }, [allMembers, since, referenceNow]);
 
   const householdChangedDuringPeriod = useMemo(() => {
     const sinceMs = since.getTime();
@@ -394,18 +381,6 @@ export default function BalancePage() {
     }
   }
 
-  function shareReport() {
-    const periodLabel = period === "week" ? t("balance_this_week") : period === "month" ? t("balance_this_month") : t("balance_last_3_months");
-    const lines = totals.map((member) => `${member.first_name} : ${percentages.get(member.id) ?? 0}%`).join("\n");
-    const text = `${household!.name} — ${periodLabel}\n${lines}\n${t("balance_footnote")}`;
-    if (navigator.share) {
-      navigator.share({ title: "Dabo", text }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(text);
-      alert(t("share_app_copied"));
-    }
-  }
-
   return (
     <div>
       <Header
@@ -506,6 +481,7 @@ export default function BalancePage() {
             onClick={() => {
               setPeriod(p);
               setShowAllDetails(false);
+              setSelectedMemberId(null);
             }}
             className={`flex-1 rounded-lg px-2 py-2 text-[11px] transition-colors ${
               period === p
