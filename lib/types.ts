@@ -67,11 +67,23 @@ export type Comment = {
 export type Promo = {
   id: string;
   household_id: string;
-  author_id: string;
+  author_id: string | null;
+  author_name: string;
   product_name: string;
   store_name: string;
   note: string | null;
   created_at: string;
+};
+
+export type PromoComment = {
+  id: string;
+  promo_id: string;
+  household_id: string | null;
+  author_id: string | null;
+  author_name: string;
+  text: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type CalendarEvent = {

@@ -60,12 +60,24 @@ create table "public"."members" (
 
 create table "public"."promos" (
   "author_id" uuid NOT NULL,
+  "author_name" text NOT NULL DEFAULT 'Membre DABO'::text,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "household_id" uuid NOT NULL,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "note" text,
   "product_name" text NOT NULL,
   "store_name" text NOT NULL
+);
+
+create table "public"."promo_comments" (
+  "author_id" uuid,
+  "author_name" text NOT NULL DEFAULT 'Membre DABO'::text,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "household_id" uuid,
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "promo_id" uuid NOT NULL,
+  "text" text NOT NULL,
+  "updated_at" timestamptz NOT NULL DEFAULT now()
 );
 
 create table "public"."push_subscriptions" (
@@ -170,6 +182,7 @@ create table "public"."tasks" (
 CREATE INDEX calendar_events_household_visibility_idx ON public.calendar_events USING btree (household_id, visibility, event_date);
 CREATE INDEX calendar_events_private_owner_idx ON public.calendar_events USING btree (private_owner_id, event_date) WHERE (visibility = 'personal'::text);
 CREATE INDEX shopping_suggestion_preferences_household_idx ON public.shopping_suggestion_preferences USING btree (household_id);
+CREATE INDEX promo_comments_promo_created_idx ON public.promo_comments USING btree (promo_id, created_at);
 CREATE UNIQUE INDEX tasks_id_household_id_unique ON public.tasks USING btree (id, household_id);
 CREATE UNIQUE INDEX tasks_one_pending_per_routine_due_date ON public.tasks USING btree (routine_id, due_date) WHERE ((routine_id IS NOT NULL) AND (due_date IS NOT NULL) AND (status = 'pending'::text));
 
@@ -199,6 +212,11 @@ alter table "public"."members" add constraint "members_user_id_fkey" FOREIGN KEY
 alter table "public"."promos" add constraint "promos_author_id_fkey" FOREIGN KEY (author_id) REFERENCES members(id) ON DELETE CASCADE;
 alter table "public"."promos" add constraint "promos_household_id_fkey" FOREIGN KEY (household_id) REFERENCES households(id) ON DELETE CASCADE;
 alter table "public"."promos" add constraint "promos_pkey" PRIMARY KEY (id);
+alter table "public"."promo_comments" add constraint "promo_comments_pkey" PRIMARY KEY (id);
+alter table "public"."promo_comments" add constraint "promo_comments_promo_id_fkey" FOREIGN KEY (promo_id) REFERENCES promos(id) ON DELETE CASCADE;
+alter table "public"."promo_comments" add constraint "promo_comments_household_id_fkey" FOREIGN KEY (household_id) REFERENCES households(id) ON DELETE SET NULL;
+alter table "public"."promo_comments" add constraint "promo_comments_author_id_fkey" FOREIGN KEY (author_id) REFERENCES members(id) ON DELETE SET NULL;
+alter table "public"."promo_comments" add constraint "promo_comments_text_check" CHECK (char_length(trim(text)) between 1 and 500);
 alter table "public"."push_subscriptions" add constraint "push_subscriptions_endpoint_key" UNIQUE (endpoint);
 alter table "public"."push_subscriptions" add constraint "push_subscriptions_member_id_fkey" FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE;
 alter table "public"."push_subscriptions" add constraint "push_subscriptions_pkey" PRIMARY KEY (id);
@@ -426,6 +444,39 @@ BEGIN
 END;
 $function$
 
+CREATE OR REPLACE FUNCTION public.set_community_content_author()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+declare current_member public.members%rowtype;
+begin
+  select * into current_member from public.members
+  where user_id = auth.uid() and left_at is null
+  order by created_at desc limit 1;
+  if current_member.id is null then raise exception 'Active DABO member required'; end if;
+  new.author_id := current_member.id;
+  new.household_id := current_member.household_id;
+  new.author_name := current_member.first_name;
+  return new;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.lock_community_content_author()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $function$
+begin
+  new.author_id := old.author_id;
+  new.household_id := old.household_id;
+  new.author_name := old.author_name;
+  if tg_table_name = 'promo_comments' then new.updated_at := now(); end if;
+  return new;
+end;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.prevent_calendar_event_scope_change()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -447,6 +498,7 @@ alter table "public"."comments" enable row level security;
 alter table "public"."households" enable row level security;
 alter table "public"."members" enable row level security;
 alter table "public"."promos" enable row level security;
+alter table "public"."promo_comments" enable row level security;
 alter table "public"."push_subscriptions" enable row level security;
 alter table "public"."routines" enable row level security;
 alter table "public"."shopping_items" enable row level security;
@@ -559,32 +611,39 @@ create policy "Voir les membres du foyer" on "public"."members" for select to pu
 using (household_id = get_my_household_id())
 ;
 
-create policy "Accès foyer - promos delete" on "public"."promos" for delete to public
-using (household_id IN ( SELECT members.household_id
-   FROM members
-  WHERE (members.user_id = auth.uid())))
+create policy "Communauté - voir les promos" on "public"."promos" for select to authenticated
+using (true)
 ;
 
-create policy "Accès foyer - promos insert" on "public"."promos" for insert to public
-with check (household_id IN ( SELECT members.household_id
-   FROM members
-  WHERE (members.user_id = auth.uid())))
-;
-
-create policy "Accès foyer - promos select" on "public"."promos" for select to public
-using (household_id IN ( SELECT members.household_id
-   FROM members
-  WHERE (members.user_id = auth.uid())))
-;
-
-create policy "Accès foyer - promos update" on "public"."promos" for update to public
-using (household_id IN ( SELECT members.household_id
-   FROM members
-  WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
-with check (household_id IN ( SELECT members.household_id
+create policy "Communauté - publier une promo" on "public"."promos" for insert to authenticated
+with check (author_id IN ( SELECT members.id
    FROM members
   WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
 ;
+
+create policy "Communauté - modifier sa promo" on "public"."promos" for update to authenticated
+using (author_id IN ( SELECT members.id
+   FROM members
+  WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
+with check (author_id IN ( SELECT members.id
+   FROM members
+  WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
+;
+
+create policy "Communauté - supprimer sa promo" on "public"."promos" for delete to authenticated
+using (author_id IN ( SELECT members.id
+   FROM members
+  WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
+;
+
+create policy "Communauté - voir les commentaires" on "public"."promo_comments" for select to authenticated using (true);
+create policy "Communauté - commenter une promo" on "public"."promo_comments" for insert to authenticated
+with check (author_id IN (SELECT id FROM members WHERE user_id = auth.uid() AND left_at IS NULL));
+create policy "Communauté - modifier son commentaire" on "public"."promo_comments" for update to authenticated
+using (author_id IN (SELECT id FROM members WHERE user_id = auth.uid() AND left_at IS NULL))
+with check (author_id IN (SELECT id FROM members WHERE user_id = auth.uid() AND left_at IS NULL));
+create policy "Communauté - supprimer son commentaire" on "public"."promo_comments" for delete to authenticated
+using (author_id IN (SELECT id FROM members WHERE user_id = auth.uid() AND left_at IS NULL));
 
 create policy "Gérer son propre abonnement" on "public"."push_subscriptions" for all to public
 using (member_id IN ( SELECT members.id
@@ -748,6 +807,10 @@ using ((bucket_id = 'member-avatars'::text) AND ((storage.foldername(name))[1] =
 -- Déclencheurs
 
 CREATE TRIGGER calendar_events_lock_scope BEFORE UPDATE ON public.calendar_events FOR EACH ROW EXECUTE FUNCTION public.prevent_calendar_event_scope_change();
+CREATE TRIGGER promos_set_community_author BEFORE INSERT ON public.promos FOR EACH ROW EXECUTE FUNCTION public.set_community_content_author();
+CREATE TRIGGER promos_lock_community_author BEFORE UPDATE ON public.promos FOR EACH ROW EXECUTE FUNCTION public.lock_community_content_author();
+CREATE TRIGGER promo_comments_set_community_author BEFORE INSERT ON public.promo_comments FOR EACH ROW EXECUTE FUNCTION public.set_community_content_author();
+CREATE TRIGGER promo_comments_lock_community_author BEFORE UPDATE ON public.promo_comments FOR EACH ROW EXECUTE FUNCTION public.lock_community_content_author();
 
 -- Stockage public des avatars (5 Mo maximum)
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
