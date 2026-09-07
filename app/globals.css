@@ -7,7 +7,7 @@
   color-scheme: only light;
 }
 
-html:not(.dark) {
+html {
   color-scheme: only light;
 }
 
@@ -30,7 +30,7 @@ html:not(.dark) {
 /* Mode sombre — les mêmes noms de rôle changent de valeur, sans toucher
    au code des pages : bg-paper, text-ink, etc. s'adaptent automatiquement
    dès que cette classe est posée sur <html>. */
-.dark {
+.dabo-dark {
   --color-paper: #1C1B17;
   --color-ink: #EDEAE0;
   --color-mustard: #D8A94A;
@@ -40,6 +40,20 @@ html:not(.dark) {
   --color-borderLight: #2E2C26;
   --color-white2: #26251F;
   color-scheme: dark;
+}
+
+/* Le thème clair est explicite et scoped à l'app. Il gagne même si un
+   navigateur/OS ajoute ou conserve une classe sombre ailleurs dans le DOM. */
+.dabo-light {
+  --color-paper: #F0EFE6;
+  --color-ink: #22301F;
+  --color-mustard: #B98A2E;
+  --color-mustardBg: #F3E9D2;
+  --color-muted: #6E6A5A;
+  --color-border: #DCD8CB;
+  --color-borderLight: #E4E1D5;
+  --color-white2: #FFFFFF;
+  color-scheme: only light;
 }
 
 * {
@@ -52,11 +66,6 @@ html, body {
   color: var(--color-ink);
 }
 
-html:not(.dark),
-html:not(.dark) body {
-  background: #F0EFE6;
-  color: #22301F;
-}
 
 input, select, textarea {
   font-family: inherit;

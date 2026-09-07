@@ -7,7 +7,7 @@ import { useHousehold } from "@/lib/use-household";
 import { HouseholdProvider } from "@/lib/household-context";
 import { LanguageProvider, useT } from "@/lib/language-context";
 
-function AppShell({ children }: { children: React.ReactNode }) {
+function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
@@ -22,7 +22,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
+    <div className={`${dark ? "dabo-dark" : "dabo-light"} min-h-screen bg-paper text-ink flex flex-col`}>
       <div className="flex-1 max-w-lg mx-auto w-full pb-24">{children}</div>
       <div className="fixed bottom-0 left-0 right-0 bg-paper border-t border-borderLight">
         <div className="max-w-lg mx-auto grid grid-cols-6">
@@ -64,10 +64,12 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
     // La préférence DABO doit primer sur le thème du téléphone/navigateur.
     // `only light` empêche notamment l’auto-darkening de Samsung Internet
     // quand le membre a explicitement désactivé le mode sombre dans DABO.
-    root.classList.toggle("dark", dark);
+    root.classList.remove("dark");
+    root.dataset.daboTheme = dark ? "dark" : "light";
     root.style.colorScheme = dark ? "dark" : "only light";
 
     return () => {
+      delete root.dataset.daboTheme;
       root.classList.remove("dark");
       root.style.colorScheme = "only light";
     };
@@ -75,7 +77,7 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
 
   return (
     <LanguageProvider lang={me?.language || "fr"}>
-      <AppShell>{children}</AppShell>
+      <AppShell dark={!!me?.dark_mode}>{children}</AppShell>
     </LanguageProvider>
   );
 }

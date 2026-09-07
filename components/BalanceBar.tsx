@@ -57,7 +57,7 @@ export function BalanceBar({
         </div>
         {big && totals.length === 2 && (
           <div
-            className="absolute left-1/2 top-[-5px] h-7 w-px -translate-x-1/2 bg-ink/40 dark:bg-white/40"
+            className="absolute left-1/2 top-[-5px] h-7 w-px -translate-x-1/2 bg-ink/40"
             aria-hidden="true"
           />
         )}
