@@ -9,6 +9,7 @@ import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
 import { ShoppingBag, Info, Plus, ListChecks, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { IconUpdateNotice } from "@/components/IconUpdateNotice";
 import { InviteNudge } from "@/components/InviteNudge";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
@@ -270,6 +271,7 @@ export default function TodayPage() {
       <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
       <IntroTip id="today" text={t("intro_today")} />
       <InstallPrompt />
+      <IconUpdateNotice />
       {household && (
         <InviteNudge
           householdId={household.id}

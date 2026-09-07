@@ -24,8 +24,19 @@ export function PwaUpdater() {
         // L'application reste utilisable sur les navigateurs sans PWA.
       });
 
+    const checkWhenVisible = () => {
+      if (document.visibilityState === "visible") checkForUpdate();
+    };
+
     window.addEventListener("focus", checkForUpdate);
-    return () => window.removeEventListener("focus", checkForUpdate);
+    window.addEventListener("pageshow", checkForUpdate);
+    document.addEventListener("visibilitychange", checkWhenVisible);
+
+    return () => {
+      window.removeEventListener("focus", checkForUpdate);
+      window.removeEventListener("pageshow", checkForUpdate);
+      document.removeEventListener("visibilitychange", checkWhenVisible);
+    };
   }, []);
 
   return null;

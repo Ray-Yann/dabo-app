@@ -10,14 +10,14 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["500"], variable: 
 export const metadata: Metadata = {
   title: "Dabo",
   description: "L'équilibre du foyer, enfin visible.",
-  manifest: "/manifest.json?v=2",
+  manifest: "/manifest.json?v=3",
   icons: {
     icon: [
-      { url: "/dabo-equilibre-v2.svg", type: "image/svg+xml" },
-      { url: "/dabo-equilibre-v2-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/dabo-equilibre-v2-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/dabo-equilibre-v3.svg", type: "image/svg+xml" },
+      { url: "/dabo-equilibre-v3-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/dabo-equilibre-v3-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/dabo-equilibre-v3-apple-180.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,

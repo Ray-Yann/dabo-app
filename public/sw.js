@@ -11,8 +11,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Dabo", {
       body: data.body || "",
-      icon: "/dabo-equilibre-v2-192.png",
-      badge: "/dabo-equilibre-v2-192.png",
+      icon: "/dabo-equilibre-v3-192.png",
+      badge: "/dabo-equilibre-v3-192.png",
     })
   );
 });
