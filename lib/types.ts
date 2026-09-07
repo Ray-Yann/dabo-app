@@ -82,6 +82,8 @@ export type CalendarEvent = {
   event_date: string;
   recurring: boolean;
   reminder_days_before: number;
+  visibility: "household" | "personal";
+  private_owner_id: string | null;
   created_at: string;
 };
 

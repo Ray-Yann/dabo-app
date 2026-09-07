@@ -65,7 +65,7 @@ export default function TodayPage() {
       setTotalItemsEver(count ?? 0);
 
       const [{ data: events }, { data: routineData }] = await Promise.all([
-        supabase.from("calendar_events").select("*").eq("household_id", household.id),
+        supabase.from("calendar_events").select("*").eq("household_id", household.id).eq("visibility", "household"),
         supabase.from("routines").select("*").eq("household_id", household.id),
       ]);
       const householdEvents = (events as CalendarEvent[]) || [];

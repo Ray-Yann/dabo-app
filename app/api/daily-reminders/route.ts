@@ -74,17 +74,21 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Événements du calendrier : rappel 7 jours avant et le jour même,
-  // envoyé à TOUT le foyer (pas une seule personne assignée), chacun dans
-  // sa propre langue.
-  const { data: allEvents } = await supabase.from("calendar_events").select("id, household_id, title, event_date, recurring, reminder_days_before");
+  // Les événements du foyer sont envoyés à tous. Les événements personnels
+  // ne sont envoyés qu'à leur propriétaire et ne quittent jamais cet espace.
+  const { data: allEvents } = await supabase.from("calendar_events").select("id, household_id, title, event_date, recurring, reminder_days_before, visibility, private_owner_id");
   const householdsToNotify = new Map<string, string[]>();
+  const personalEventsToNotify = new Map<string, string[]>();
   for (const ev of allEvents || []) {
     const days = daysUntil(nextOccurrence(ev.event_date, ev.recurring));
     if (days === 0 || days === ev.reminder_days_before) {
-      const list = householdsToNotify.get(ev.household_id) || [];
+      const isPersonal = ev.visibility === "personal";
+      if (isPersonal && !ev.private_owner_id) continue;
+      const target = isPersonal ? personalEventsToNotify : householdsToNotify;
+      const targetId = isPersonal ? ev.private_owner_id : ev.household_id;
+      const list = target.get(targetId) || [];
       list.push(ev.title);
-      householdsToNotify.set(ev.household_id, list);
+      target.set(targetId, list);
     }
   }
 
@@ -110,6 +114,38 @@ export async function GET(req: NextRequest) {
           if (statusCode === 404 || statusCode === 410) {
             await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           }
+        }
+      }
+    }
+  }
+
+  for (const [memberId, titles] of personalEventsToNotify.entries()) {
+    const { data: member } = await supabase
+      .from("members")
+      .select("id, language")
+      .eq("id", memberId)
+      .is("left_at", null)
+      .not("user_id", "is", null)
+      .maybeSingle();
+    if (!member) continue;
+
+    const lang: Lang = (member.language as Lang) || "fr";
+    const body = titles.length === 1
+      ? translateWithParams(lang, "notif_event_single", { title: titles[0] })
+      : translateWithParams(lang, "notif_event_multiple", { count: String(titles.length), first: titles[0] });
+    const title = translate(lang, "notif_reminder_title");
+    const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("member_id", member.id);
+    for (const sub of subs || []) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify({ title, body })
+        );
+        sent++;
+      } catch (e: unknown) {
+        const statusCode = (e as { statusCode?: number })?.statusCode;
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
         }
       }
     }

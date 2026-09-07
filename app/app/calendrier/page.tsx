@@ -9,12 +9,15 @@ import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
-import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil, LockKeyhole } from "lucide-react";
+
+type CalendarView = "household" | "personal";
 
 export default function CalendarPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [view, setView] = useState<CalendarView>("household");
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -40,14 +43,16 @@ export default function CalendarPage() {
   }, [household]);
 
   async function addEvent() {
-    if (!title.trim() || !eventDate || !household) return;
+    if (!title.trim() || !eventDate || !household || !me) return;
     await supabase.from("calendar_events").insert({
       household_id: household.id,
-      created_by: me?.id || null,
+      created_by: me.id,
       title: title.trim(),
       event_date: eventDate,
       recurring,
       reminder_days_before: reminderDays,
+      visibility: view,
+      private_owner_id: view === "personal" ? me.id : null,
     });
     setTitle("");
     setEventDate("");
@@ -81,6 +86,13 @@ export default function CalendarPage() {
     setShowEditMoreOptions(false);
   }
 
+  function changeView(nextView: CalendarView) {
+    setView(nextView);
+    setShowAdd(false);
+    setShowMoreOptions(false);
+    cancelEditing();
+  }
+
   async function saveEvent() {
     if (!editingId || !editTitle.trim() || !editDate) return;
     const { error } = await supabase
@@ -112,7 +124,13 @@ export default function CalendarPage() {
     return `${t("event_in")} ${days} ${t("event_days")}`;
   }
 
-  const upcoming = events
+  const visibleEvents = events.filter((event) =>
+    view === "personal"
+      ? event.visibility === "personal" && event.private_owner_id === me?.id
+      : event.visibility === "household"
+  );
+
+  const upcoming = visibleEvents
     .map((e) => ({ ...e, next: nextOccurrence(e.event_date, e.recurring) }))
     .filter((e) => e.recurring || e.next.getTime() >= new Date(new Date().setHours(0, 0, 0, 0)).getTime())
     .sort((a, b) => a.next.getTime() - b.next.getTime());
@@ -142,13 +160,40 @@ export default function CalendarPage() {
           {t("add")}
         </button>
       </div>
-      <IntroTip id="calendar-v2" title={t("intro_calendar_title")} text={t("intro_calendar")} />
+      <div className="mx-5 mb-4 grid grid-cols-2 rounded-2xl border border-borderLight bg-white2 p-1">
+        <button
+          type="button"
+          onClick={() => changeView("household")}
+          className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${view === "household" ? "bg-paper text-ink" : "text-muted"}`}
+        >
+          {t("calendar_tab_household")}
+        </button>
+        <button
+          type="button"
+          onClick={() => changeView("personal")}
+          className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${view === "personal" ? "bg-paper text-ink" : "text-muted"}`}
+        >
+          {t("calendar_tab_personal")}
+        </button>
+      </div>
+
+      <IntroTip
+        id={`calendar-${view}-v1`}
+        title={t(view === "personal" ? "intro_calendar_personal_title" : "intro_calendar_title")}
+        text={t(view === "personal" ? "intro_calendar_personal" : "intro_calendar")}
+      />
 
       {showAdd && (
         <div className="mx-5 mb-5 rounded-2xl border border-borderLight bg-white2 p-4">
           <div className="mb-4">
             <div className="text-sm font-semibold text-ink">{t("calendar_new_event")}</div>
             <div className="mt-0.5 text-xs text-muted">{t("calendar_new_event_hint")}</div>
+            {view === "personal" && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+                <LockKeyhole size={12} />
+                <span>{t("calendar_personal_private_note")}</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -233,7 +278,7 @@ export default function CalendarPage() {
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-paper text-mustard" : "bg-mustardBg text-mustard"}`}>
-                        {e.recurring ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
+                        {e.visibility === "personal" ? <LockKeyhole size={17} /> : e.recurring ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-ink truncate">{e.title}</div>
