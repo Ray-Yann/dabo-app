@@ -4,11 +4,20 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { translate, translateWithParams, Lang } from "@/lib/i18n";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 
-webpush.setVapidDetails(
-  "mailto:contact@dabo.app",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+function configureWebPush() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!publicKey || !privateKey) {
+    throw new Error("Configuration VAPID manquante");
+  }
+
+  webpush.setVapidDetails(
+    "mailto:contact@dabo.app",
+    publicKey,
+    privateKey
+  );
+}
 
 // Appelée automatiquement chaque jour par Vercel Cron — voir vercel.json.
 // Couvre les tâches ET les articles de courses ayant une échéance.
@@ -19,6 +28,15 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  try {
+    configureWebPush();
+  } catch {
+    return NextResponse.json(
+      { error: "Configuration des notifications indisponible" },
+      { status: 503 }
+    );
   }
 
   const supabase = createAdminClient();
@@ -52,23 +70,44 @@ export async function GET(req: NextRequest) {
 
   let sent = 0;
   for (const [memberId, names] of byMember.entries()) {
-    const { data: memberRow } = await supabase.from("members").select("language").eq("id", memberId).maybeSingle();
+    const { data: memberRow } = await supabase
+      .from("members")
+      .select("language")
+      .eq("id", memberId)
+      .maybeSingle();
+
     const lang: Lang = (memberRow?.language as Lang) || "fr";
     const title = translate(lang, "notif_reminder_title");
-    const body = names.length === 1 ? names[0] : translateWithParams(lang, "notif_reminder_multiple", { count: String(names.length), first: names[0] });
+    const body =
+      names.length === 1
+        ? names[0]
+        : translateWithParams(lang, "notif_reminder_multiple", {
+            count: String(names.length),
+            first: names[0],
+          });
 
-    const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("member_id", memberId);
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("*")
+      .eq("member_id", memberId);
+
     for (const sub of subs || []) {
       try {
         await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
           JSON.stringify({ title, body })
         );
         sent++;
       } catch (e: unknown) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
         if (statusCode === 404 || statusCode === 410) {
-          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          await supabase
+            .from("push_subscriptions")
+            .delete()
+            .eq("id", sub.id);
         }
       }
     }
@@ -76,15 +115,24 @@ export async function GET(req: NextRequest) {
 
   // Les événements du foyer sont envoyés à tous. Les événements personnels
   // ne sont envoyés qu'à leur propriétaire et ne quittent jamais cet espace.
-  const { data: allEvents } = await supabase.from("calendar_events").select("id, household_id, title, event_date, recurring, reminder_days_before, visibility, private_owner_id");
+  const { data: allEvents } = await supabase
+    .from("calendar_events")
+    .select(
+      "id, household_id, title, event_date, recurring, reminder_days_before, visibility, private_owner_id"
+    );
+
   const householdsToNotify = new Map<string, string[]>();
   const personalEventsToNotify = new Map<string, string[]>();
+
   for (const ev of allEvents || []) {
     const days = daysUntil(nextOccurrence(ev.event_date, ev.recurring));
     if (days === 0 || days === ev.reminder_days_before) {
       const isPersonal = ev.visibility === "personal";
       if (isPersonal && !ev.private_owner_id) continue;
-      const target = isPersonal ? personalEventsToNotify : householdsToNotify;
+
+      const target = isPersonal
+        ? personalEventsToNotify
+        : householdsToNotify;
       const targetId = isPersonal ? ev.private_owner_id : ev.household_id;
       const list = target.get(targetId) || [];
       list.push(ev.title);
@@ -93,26 +141,48 @@ export async function GET(req: NextRequest) {
   }
 
   for (const [householdId, titles] of householdsToNotify.entries()) {
-    const { data: householdMembers } = await supabase.from("members").select("id, language").eq("household_id", householdId).is("left_at", null).not("user_id", "is", null);
+    const { data: householdMembers } = await supabase
+      .from("members")
+      .select("id, language")
+      .eq("household_id", householdId)
+      .is("left_at", null)
+      .not("user_id", "is", null);
+
     for (const member of householdMembers || []) {
       const lang: Lang = (member.language as Lang) || "fr";
-      const body = titles.length === 1
-        ? translateWithParams(lang, "notif_event_single", { title: titles[0] })
-        : translateWithParams(lang, "notif_event_multiple", { count: String(titles.length), first: titles[0] });
+      const body =
+        titles.length === 1
+          ? translateWithParams(lang, "notif_event_single", {
+              title: titles[0],
+            })
+          : translateWithParams(lang, "notif_event_multiple", {
+              count: String(titles.length),
+              first: titles[0],
+            });
       const title = translate(lang, "notif_reminder_title");
 
-      const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("member_id", member.id);
+      const { data: subs } = await supabase
+        .from("push_subscriptions")
+        .select("*")
+        .eq("member_id", member.id);
+
       for (const sub of subs || []) {
         try {
           await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            {
+              endpoint: sub.endpoint,
+              keys: { p256dh: sub.p256dh, auth: sub.auth },
+            },
             JSON.stringify({ title, body })
           );
           sent++;
         } catch (e: unknown) {
           const statusCode = (e as { statusCode?: number })?.statusCode;
           if (statusCode === 404 || statusCode === 410) {
-            await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+            await supabase
+              .from("push_subscriptions")
+              .delete()
+              .eq("id", sub.id);
           }
         }
       }
@@ -127,25 +197,43 @@ export async function GET(req: NextRequest) {
       .is("left_at", null)
       .not("user_id", "is", null)
       .maybeSingle();
+
     if (!member) continue;
 
     const lang: Lang = (member.language as Lang) || "fr";
-    const body = titles.length === 1
-      ? translateWithParams(lang, "notif_event_single", { title: titles[0] })
-      : translateWithParams(lang, "notif_event_multiple", { count: String(titles.length), first: titles[0] });
+    const body =
+      titles.length === 1
+        ? translateWithParams(lang, "notif_event_single", {
+            title: titles[0],
+          })
+        : translateWithParams(lang, "notif_event_multiple", {
+            count: String(titles.length),
+            first: titles[0],
+          });
     const title = translate(lang, "notif_reminder_title");
-    const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("member_id", member.id);
+
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("*")
+      .eq("member_id", member.id);
+
     for (const sub of subs || []) {
       try {
         await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
           JSON.stringify({ title, body })
         );
         sent++;
       } catch (e: unknown) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
         if (statusCode === 404 || statusCode === 410) {
-          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          await supabase
+            .from("push_subscriptions")
+            .delete()
+            .eq("id", sub.id);
         }
       }
     }
