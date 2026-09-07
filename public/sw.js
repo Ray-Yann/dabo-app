@@ -1,10 +1,18 @@
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : { title: "Dabo", body: "" };
   event.waitUntil(
     self.registration.showNotification(data.title || "Dabo", {
       body: data.body || "",
-      icon: "/icon.svg",
-      badge: "/icon.svg",
+      icon: "/dabo-equilibre-v2-192.png",
+      badge: "/dabo-equilibre-v2-192.png",
     })
   );
 });

@@ -23,11 +23,12 @@ function member(id: string, rotationOrder: number): Member {
 }
 
 function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
+  const { id, name, ...optionalOverrides } = overrides;
   return {
-    id: overrides.id,
+    id,
     household_id: "household",
     routine_id: null,
-    name: overrides.name,
+    name,
     weight_points: 10,
     duration_key: "10min",
     effort_level: "faible",
@@ -37,23 +38,24 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
     due_date: null,
     completed_at: null,
     created_at: "2026-09-01T12:00:00.000Z",
-    ...overrides,
+    ...optionalOverrides,
   };
 }
 
 function event(overrides: Partial<CalendarEvent> & Pick<CalendarEvent, "id" | "title" | "event_date">): CalendarEvent {
+  const { id, title, event_date, ...optionalOverrides } = overrides;
   return {
-    id: overrides.id,
+    id,
     household_id: "household",
     created_by: "ray",
-    title: overrides.title,
-    event_date: overrides.event_date,
+    title,
+    event_date,
     recurring: false,
     reminder_days_before: 1,
     visibility: "household",
     private_owner_id: null,
     created_at: "2026-09-01T12:00:00.000Z",
-    ...overrides,
+    ...optionalOverrides,
   };
 }
 

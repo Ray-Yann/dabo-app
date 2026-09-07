@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Logo DABO Équilibre</title>
+  <desc id="desc">Carré vert arrondi avec un D ivoire, une feuille ivoire et un point doré.</desc>
+  <rect width="1024" height="1024" rx="210" fill="#183820"/>
+  <path fill="#F7F3E9" d="M268 160h222c222 0 374 145 374 355 0 218-151 349-389 349H354l101-132h37c157 0 246-79 246-217 0-142-98-228-254-228H382v117l-66 45-70-45V211c0-28 9-51 22-51Z"/>
+  <path fill="#F7F3E9" d="M246 864V692c0-151 90-253 267-285-72 89-83 240-150 350-33 54-76 91-117 107Z"/>
+  <circle cx="520" cy="548" r="58" fill="#D6A12D"/>
+</svg>
