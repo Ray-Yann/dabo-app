@@ -12,6 +12,7 @@ import { enableNotifications, disableNotifications } from "@/lib/notifications";
 import { MEMBER_COLORS } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
 import { Lang } from "@/lib/i18n";
+import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
 
 type SettingsConfirmation =
   | { kind: "promote"; memberId: string; name: string }
@@ -382,7 +383,8 @@ export default function SettingsPage() {
     }
     const res = await fetch("/api/leave-household", {
       method: "POST",
-      headers: { Authorization: `Bearer ${data.session.access_token}` },
+      headers: { Authorization: `Bearer ${data.session.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: me?.id }),
     });
     if (!res.ok) {
       showFeedback("error", t("settings_error_leave"));
@@ -451,6 +453,7 @@ export default function SettingsPage() {
       <IntroTip id="settings" text={t("intro_settings")} />
 
       <div className="px-5 pb-8 space-y-7">
+        <HouseholdSwitcher />
         <section>
           <div className="mb-3">
             <h2 className="text-base font-semibold text-ink">{t("settings_my_profile")}</h2>

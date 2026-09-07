@@ -20,17 +20,6 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
-  const { data: caller, error: callerError } = await admin
-    .from("members")
-    .select("id, household_id")
-    .eq("user_id", userData.id)
-    .is("left_at", null)
-    .maybeSingle();
-
-  if (callerError || !caller) {
-    return NextResponse.json({ error: "Membre actif introuvable" }, { status: 403 });
-  }
-
   const { data: contribution, error: contributionError } = await admin
     .from("task_contributions")
     .select("id, household_id, performer_status, cancelled_at")
@@ -40,8 +29,17 @@ export async function POST(req: NextRequest) {
   if (contributionError || !contribution || contribution.cancelled_at) {
     return NextResponse.json({ error: "Contribution introuvable" }, { status: 404 });
   }
-  if (contribution.household_id !== caller.household_id) {
-    return NextResponse.json({ error: "Contribution hors foyer" }, { status: 403 });
+
+  const { data: caller, error: callerError } = await admin
+    .from("members")
+    .select("id, household_id")
+    .eq("user_id", userData.id)
+    .eq("household_id", contribution.household_id)
+    .is("left_at", null)
+    .maybeSingle();
+
+  if (callerError || !caller) {
+    return NextResponse.json({ error: "Membre actif introuvable dans ce foyer" }, { status: 403 });
   }
   if (contribution.performer_status !== "confirmed") {
     return NextResponse.json({ error: "Cette contribution doit d’abord être confirmée" }, { status: 409 });

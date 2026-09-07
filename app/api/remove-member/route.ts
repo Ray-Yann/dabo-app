@@ -15,10 +15,20 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
+  const { data: target } = await admin
+    .from("members")
+    .select("id, household_id")
+    .eq("id", memberId)
+    .is("left_at", null)
+    .maybeSingle();
+
+  if (!target) return NextResponse.json({ error: "Membre actif introuvable" }, { status: 404 });
+
   const { data: caller } = await admin
     .from("members")
-    .select("id, household_id, role")
+    .select("id, role")
     .eq("user_id", userData.id)
+    .eq("household_id", target.household_id)
     .is("left_at", null)
     .maybeSingle();
 
@@ -28,16 +38,6 @@ export async function POST(req: NextRequest) {
   if (caller.id === memberId) {
     return NextResponse.json({ error: "Utilise « Quitter le foyer » pour ton propre départ" }, { status: 400 });
   }
-
-  const { data: target } = await admin
-    .from("members")
-    .select("id")
-    .eq("id", memberId)
-    .eq("household_id", caller.household_id)
-    .is("left_at", null)
-    .maybeSingle();
-
-  if (!target) return NextResponse.json({ error: "Membre actif introuvable" }, { status: 404 });
 
   try {
     await transferCreatorAndArchive(admin, target.id);

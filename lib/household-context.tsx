@@ -11,8 +11,15 @@ type HouseholdContextValue = {
   me: Member | null;
   members: Member[];
   allMembers: Member[];
+  memberships: HouseholdMembership[];
+  switchHousehold: (householdId: string) => Promise<void>;
   refresh: () => Promise<void>;
   supabase: ReturnType<typeof createClient>;
+};
+
+export type HouseholdMembership = {
+  household: Household;
+  member: Member;
 };
 
 const HouseholdContext = createContext<HouseholdContextValue | null>(null);
@@ -25,6 +32,9 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [memberships, setMemberships] = useState<HouseholdMembership[]>([]);
+
+  const activeHouseholdKey = "dabo-active-household";
 
   const refresh = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -37,22 +47,34 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .eq("user_id", sessionData.session.user.id)
       .is("left_at", null)
-      .order("created_at", { ascending: true })
-      .limit(1);
-    const myMember = myMembers?.[0];
+      .order("created_at", { ascending: true });
+
+    const activeMemberships = (myMembers as Member[] | null) || [];
+    const storedHouseholdId = window.localStorage.getItem(activeHouseholdKey);
+    const myMember = activeMemberships.find((member) => member.household_id === storedHouseholdId)
+      || activeMemberships[0];
 
     if (!myMember) {
       router.replace("/");
       return;
     }
-    setMe(myMember as Member);
-
-    const { data: householdData } = await supabase
+    const householdIds = activeMemberships.map((member) => member.household_id);
+    const { data: householdRows } = await supabase
       .from("households")
       .select("*")
-      .eq("id", myMember.household_id)
-      .maybeSingle();
-    setHousehold(householdData as Household);
+      .in("id", householdIds);
+
+    const availableHouseholds = (householdRows as Household[] | null) || [];
+    const nextMemberships = activeMemberships.flatMap((member) => {
+      const memberHousehold = availableHouseholds.find((item) => item.id === member.household_id);
+      return memberHousehold ? [{ household: memberHousehold, member }] : [];
+    });
+    const householdData = availableHouseholds.find((item) => item.id === myMember.household_id) || null;
+
+    window.localStorage.setItem(activeHouseholdKey, myMember.household_id);
+    setMemberships(nextMemberships);
+    setMe(myMember);
+    setHousehold(householdData);
 
     const { data: householdMembers } = await supabase
       .from("members")
@@ -67,13 +89,19 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
+  const switchHousehold = useCallback(async (householdId: string) => {
+    window.localStorage.setItem(activeHouseholdKey, householdId);
+    setLoading(true);
+    await refresh();
+  }, [refresh]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 
   return (
-    <HouseholdContext.Provider value={{ loading, household, me, members, allMembers, refresh, supabase }}>
+    <HouseholdContext.Provider value={{ loading, household, me, members, allMembers, memberships, switchHousehold, refresh, supabase }}>
       {children}
     </HouseholdContext.Provider>
   );

@@ -8,6 +8,7 @@ import { relativeDate } from "@/lib/utils";
 import { MessageCircle, Pencil, Send, Trash2 } from "lucide-react";
 import { useT } from "@/lib/language-context";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { useHousehold } from "@/lib/use-household";
 
 export function PromosView({
   household,
@@ -20,6 +21,8 @@ export function PromosView({
   supabase: SupabaseClient;
 }) {
   const t = useT();
+  const { memberships } = useHousehold();
+  const myMembershipIds = new Set(memberships.map((membership) => membership.member.id));
   const [promos, setPromos] = useState<Promo[]>([]);
   const [comments, setComments] = useState<Record<string, PromoComment[]>>({});
   const [openCommentsId, setOpenCommentsId] = useState<string | null>(null);
@@ -180,7 +183,7 @@ export function PromosView({
         <div className="space-y-2">
           {promos.map((promo) => {
             const promoComments = comments[promo.id] || [];
-            const isAuthor = promo.author_id === me?.id;
+            const isAuthor = !!promo.author_id && myMembershipIds.has(promo.author_id);
             const commentsOpen = openCommentsId === promo.id;
             return (
               <article key={promo.id} className="py-3 border-b border-borderLight">
@@ -210,7 +213,7 @@ export function PromosView({
                           <p className="text-xs text-ink whitespace-pre-wrap break-words">{comment.text}</p>
                           <p className="text-[11px] text-muted mt-0.5">{comment.author_name} · {relativeDate(comment.created_at)}</p>
                         </div>
-                        {comment.author_id === me?.id && (
+                        {!!comment.author_id && myMembershipIds.has(comment.author_id) && (
                           <button onClick={() => removeComment(comment.id)} className="text-muted p-1" aria-label={t("delete")}><Trash2 size={14} /></button>
                         )}
                       </div>

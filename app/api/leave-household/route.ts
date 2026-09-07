@@ -13,17 +13,21 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
+  const body = await req.json().catch(() => ({}));
+  const memberId = typeof body.memberId === "string" ? body.memberId : "";
+  if (!memberId) return NextResponse.json({ error: "Foyer invalide" }, { status: 400 });
+
   const { data: member } = await admin
     .from("members")
     .select("id")
+    .eq("id", memberId)
     .eq("user_id", userData.id)
     .is("left_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .maybeSingle();
 
-  if (member && member.length > 0) {
+  if (member) {
     try {
-      await transferCreatorAndArchive(admin, member[0].id);
+      await transferCreatorAndArchive(admin, member.id);
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Impossible de quitter le foyer" },
