@@ -190,6 +190,21 @@ export default function SettingsPage() {
     refresh();
   }
 
+  async function recordAppShare(method: "native" | "clipboard") {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      await fetch("/api/share-app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ method, householdId: household?.id || null }),
+      });
+    } catch {
+      // La mesure ne doit jamais bloquer l'action de partage.
+    }
+  }
+
   async function shareApp() {
     const shareData = {
       title: "Dabo",
@@ -199,13 +214,15 @@ export default function SettingsPage() {
     if (navigator.share) {
       try {
         await navigator.share(shareData);
+        await recordAppShare("native");
       } catch {
-        // Partage annulé par la personne — rien à faire.
+        // Partage annulé par la personne — aucun événement enregistré.
       }
     } else {
       try {
         if (!navigator.clipboard) throw new Error("Clipboard unavailable");
         await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+        await recordAppShare("clipboard");
         showFeedback("success", t("share_app_copied"));
       } catch {
         showFeedback("error", t("settings_error_copy"));

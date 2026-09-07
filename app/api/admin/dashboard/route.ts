@@ -11,18 +11,19 @@ export async function GET(req:NextRequest){
  const currentAdmin=await requireDaboAdmin(token);
  if(!currentAdmin) return NextResponse.json({error:"Accès administrateur refusé"},{status:403});
  const db=createAdminClient(), since7=isoAgo(7), since30=isoAgo(30);
- const [households,members,tasks,shopping,events,contributions,auth]=await Promise.all([
+ const [households,members,tasks,shopping,events,contributions,shares,auth]=await Promise.all([
   db.from("households").select("id,name,created_at").order("created_at",{ascending:false}),
   db.from("members").select("id,user_id,household_id,first_name,role,created_at,left_at"),
   db.from("tasks").select("id,household_id,status,created_at,completed_at"),
   db.from("shopping_items").select("id,household_id,status,created_at,bought_at"),
   db.from("calendar_events").select("id,household_id,created_at"),
   db.from("task_contributions").select("id,household_id,completed_at,cancelled_at"),
+  db.from("app_share_events").select("id,user_id,household_id,method,created_at"),
   db.auth.admin.listUsers({page:1,perPage:1000}),
  ]);
- const errors=[households.error,members.error,tasks.error,shopping.error,events.error,contributions.error,auth.error].filter(Boolean);
+ const errors=[households.error,members.error,tasks.error,shopping.error,events.error,contributions.error,shares.error,auth.error].filter(Boolean);
  if(errors.length) return NextResponse.json({error:"Impossible de charger les données administrateur"},{status:500});
- const H=households.data||[], M=members.data||[], T=tasks.data||[], S=shopping.data||[], E=events.data||[], C=contributions.data||[];
+ const H=households.data||[], M=members.data||[], T=tasks.data||[], S=shopping.data||[], E=events.data||[], C=contributions.data||[], SH=shares.data||[];
  const active=M.filter(m=>!m.left_at&&m.user_id), userIds=new Set(active.map(m=>m.user_id));
  const multi=new Map<string,number>(); active.forEach(m=>multi.set(m.user_id!, (multi.get(m.user_id!)||0)+1));
  const activityHouseholds=(since:string)=>new Set([
@@ -51,5 +52,5 @@ export async function GET(req:NextRequest){
   ...C.filter(x=>x.household_id===id&&!x.cancelled_at).map(x=>x.completed_at),
  ]);
  const householdDetails=H.map(h=>({id:h.id,name:h.name,createdAt:h.created_at,lastActivity:householdActivity(h.id),members:active.filter(m=>m.household_id===h.id).map(m=>({id:m.id,userId:m.user_id,firstName:m.first_name,role:m.role,email:authMap.get(m.user_id!)?.email||null})),tasks30:T.filter(x=>x.household_id===h.id&&(x.created_at>=since30||(x.completed_at&&x.completed_at>=since30))).length,shopping30:S.filter(x=>x.household_id===h.id&&(x.created_at>=since30||(x.bought_at&&x.bought_at>=since30))).length,events30:E.filter(x=>x.household_id===h.id&&x.created_at>=since30).length}));
- return NextResponse.json({generatedAt:new Date().toISOString(),admin:currentAdmin.email,kpis:{users:userIds.size,households:H.length,activeMemberships:active.length,multiHouseholdUsers:[...multi.values()].filter(n=>n>1).length,newUsers7:users.filter(u=>u.joinedAt>=since7).length,newUsers30:users.filter(u=>u.joinedAt>=since30).length,activeHouseholds7:activityHouseholds(since7),activeHouseholds30:activityHouseholds(since30),tasksCreated30:T.filter(x=>x.created_at>=since30).length,tasksCompleted30:T.filter(x=>x.completed_at&&x.completed_at>=since30).length,shoppingBought30:S.filter(x=>x.bought_at&&x.bought_at>=since30).length,eventsCreated30:E.filter(x=>x.created_at>=since30).length},recentHouseholds:householdDetails.slice(0,8).map(h=>({id:h.id,name:h.name,created_at:h.createdAt,members:h.members.length})),users,households:householdDetails});
+ return NextResponse.json({generatedAt:new Date().toISOString(),admin:currentAdmin.email,kpis:{users:userIds.size,households:H.length,activeMemberships:active.length,multiHouseholdUsers:[...multi.values()].filter(n=>n>1).length,newUsers7:users.filter(u=>u.joinedAt>=since7).length,newUsers30:users.filter(u=>u.joinedAt>=since30).length,activeHouseholds7:activityHouseholds(since7),activeHouseholds30:activityHouseholds(since30),tasksCreated30:T.filter(x=>x.created_at>=since30).length,tasksCompleted30:T.filter(x=>x.completed_at&&x.completed_at>=since30).length,shoppingBought30:S.filter(x=>x.bought_at&&x.bought_at>=since30).length,eventsCreated30:E.filter(x=>x.created_at>=since30).length,sharesTotal:SH.length,shares30:SH.filter(x=>x.created_at>=since30).length,shareUsers30:new Set(SH.filter(x=>x.created_at>=since30).map(x=>x.user_id)).size},recentHouseholds:householdDetails.slice(0,8).map(h=>({id:h.id,name:h.name,created_at:h.createdAt,members:h.members.length})),users,households:householdDetails});
 }

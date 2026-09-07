@@ -1,13 +1,13 @@
 "use client";
 import { useEffect,useMemo,useState } from "react";
 import { createClient } from "@/lib/supabase-client";
-import { Activity,CalendarDays,CheckCircle2,Home,RefreshCw,Search,ShoppingBasket,Users,UserRoundCheck } from "lucide-react";
+import { Activity,CalendarDays,CheckCircle2,Home,RefreshCw,Search,ShoppingBasket,Users,UserRoundCheck,Share2 } from "lucide-react";
 
 type User={id:string;email:string|null;firstName:string;joinedAt:string;lastSignInAt:string|null;lastActivity:string|null;households:{id:string;name:string;role:string}[]};
 type Household={id:string;name:string;createdAt:string;lastActivity:string|null;members:{id:string;userId:string;firstName:string;role:string;email:string|null}[];tasks30:number;shopping30:number;events30:number};
 type Data={generatedAt:string;admin:string;kpis:Record<string,number>;recentHouseholds:{id:string;name:string;created_at:string;members:number}[];users:User[];households:Household[]};
-const labels:Record<string,[string,string]>={users:["Utilisateurs","Comptes présents dans au moins un foyer"],households:["Foyers","Foyers créés au total"],activeHouseholds30:["Foyers actifs · 30 j","Activité tâche, course, calendrier ou contribution"],newUsers30:["Nouveaux · 30 j","Utilisateurs arrivés sur les 30 derniers jours"],multiHouseholdUsers:["Utilisateurs multi-foyers","Présents dans au moins deux foyers"],tasksCompleted30:["Tâches terminées · 30 j","Valeur réellement accomplie"],shoppingBought30:["Courses achetées · 30 j","Articles marqués achetés"],eventsCreated30:["Événements créés · 30 j","Usage du calendrier"]};
-const icons=[Users,Home,Activity,UserRoundCheck,Users,CheckCircle2,ShoppingBasket,CalendarDays];
+const labels:Record<string,[string,string]>={users:["Utilisateurs","Comptes présents dans au moins un foyer"],households:["Foyers","Foyers créés au total"],activeHouseholds30:["Foyers actifs · 30 j","Activité tâche, course, calendrier ou contribution"],newUsers30:["Nouveaux · 30 j","Utilisateurs arrivés sur les 30 derniers jours"],multiHouseholdUsers:["Utilisateurs multi-foyers","Présents dans au moins deux foyers"],tasksCompleted30:["Tâches terminées · 30 j","Valeur réellement accomplie"],shoppingBought30:["Courses achetées · 30 j","Articles marqués achetés"],eventsCreated30:["Événements créés · 30 j","Usage du calendrier"],shares30:["Partages déclenchés · 30 j","Faire connaître DABO : partage natif ou copie du lien"],shareUsers30:["Ambassadeurs · 30 j","Utilisateurs uniques ayant partagé DABO"],sharesTotal:["Partages · total","Partages enregistrés depuis l’activation de la mesure"]};
+const icons=[Users,Home,Activity,UserRoundCheck,Users,CheckCircle2,ShoppingBasket,CalendarDays,Share2,Users,Share2];
 const fmt=(v:string|null)=>v?new Date(v).toLocaleDateString("fr-BE"):"—";
 const active30=(v:string|null)=>!!v&&new Date(v).getTime()>=Date.now()-30*86400000;
 
