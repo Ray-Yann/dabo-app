@@ -58,9 +58,18 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
   const { me } = useHousehold();
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", !!me?.dark_mode);
+    const root = document.documentElement;
+    const dark = !!me?.dark_mode;
+
+    // La préférence DABO doit primer sur le thème du téléphone/navigateur.
+    // `only light` empêche notamment l’auto-darkening de Samsung Internet
+    // quand le membre a explicitement désactivé le mode sombre dans DABO.
+    root.classList.toggle("dark", dark);
+    root.style.colorScheme = dark ? "dark" : "only light";
+
     return () => {
-      document.documentElement.classList.remove("dark");
+      root.classList.remove("dark");
+      root.style.colorScheme = "only light";
     };
   }, [me?.dark_mode]);
 

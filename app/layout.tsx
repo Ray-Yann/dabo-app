@@ -35,7 +35,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} font-sans bg-[#E7E3D8] text-ink`}>
+      <body className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} font-sans bg-paper text-ink`}>
         <PwaUpdater />
         {children}
       </body>

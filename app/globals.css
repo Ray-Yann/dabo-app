@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* DABO pilote lui-même son thème.
+   Sur certains navigateurs Android/Samsung, un mode sombre système peut
+   sinon recolorer automatiquement une page pourtant réglée en clair. */
+:root {
+  color-scheme: only light;
+}
+
+html:not(.dark) {
+  color-scheme: only light;
+}
+
+
 @theme {
   --color-paper: #F0EFE6;
   --color-ink: #22301F;
@@ -34,8 +46,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
+html, body {
   min-height: 100vh;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+html:not(.dark),
+html:not(.dark) body {
+  background: #F0EFE6;
+  color: #22301F;
 }
 
 input, select, textarea {
