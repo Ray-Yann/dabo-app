@@ -3,11 +3,20 @@ import webpush from "web-push";
 import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
 import { translateWithParams, Lang } from "@/lib/i18n";
 
-webpush.setVapidDetails(
-  "mailto:contact@dabo.app",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+function configureWebPush() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!publicKey || !privateKey) {
+    throw new Error("Configuration VAPID manquante");
+  }
+
+  webpush.setVapidDetails(
+    "mailto:contact@dabo.app",
+    publicKey,
+    privateKey
+  );
+}
 
 // Seules ces clés peuvent déclencher une notification — empêche quiconque
 // d'injecter un texte arbitraire dans une notification, même en cas de jeton
@@ -58,6 +67,15 @@ export async function POST(req: NextRequest) {
     .neq("id", excludeMemberId || "");
 
   if (!members || members.length === 0) return NextResponse.json({ sent: 0 });
+
+  try {
+    configureWebPush();
+  } catch {
+    return NextResponse.json(
+      { error: "Configuration des notifications indisponible" },
+      { status: 503 }
+    );
+  }
 
   let sent = 0;
   for (const member of members) {
