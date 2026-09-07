@@ -577,6 +577,15 @@ using (household_id IN ( SELECT members.household_id
   WHERE (members.user_id = auth.uid())))
 ;
 
+create policy "Accès foyer - promos update" on "public"."promos" for update to public
+using (household_id IN ( SELECT members.household_id
+   FROM members
+  WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
+with check (household_id IN ( SELECT members.household_id
+   FROM members
+  WHERE ((members.user_id = auth.uid()) AND (members.left_at IS NULL))))
+;
+
 create policy "Gérer son propre abonnement" on "public"."push_subscriptions" for all to public
 using (member_id IN ( SELECT members.id
    FROM members
