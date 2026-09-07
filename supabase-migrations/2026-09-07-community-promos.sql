@@ -94,6 +94,14 @@ for each row execute function public.lock_community_content_author();
 alter table public.promos enable row level security;
 alter table public.promo_comments enable row level security;
 
+-- Les politiques RLS ne remplacent pas les privilèges SQL de base.
+-- Sans ces droits, PostgREST refuse les requêtes avant d'évaluer les politiques.
+grant select, insert, update, delete on table public.promos to authenticated;
+grant select, insert, update, delete on table public.promo_comments to authenticated;
+
+revoke all on table public.promos from anon;
+revoke all on table public.promo_comments from anon;
+
 do $$
 declare policy_row record;
 begin

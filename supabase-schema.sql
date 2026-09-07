@@ -499,6 +499,12 @@ alter table "public"."households" enable row level security;
 alter table "public"."members" enable row level security;
 alter table "public"."promos" enable row level security;
 alter table "public"."promo_comments" enable row level security;
+
+grant select, insert, update, delete on table public.promos to authenticated;
+grant select, insert, update, delete on table public.promo_comments to authenticated;
+
+revoke all on table public.promos from anon;
+revoke all on table public.promo_comments from anon;
 alter table "public"."push_subscriptions" enable row level security;
 alter table "public"."routines" enable row level security;
 alter table "public"."shopping_items" enable row level security;
