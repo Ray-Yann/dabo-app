@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -28,19 +28,12 @@ export async function POST(req: NextRequest) {
   if (body.referralToken && !/^[0-9a-f-]{36}$/i.test(body.referralToken)) return NextResponse.json({ error: "Référence invalide" }, { status: 400 });
   if (body.valueType && !allowedValueTypes.has(body.valueType)) return NextResponse.json({ error: "Type de valeur invalide" }, { status: 400 });
 
-  const db = createAdminClient();
+  // IMPORTANT : on vérifie le bearer séparément du client service-role qui écrit.
+  // Ainsi, un jeton utilisateur ne peut jamais faire perdre le bypass RLS au client admin.
   const authHeader = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  let userId: string | null = null;
-  if (authHeader) {
-    const { data } = await db.auth.getUser(authHeader);
-    userId = data.user?.id || null;
-  }
-
-  // Les événements post-inscription doivent être liés à une session authentifiée.
-  if (body.eventName !== "landing_view" && !userId) {
-    // Le client peut ne pas joindre le bearer immédiatement après sign-up.
-    // On conserve alors visitor_id pour relier le parcours sans collecter de PII.
-  }
+  const verifiedUser = authHeader ? await verifyUserToken(authHeader) : null;
+  const userId = verifiedUser?.id || null;
+  const db = createAdminClient();
 
   let householdId: string | null = null;
   if (body.householdId && userId) {
@@ -58,7 +51,12 @@ export async function POST(req: NextRequest) {
     value_type: body.valueType || null,
   });
   if (error) {
-    console.error("[acquisition-event]", error);
+    console.error("[acquisition-event] insert failed", {
+      code: error.code,
+      message: error.message,
+      eventName: body.eventName,
+      authenticated: Boolean(userId),
+    });
     return NextResponse.json({ error: "Mesure indisponible" }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

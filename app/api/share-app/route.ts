@@ -33,6 +33,9 @@ export async function POST(req: NextRequest) {
     method: body.method,
     referral_token: body.referralToken || null,
   });
-  if (error) return NextResponse.json({ error: "Partage effectué, mais mesure indisponible" }, { status: 500 });
+  if (error) {
+    console.error("[share-app] insert failed", { code: error.code, message: error.message, authenticated: true });
+    return NextResponse.json({ error: "Partage effectué, mais mesure indisponible" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

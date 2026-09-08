@@ -191,17 +191,32 @@ export default function SettingsPage() {
   }
 
   async function recordAppShare(method: "native" | "clipboard", referralToken: string) {
+    const payload = { method, householdId: household?.id || null, referralToken };
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) return;
-      await fetch("/api/share-app", {
+      // Une session peut être proche de son expiration au retour de la feuille de partage.
+      // getSession() rafraîchit si nécessaire ; en cas de 401, on force un refresh puis on retente une fois.
+      let { data: sessionData } = await supabase.auth.getSession();
+      let token = sessionData.session?.access_token;
+      if (!token) return false;
+
+      const send = (accessToken: string) => fetch("/api/share-app", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ method, householdId: household?.id || null, referralToken }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(payload),
+        keepalive: true,
       });
+
+      let response = await send(token);
+      if (response.status === 401) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+        if (token) response = await send(token);
+      }
+      if (!response.ok) console.warn("[DABO share] partage réussi, mesure indisponible", response.status);
+      return response.ok;
     } catch {
       // La mesure ne doit jamais bloquer l'action de partage.
+      return false;
     }
   }
 
