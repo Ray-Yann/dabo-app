@@ -5,7 +5,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { IntroTip } from "@/components/IntroTip";
 import { Household, Member, Promo, PromoComment } from "@/lib/types";
 import { relativeDate } from "@/lib/utils";
-import { MessageCircle, Pencil, Send, Trash2 } from "lucide-react";
+import { MessageCircle, Pencil, ScanLine, Send, Trash2 } from "lucide-react";
+import { PromoBrochureScan } from "@/components/PromoBrochureScan";
 import { useT } from "@/lib/language-context";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { useHousehold } from "@/lib/use-household";
@@ -34,6 +35,7 @@ export function PromosView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showBrochureScan, setShowBrochureScan] = useState(false);
 
   async function loadCommunity() {
     const { data: promoData } = await supabase
@@ -157,11 +159,18 @@ export function PromosView({
     <div>
       <div className="flex items-start justify-between px-5 pt-4 pb-2">
         <p className="text-xs text-muted flex-1 pr-3">{t("promos_subtitle")}</p>
-        <button onClick={() => { closeForm(); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium shrink-0">
-          {t("add")}
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button onClick={() => { closeForm(); setShowBrochureScan((value) => !value); }} className="border border-border rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-1.5">
+            <ScanLine size={16} />{t("promo_scan")}
+          </button>
+          <button onClick={() => { closeForm(); setShowBrochureScan(false); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">
+            {t("add")}
+          </button>
+        </div>
       </div>
       <IntroTip id="promos" text={t("intro_promos")} />
+
+      {showBrochureScan && <PromoBrochureScan household={household} me={me} supabase={supabase} onSaved={loadCommunity} onClose={() => setShowBrochureScan(false)} />}
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">

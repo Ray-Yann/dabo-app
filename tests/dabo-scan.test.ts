@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractScan } from "@/lib/dabo-scan";
+import { extractScan, parseMoney, parseScanDate } from "@/lib/dabo-scan";
 
 test("DABO Scan extrait magasin, date, articles et total d'un ticket", () => {
   const x = extractScan("DELHAIZE\n08/09/2026\nLait 1,89 €\nPain 2,50 €\nTOTAL 4,39 €", "receipt");
@@ -13,4 +13,13 @@ test("DABO Scan extrait magasin, date, articles et total d'un ticket", () => {
 test("DABO Scan transforme une liste sans prix en lignes vérifiables", () => {
   const x = extractScan("Lait\nPain\nNdolè\nTomates", "list");
   assert.deepEqual(x.lines.map((l) => l.label), ["Lait", "Pain", "Ndolè", "Tomates"]);
+});
+
+test("DABO Scan convertit une date de ticket européenne pour l'historique", () => {
+  assert.equal(parseScanDate("09/09/2026"), "2026-09-09");
+});
+
+test("DABO Scan convertit un montant européen sans l'inventer", () => {
+  assert.equal(parseMoney("12,45 €"), 12.45);
+  assert.equal(parseMoney(""), null);
 });

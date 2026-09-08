@@ -488,7 +488,7 @@ export default function CoursesPage() {
       {view === "promos" ? (
         <PromosView household={household} me={me} members={members} supabase={supabase} />
       ) : view === "scan" ? (
-        <DaboScanView />
+        <DaboScanView household={household} me={me} members={members} supabase={supabase} onSaved={loadItems} />
       ) : (
         <>
       {showAdd && (
