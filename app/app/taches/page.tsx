@@ -13,6 +13,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { SmartNameInput } from "@/components/SmartNameInput";
 
 
 type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
@@ -25,18 +26,20 @@ function TaskFormFields({
   members,
   editingRecurring,
   t,
+  nameSuggestions,
 }: {
   form: TaskForm;
   setForm: (f: TaskForm) => void;
   members: { id: string; first_name: string }[];
   editingRecurring?: boolean;
   t: (key: string) => string;
+  nameSuggestions: string[];
 }) {
   return (
     <>
       <div>
         <label className="text-sm font-medium text-ink block mb-1.5">{t("task_form_main_label")}</label>
-        <input autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
+        <SmartNameInput autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
       </div>
 
       <div className="pt-1">
@@ -97,6 +100,7 @@ export default function TasksPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [shoppingNameSuggestions, setShoppingNameSuggestions] = useState<string[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
@@ -122,13 +126,15 @@ export default function TasksPage() {
 
   async function loadTasks() {
     if (!household) return;
-    const [{ data }, { data: routineData }, { data: contributionData }] = await Promise.all([
+    const [{ data }, { data: routineData }, { data: contributionData }, { data: shoppingNameData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("routines").select("*").eq("household_id", household.id),
       supabase.from("task_contributions").select("id, task_id, hidden_from_task_history, cancelled_at").eq("household_id", household.id),
+      supabase.from("shopping_items").select("name").eq("household_id", household.id).limit(200),
     ]);
     setTasks((data as Task[]) || []);
     setRoutines((routineData as Routine[]) || []);
+    setShoppingNameSuggestions((shoppingNameData || []).map((row: { name: string }) => row.name));
     const contributionMap: Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }> = {};
     for (const row of contributionData || []) {
       contributionMap[row.task_id] = {
@@ -581,7 +587,7 @@ export default function TasksPage() {
 
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
+          <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} nameSuggestions={[...tasks.map((task) => task.name), ...shoppingNameSuggestions]} />
           <div className="flex gap-2">
             <button onClick={addTask} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
             <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
@@ -596,7 +602,7 @@ export default function TasksPage() {
             <div key={task.id} className="border-b border-borderLight py-3">
               {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} editingRecurring={Boolean(task.routine_id)} t={t} />
+                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} editingRecurring={Boolean(task.routine_id)} t={t} nameSuggestions={[...tasks.map((item) => item.name), ...shoppingNameSuggestions]} />
                   {task.routine_id && <p className="text-[11px] text-muted italic">{t("recurrence_edit_future_note")}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(task.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
