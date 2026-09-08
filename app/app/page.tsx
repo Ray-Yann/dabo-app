@@ -18,6 +18,7 @@ import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
 import { completeHouseholdTask } from "@/lib/task-completion";
 import { ContributionBalanceData, countConfirmedContributionsSince, fetchContributionBalanceData } from "@/lib/task-contributions";
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
+import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
 
 export default function TodayPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -323,6 +324,16 @@ export default function TodayPage() {
           </div>
           )}
         </section>
+
+      <LobaHouseholdChat
+        householdName={household.name}
+        pendingTasks={tasks.length}
+        shoppingItems={items.length}
+        insightSummaries={daboInsights.map((insight) => {
+          const detail = insightDetails(insight);
+          return `${detail.title} — ${detail.message}`;
+        })}
+      />
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
