@@ -15,6 +15,7 @@ import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { PromosView } from "@/components/PromosView";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { SmartNameInput } from "@/components/SmartNameInput";
+import { DaboScanView } from "@/components/DaboScanView";
 
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
@@ -58,7 +59,7 @@ function ItemFormFields({
 export default function CoursesPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
-  const [view, setView] = useState<"courses" | "promos">("courses");
+  const [view, setView] = useState<"courses" | "promos" | "scan">("courses");
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -476,10 +477,18 @@ export default function CoursesPage() {
         >
           {t("promos_title")}
         </button>
+        <button
+          onClick={() => setView("scan")}
+          className={`flex-1 py-2 rounded-xl text-xs border ${view === "scan" ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
+        >
+          {t("scan_title")}
+        </button>
       </div>
 
       {view === "promos" ? (
         <PromosView household={household} me={me} members={members} supabase={supabase} />
+      ) : view === "scan" ? (
+        <DaboScanView />
       ) : (
         <>
       {showAdd && (
