@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
   const db = createAdminClient();
   const since7 = isoAgo(7);
   const since30 = isoAgo(30);
+  const since60 = isoAgo(60);
 
   // Les données essentielles du back-office sont chargées ensemble.
   // Un futur KPI optionnel ne doit jamais pouvoir faire tomber tout l'Admin.
@@ -196,9 +197,143 @@ export async function GET(req: NextRequest) {
     events30: E.filter((item) => item.household_id === household.id && item.created_at >= since30).length,
   }));
 
+  const previous30 = {
+    newUsers: authUsers.filter((user) => user.created_at >= since60 && user.created_at < since30).length,
+    tasksCompleted: T.filter((item) => item.completed_at && item.completed_at >= since60 && item.completed_at < since30).length,
+    shoppingBought: S.filter((item) => item.bought_at && item.bought_at >= since60 && item.bought_at < since30).length,
+    eventsCreated: E.filter((item) => item.created_at >= since60 && item.created_at < since30).length,
+    shares: SH.filter((item) => item.created_at >= since60 && item.created_at < since30).length,
+  };
+
+  const current30 = {
+    newUsers: authUsers.filter((user) => user.created_at >= since30).length,
+    tasksCompleted: T.filter((item) => item.completed_at && item.completed_at >= since30).length,
+    shoppingBought: S.filter((item) => item.bought_at && item.bought_at >= since30).length,
+    eventsCreated: E.filter((item) => item.created_at >= since30).length,
+    shares: SH.filter((item) => item.created_at >= since30).length,
+  };
+
+  const changePct = (current: number, previous: number) => {
+    if (previous === 0) return current === 0 ? 0 : null;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
+  type Insight = {
+    id: string;
+    severity: "positive" | "attention" | "opportunity" | "info";
+    title: string;
+    observation: string;
+    why: string;
+    action: string;
+    metric: string;
+  };
+
+  const intelligence: Insight[] = [];
+  const newUsersDelta = changePct(current30.newUsers, previous30.newUsers);
+  const tasksDelta = changePct(current30.tasksCompleted, previous30.tasksCompleted);
+  const sharesDelta = changePct(current30.shares, previous30.shares);
+  const activeRate = H.length ? Math.round((activityHouseholds(since30) / H.length) * 100) : 0;
+  const shareRate = authUsers.length ? Math.round((new Set(SH.filter((item) => item.created_at >= since30).map((item) => item.user_id)).size / authUsers.length) * 100) : 0;
+
+  if (newUsersDelta !== null && newUsersDelta >= 20 && current30.newUsers >= 5) {
+    intelligence.push({
+      id: "growth-up",
+      severity: "positive",
+      title: "La croissance des inscriptions accélère",
+      observation: `Les nouveaux comptes progressent de ${newUsersDelta}% par rapport aux 30 jours précédents.`,
+      why: "C'est le bon moment pour identifier le canal ou le message qui apporte ces nouveaux utilisateurs et le renforcer.",
+      action: "Comparer les sources d'acquisition et demander aux nouveaux utilisateurs comment ils ont découvert DABO.",
+      metric: "Nouveaux utilisateurs · 30 j",
+    });
+  } else if (newUsersDelta !== null && newUsersDelta <= -20 && previous30.newUsers >= 5) {
+    intelligence.push({
+      id: "growth-down",
+      severity: "attention",
+      title: "Les nouvelles inscriptions ralentissent",
+      observation: `Les nouveaux comptes reculent de ${Math.abs(newUsersDelta)}% par rapport aux 30 jours précédents.`,
+      why: "Un ralentissement durable réduit le nombre de foyers qui peuvent s'activer et limite la croissance organique.",
+      action: "Relancer une campagne simple : démonstration DABO en vidéo courte + appel au partage auprès des utilisateurs actifs.",
+      metric: "Nouveaux utilisateurs · 30 j",
+    });
+  }
+
+  if (activeRate < 60 && H.length >= 10) {
+    intelligence.push({
+      id: "household-activation",
+      severity: "attention",
+      title: "Une partie des foyers n'est plus active",
+      observation: `${activeRate}% des foyers ont eu une activité sur les 30 derniers jours.`,
+      why: "La croissance n'a de valeur que si les foyers reviennent réellement utiliser DABO.",
+      action: "Identifier les foyers inactifs depuis 14 à 30 jours et tester une relance douce centrée sur une action utile : tâche, course ou événement.",
+      metric: "Foyers actifs · 30 j",
+    });
+  }
+
+  if (current30.shares === 0) {
+    intelligence.push({
+      id: "sharing-zero",
+      severity: "opportunity",
+      title: "Le bouche-à-oreille est encore inexploité",
+      observation: "Aucun partage DABO n'a encore été enregistré sur les 30 derniers jours.",
+      why: "Les utilisateurs satisfaits peuvent devenir un canal d'acquisition à coût presque nul.",
+      action: "Déclencher une invitation à partager après un moment de réussite : tâche terminée, liste de courses finalisée ou première semaine active.",
+      metric: "Partages déclenchés · 30 j",
+    });
+  } else if (shareRate < 10 && authUsers.length >= 10) {
+    intelligence.push({
+      id: "sharing-low",
+      severity: "opportunity",
+      title: "Le partage peut devenir un moteur d'acquisition",
+      observation: `${shareRate}% des utilisateurs ont partagé DABO sur les 30 derniers jours.`,
+      why: "Une petite hausse du nombre d'ambassadeurs peut générer des inscriptions organiques sans budget média.",
+      action: "Tester un message de recommandation plus humain et le proposer uniquement aux utilisateurs actifs au bon moment.",
+      metric: "Ambassadeurs · 30 j",
+    });
+  } else if (sharesDelta !== null && sharesDelta >= 25 && current30.shares >= 5) {
+    intelligence.push({
+      id: "sharing-up",
+      severity: "positive",
+      title: "Le partage de DABO progresse",
+      observation: `Les partages progressent de ${sharesDelta}% par rapport aux 30 jours précédents.`,
+      why: "Le bouche-à-oreille commence à produire un signal mesurable.",
+      action: "Ajouter ensuite des liens d'invitation attribués pour mesurer partage → visite → inscription → foyer activé.",
+      metric: "Partages · 30 j",
+    });
+  }
+
+  if (tasksDelta !== null && tasksDelta >= 25 && current30.tasksCompleted >= 10) {
+    intelligence.push({
+      id: "tasks-up",
+      severity: "positive",
+      title: "L'usage des tâches se renforce",
+      observation: `Les tâches terminées progressent de ${tasksDelta}% sur la période.`,
+      why: "Cela indique que DABO devient un outil utilisé pour accomplir, pas seulement pour consulter.",
+      action: "Mettre davantage en avant les routines et l'équilibre des contributions pour transformer cet usage en habitude.",
+      metric: "Tâches terminées · 30 j",
+    });
+  }
+
+  if (!intelligence.length) {
+    intelligence.push({
+      id: "data-building",
+      severity: "info",
+      title: "LOBA construit encore sa base de référence",
+      observation: "Les données sont encore trop limitées pour produire une alerte forte et fiable.",
+      why: "Mieux vaut attendre un signal statistique utile que fabriquer une conclusion sur trop peu d'utilisateurs.",
+      action: "Continuer à faire tester DABO et surveiller inscriptions, foyers actifs, tâches terminées et partages.",
+      metric: "Qualité des données",
+    });
+  }
+
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     admin: currentAdmin.email,
+    loba: {
+      name: "LOBA",
+      tagline: "L’assistant DABO",
+      intelligence: intelligence.slice(0, 4),
+      periods: { current30, previous30 },
+    },
     kpiAvailability: { sharing: sharingAvailable },
     kpis: {
       users: authUsers.length,

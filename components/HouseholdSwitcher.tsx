@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Home, Plus, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, Check, Home, Plus, Users } from "lucide-react";
 import { useHousehold } from "@/lib/use-household";
 import { genInviteCode } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
@@ -17,6 +17,31 @@ export function HouseholdSwitcher() {
   const [name, setName] = useState("");
   const [type, setType] = useState<"couple" | "coloc" | "famille">("couple");
   const [code, setCode] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAdminAccess() {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+
+      try {
+        const response = await fetch("/api/admin/status", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!cancelled) setIsAdmin(Boolean(result.isAdmin));
+      } catch {
+        // L'absence d'accès admin ne doit jamais gêner l'usage normal de DABO.
+      }
+    }
+
+    void checkAdminAccess();
+    return () => { cancelled = true; };
+  }, [supabase]);
 
   async function activate(householdId: string) {
     if (householdId === household?.id) return;
@@ -155,6 +180,20 @@ export function HouseholdSwitcher() {
             </button>
           );
         })}
+
+        {isAdmin && (
+          <a
+            href="/admin"
+            className="w-full flex items-center gap-3 rounded-xl border border-mustard/50 bg-mustardBg/60 p-3 text-left transition-colors hover:bg-mustardBg"
+          >
+            <span className="w-9 h-9 rounded-full bg-ink text-paper flex items-center justify-center shrink-0"><Bot size={17} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-ink truncate">Administration DABO</span>
+              <span className="block text-xs text-muted">LOBA · Centre de commandement</span>
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-mustard">Admin</span>
+          </a>
+        )}
 
         {mode === "closed" ? (
           <button type="button" onClick={() => setMode("choice")} className="w-full border border-border rounded-xl p-3 text-sm font-medium text-ink flex items-center justify-center gap-2">
