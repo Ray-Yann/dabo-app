@@ -281,12 +281,19 @@ export default function TodayPage() {
         />
       )}
 
-      {daboInsights.length > 0 && (
-        <section className="mx-5 mb-5">
+      <section className="mx-5 mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={15} className="text-mustard" />
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted">{t("dabo_insights_label")}</div>
+            <div className="w-7 h-7 rounded-full bg-mustardBg flex items-center justify-center">
+              <Sparkles size={14} className="text-mustard" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-ink">{t("dabo_insights_label")}</div>
+              <div className="text-[10px] text-muted">{t("loba_user_subtitle")}</div>
+            </div>
           </div>
+          {daboInsights.length === 0 ? (
+            <div className="w-full bg-white2 rounded-2xl p-4 text-sm text-muted">{t("loba_user_calm")}</div>
+          ) : (
           <div className="space-y-2">
             {daboInsights.map((insight) => {
               const detail = insightDetails(insight);
@@ -314,10 +321,8 @@ export default function TodayPage() {
               );
             })}
           </div>
+          )}
         </section>
-      )}
-
-
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">

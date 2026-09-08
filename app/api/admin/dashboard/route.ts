@@ -234,6 +234,9 @@ export async function GET(req: NextRequest) {
   const sharesDelta = changePct(current30.shares, previous30.shares);
   const activeRate = H.length ? Math.round((activityHouseholds(since30) / H.length) * 100) : 0;
   const shareRate = authUsers.length ? Math.round((new Set(SH.filter((item) => item.created_at >= since30).map((item) => item.user_id)).size / authUsers.length) * 100) : 0;
+  const usersWithHousehold = new Set(active.map((member) => member.user_id)).size;
+  const accountsWithoutHousehold = Math.max(0, authUsers.length - usersWithHousehold);
+  const accountToHouseholdRate = authUsers.length ? Math.round((usersWithHousehold / authUsers.length) * 100) : 0;
 
   if (newUsersDelta !== null && newUsersDelta >= 20 && current30.newUsers >= 5) {
     intelligence.push({
@@ -254,6 +257,18 @@ export async function GET(req: NextRequest) {
       why: "Un ralentissement durable réduit le nombre de foyers qui peuvent s'activer et limite la croissance organique.",
       action: "Relancer une campagne simple : démonstration DABO en vidéo courte + appel au partage auprès des utilisateurs actifs.",
       metric: "Nouveaux utilisateurs · 30 j",
+    });
+  }
+
+  if (authUsers.length >= 10 && accountToHouseholdRate < 80) {
+    intelligence.push({
+      id: "account-activation",
+      severity: "attention",
+      title: "Des comptes n’atteignent pas encore leur premier foyer",
+      observation: `${accountsWithoutHousehold} compte${accountsWithoutHousehold > 1 ? "s" : ""} sur ${authUsers.length} n’est actuellement rattaché à aucun foyer actif (${accountToHouseholdRate}% compte → foyer).`,
+      why: "Une inscription seule ne crée pas encore de valeur : l’utilisateur doit rejoindre ou créer un foyer pour commencer à utiliser DABO.",
+      action: "Simplifier l’étape juste après l’inscription et mesurer séparément création d’un foyer et acceptation d’une invitation.",
+      metric: "Activation · compte → foyer",
     });
   }
 
@@ -351,6 +366,8 @@ export async function GET(req: NextRequest) {
       sharesTotal: SH.length,
       shares30: SH.filter((item) => item.created_at >= since30).length,
       shareUsers30: new Set(SH.filter((item) => item.created_at >= since30).map((item) => item.user_id)).size,
+      accountsWithoutHousehold,
+      accountToHouseholdRate,
     },
     recentHouseholds: householdDetails.slice(0, 8).map((household) => ({
       id: household.id,
