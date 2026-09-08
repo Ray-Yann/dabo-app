@@ -75,13 +75,13 @@ export async function GET(req: NextRequest) {
 
   // KPI « Faire connaître DABO » : isolé volontairement.
   // Si la table ou la requête rencontre un souci, le reste du cockpit reste utilisable.
-  let shareRows: { id: string; user_id: string; household_id: string | null; method: string; created_at: string }[] = [];
+  let shareRows: { id: string; user_id: string; household_id: string | null; method: string; referral_token: string | null; created_at: string }[] = [];
   let sharingAvailable = true;
 
   try {
     const shares = await db
       .from("app_share_events")
-      .select("id,user_id,household_id,method,created_at");
+      .select("id,user_id,household_id,method,referral_token,created_at");
 
     if (shares.error) {
       sharingAvailable = false;
@@ -241,6 +241,31 @@ export async function GET(req: NextRequest) {
   const attributedHouseholds = uniqueVisitors(attributed.filter((item) => item.event_name === "household_created" || item.event_name === "household_joined"));
   const attributedFirstValue = uniqueVisitors(attributed.filter((item) => item.event_name === "first_value"));
   const landingVisitors = uniqueVisitors(A.filter((item) => item.event_name === "landing_view"));
+
+  // Acquisition V1 : on attribue uniquement ce que le signal technique prouve.
+  const measuredSignups = uniqueVisitors(A.filter((item) => item.event_name === "signup_completed"));
+  const measuredHouseholds = uniqueVisitors(A.filter((item) => item.event_name === "household_created" || item.event_name === "household_joined"));
+  const measuredFirstValue = uniqueVisitors(A.filter((item) => item.event_name === "first_value"));
+  const unattributedVisits = uniqueVisitors(A.filter((item) => item.event_name === "landing_view" && !item.referral_token));
+  const unattributedSignups = uniqueVisitors(A.filter((item) => item.event_name === "signup_completed" && !item.referral_token));
+  const shareTokens = new Set(SH.map((item) => item.referral_token).filter((token): token is string => Boolean(token)));
+  const visitedShareTokens = new Set(A.filter((item) => item.event_name === "landing_view" && item.referral_token && shareTokens.has(item.referral_token)).map((item) => item.referral_token!));
+  const signupShareTokens = new Set(A.filter((item) => item.event_name === "signup_completed" && item.referral_token && shareTokens.has(item.referral_token)).map((item) => item.referral_token!));
+  const firstAcquisitionEventAt = A.map((item) => item.created_at).sort()[0] || null;
+  const pct = (num: number, den: number) => den ? Math.round((num / den) * 100) : 0;
+  const acquisitionSummary = {
+    instrumentedSince: firstAcquisitionEventAt,
+    measuredVisitors: landingVisitors, measuredSignups, measuredHouseholds, measuredFirstValue,
+    attributedVisits, attributedSignups, attributedHouseholds, attributedFirstValue,
+    unattributedVisits, unattributedSignups,
+    shareLinksCreated: shareTokens.size, shareLinksVisited: visitedShareTokens.size, shareLinksWithSignup: signupShareTokens.size,
+    visitToSignupRate: pct(measuredSignups, landingVisitors),
+    attributedVisitToSignupRate: pct(attributedSignups, attributedVisits),
+    sources: [
+      { id: "dabo-share", label: "Partage DABO attribué", visits: attributedVisits, signups: attributedSignups, households: attributedHouseholds, firstValue: attributedFirstValue },
+      { id: "unattributed", label: "Sans attribution mesurée", visits: unattributedVisits, signups: unattributedSignups, households: uniqueVisitors(A.filter((item) => (item.event_name === "household_created" || item.event_name === "household_joined") && !item.referral_token)), firstValue: uniqueVisitors(A.filter((item) => item.event_name === "first_value" && !item.referral_token)) },
+    ],
+  };
 
   // Rétention V1 : cohorte = première inscription mesurée par identité.
   // J1/J7/J30 = retour via app_open dans la fenêtre de 24 h commençant à D+N.
@@ -431,6 +456,7 @@ export async function GET(req: NextRequest) {
       ],
     },
     kpiAvailability: { sharing: sharingAvailable, acquisition: acquisitionAvailable },
+    acquisition: acquisitionAvailable ? acquisitionSummary : null,
     retention: {
       measuredSignups: retention.measuredSignups,
       j1: retention.j1,
