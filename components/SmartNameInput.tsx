@@ -1,25 +1,46 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { getSmartSuggestions } from "@/lib/smart-suggestions";
+import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/lib/language-context";
+import { getSmartSuggestions, loadLanguageLexicon, type SuggestionDomain } from "@/lib/smart-suggestions";
 
-export function SmartNameInput({ value, onChange, placeholder, learnedTerms, autoFocus = false, className = "" }: {
+export function SmartNameInput({ value, onChange, placeholder, learnedTerms, domain, autoFocus = false, className = "" }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   learnedTerms: string[];
+  domain: SuggestionDomain;
   autoFocus?: boolean;
   className?: string;
 }) {
   const [focused, setFocused] = useState(false);
-  const suggestions = useMemo(() => getSmartSuggestions(value, learnedTerms), [value, learnedTerms]);
-  const open = focused && value.trim().length > 0 && suggestions.length > 0;
+  const [lexicon, setLexicon] = useState<string[]>([]);
+  const lang = useLanguage();
+  const queryLength = value.trim().length;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLexicon([]);
+    // Le dictionnaire complet est chargé seulement quand la personne commence réellement un mot.
+    // Les termes du foyer et DABO restent disponibles dès la première lettre.
+    if (!focused || queryLength < 2) return;
+    loadLanguageLexicon(lang).then((words) => {
+      if (!cancelled) setLexicon(words);
+    });
+    return () => { cancelled = true; };
+  }, [focused, lang, queryLength >= 2]);
+
+  const suggestions = useMemo(
+    () => getSmartSuggestions(value, learnedTerms, { lang, domain, lexicon }),
+    [value, learnedTerms, lang, domain, lexicon],
+  );
+  const open = focused && queryLength > 0 && suggestions.length > 0;
 
   return <div className="relative">
     <input
       autoFocus={autoFocus}
       autoComplete="off"
-      spellCheck={false}
+      spellCheck
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}

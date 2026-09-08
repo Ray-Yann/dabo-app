@@ -34,7 +34,7 @@ function ItemFormFields({
 }) {
   return (
     <>
-      <SmartNameInput autoFocus placeholder={t("item_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+      <SmartNameInput domain="courses" autoFocus placeholder={t("item_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
       <div className="rounded-xl bg-paper/60 p-3 space-y-2">
         <div className="text-[11px] font-medium text-muted">{t("courses_optional_details")}</div>
         <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />

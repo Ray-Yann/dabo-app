@@ -39,7 +39,7 @@ function TaskFormFields({
     <>
       <div>
         <label className="text-sm font-medium text-ink block mb-1.5">{t("task_form_main_label")}</label>
-        <SmartNameInput autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
+        <SmartNameInput domain="tasks" autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
       </div>
 
       <div className="pt-1">

@@ -13,3 +13,7 @@ export function useT() {
   const lang = useContext(LanguageContext);
   return (key: string) => translate(lang, key);
 }
+
+export function useLanguage() {
+  return useContext(LanguageContext);
+}
