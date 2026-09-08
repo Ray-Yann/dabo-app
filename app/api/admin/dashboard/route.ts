@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireDaboAdmin } from "@/lib/admin-auth";
+import { calculateRetention } from "@/lib/retention";
 
 export const dynamic = "force-dynamic";
 
@@ -241,21 +242,12 @@ export async function GET(req: NextRequest) {
   const attributedFirstValue = uniqueVisitors(attributed.filter((item) => item.event_name === "first_value"));
   const landingVisitors = uniqueVisitors(A.filter((item) => item.event_name === "landing_view"));
 
-  const retentionForDay = (day: number) => {
-    const signups = A.filter((item) => item.event_name === "signup_completed");
-    const now = Date.now();
-    const eligible = signups.filter((signup) => now - new Date(signup.created_at).getTime() >= day * 86400000);
-    if (!eligible.length) return { rate: 0, eligible: 0, retained: 0 };
-    const retained = eligible.filter((signup) => {
-      const start = new Date(signup.created_at).getTime() + day * 86400000;
-      const end = start + 86400000;
-      return A.some((event) => event.visitor_id === signup.visitor_id && event.event_name === "app_open" && new Date(event.created_at).getTime() >= start && new Date(event.created_at).getTime() < end);
-    }).length;
-    return { rate: Math.round((retained / eligible.length) * 100), eligible: eligible.length, retained };
-  };
-  const retentionJ1 = retentionForDay(1);
-  const retentionJ7 = retentionForDay(7);
-  const retentionJ30 = retentionForDay(30);
+  // Rétention V1 : cohorte = première inscription mesurée par identité.
+  // J1/J7/J30 = retour via app_open dans la fenêtre de 24 h commençant à D+N.
+  const retention = calculateRetention(A);
+  const retentionJ1 = retention.j1;
+  const retentionJ7 = retention.j7;
+  const retentionJ30 = retention.j30;
 
   type Insight = {
     id: string;
@@ -439,6 +431,13 @@ export async function GET(req: NextRequest) {
       ],
     },
     kpiAvailability: { sharing: sharingAvailable, acquisition: acquisitionAvailable },
+    retention: {
+      measuredSignups: retention.measuredSignups,
+      j1: retention.j1,
+      j7: retention.j7,
+      j30: retention.j30,
+      cohorts: retention.cohorts,
+    },
     kpis: {
       users: authUsers.length,
       households: H.length,
