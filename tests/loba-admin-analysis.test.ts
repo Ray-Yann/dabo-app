@@ -51,3 +51,15 @@ test("LOBA V6 lit le funnel attribué quand il existe", () => {
   assert.match(text, /4 première/);
   assert.match(text, /J1 50%/);
 });
+
+test("LOBA Intelligence V2 produit un résumé investisseur prudent", () => {
+  const context = { growth:{ users7:{current:14,previous:7,rate:100,comparable:true}, households7:{current:10,previous:15,rate:-33,comparable:true} }, retention:{measuredSignups:1,j1:{rate:0,eligible:0,sufficient:false},j7:{rate:0,eligible:0,sufficient:false},j30:{rate:0,eligible:0,sufficient:false}}, acquisition:{measuredVisitors:2,measuredSignups:1,attributedVisits:1,attributedSignups:1} };
+  const text = answerLobaAdmin("Prépare un résumé pour un investisseur", {...kpis, tasksCompleted30:57, shoppingBought30:43, eventsCreated30:12}, [], [], context);
+  assert.match(text,/traction précoce/i); assert.match(text,/rétention.*cours de mesure/i); assert.match(text,/exploratoire/i); assert.match(text,/-33%/);
+});
+
+test("LOBA Intelligence V2 distingue une alerte de croissance d'une tendance durable", () => {
+  const context = { growth:{ households7:{current:10,previous:15,rate:-33,comparable:true} } };
+  const text = answerLobaAdmin("Qu'est-ce qui m'inquiète ?", kpis, [], [], context);
+  assert.match(text,/recule de -33%/i); assert.match(text,/tendance durable/i);
+});

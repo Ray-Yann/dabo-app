@@ -1,38 +1,13 @@
 "use client";
-
-import { FormEvent, useMemo, useState } from "react";
-import { Bot, Send, Sparkles } from "lucide-react";
-import { answerLobaAdmin } from "@/lib/loba-admin-analysis";
-
-type Insight = { title: string; observation: string; action: string; metric: string };
-type Props = {
-  kpis: Record<string, number>;
-  insights: Insight[];
-  funnel: { step: string; value: number }[];
-};
-
-export function LobaAdminChat({ kpis, insights, funnel }: Props) {
-  const suggestions = useMemo(() => [
-    "Où perd-on le plus d’utilisateurs ?",
-    "Quelle est ma priorité cette semaine ?",
-    "Quelles données te manquent ?",
-    "Que savons-nous de la rétention ?",
-  ], []);
-  const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<{ role: "user" | "loba"; text: string }[]>([
-    { role: "loba", text: "V5 est prêt. Je croise les KPI, calcule les ratios et distingue faits, limites de mesure et recommandations." },
-  ]);
-  const ask = (text: string) => {
-    const clean = text.trim(); if (!clean) return;
-    setMessages(m => [...m, { role: "user", text: clean }, { role: "loba", text: answerLobaAdmin(clean, kpis, insights, funnel) }]);
-    setQuestion("");
-  };
-  const submit = (e: FormEvent) => { e.preventDefault(); ask(question); };
-  return <section className="bg-[#22301F] text-[#F0EFE6] rounded-2xl p-5">
-    <div className="flex items-center gap-2"><Bot size={18} className="text-[#D8A94A]"/><div><div className="font-serif text-xl">Parler à LOBA</div><div className="text-xs opacity-65">Moteur d’analyse fondé sur les données actuelles du cockpit</div></div></div>
-    <div className="mt-4 space-y-2 max-h-80 overflow-y-auto">{messages.map((m,i)=><div key={i} className={`text-sm rounded-xl p-3 leading-relaxed ${m.role==="loba"?"bg-white/10":"bg-[#D8A94A] text-[#172117] ml-8"}`}>{m.role==="loba"&&<Sparkles size={13} className="inline mr-2 text-[#D8A94A]"/>}{m.text}</div>)}</div>
-    <div className="flex flex-wrap gap-2 mt-3">{suggestions.map(s=><button key={s} onClick={()=>ask(s)} className="text-[11px] border border-white/20 rounded-full px-3 py-1.5 hover:bg-white/10">{s}</button>)}</div>
-    <form onSubmit={submit} className="flex gap-2 mt-3"><input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Demander une analyse à LOBA…" className="min-w-0 flex-1 rounded-xl bg-white text-[#172117] px-3 py-2.5 text-sm outline-none"/><button className="rounded-xl bg-[#D8A94A] text-[#172117] px-3" aria-label="Envoyer"><Send size={17}/></button></form>
-    <p className="text-[10px] opacity-55 mt-3">V5 : LOBA compare les métriques compatibles, signale les unités non comparables et refuse d’inventer les étapes non mesurées. Les actions externes et dépenses restent soumises à autorisation.</p>
-  </section>;
+import { FormEvent,useMemo,useState } from "react";
+import { Bot,Send,Sparkles } from "lucide-react";
+import { answerLobaAdmin,type LobaContext } from "@/lib/loba-admin-analysis";
+type Insight={title:string;observation:string;action:string;metric:string};
+type Props={kpis:Record<string,number>;insights:Insight[];funnel:{step:string;value:number}[];context?:LobaContext};
+export function LobaAdminChat({kpis,insights,funnel,context}:Props){
+ const suggestions=useMemo(()=>["Comment va DABO ?","Qu’est-ce qui m’inquiète ?","Quelle est ma priorité cette semaine ?","Prépare un résumé pour un investisseur"],[]);
+ const [question,setQuestion]=useState("");const [messages,setMessages]=useState<{role:"user"|"loba";text:string}[]>([{role:"loba",text:"LOBA Intelligence V2 est prêt. Je croise croissance, activation, usage, acquisition et rétention pour distinguer faits, signaux et limites de mesure."}]);
+ const ask=(text:string)=>{const clean=text.trim();if(!clean)return;setMessages(m=>[...m,{role:"user",text:clean},{role:"loba",text:answerLobaAdmin(clean,kpis,insights,funnel,context)}]);setQuestion("")};
+ const submit=(e:FormEvent)=>{e.preventDefault();ask(question)};
+ return <section className="bg-[#22301F] text-[#F0EFE6] rounded-2xl p-5"><div className="flex items-center gap-2"><Bot size={18} className="text-[#D8A94A]"/><div><div className="font-serif text-xl">Parler à LOBA</div><div className="text-xs opacity-65">Copilote de pilotage fondé sur les données actuelles du cockpit</div></div></div><div className="mt-4 space-y-2 max-h-96 overflow-y-auto">{messages.map((m,i)=><div key={i} className={`text-sm rounded-xl p-3 leading-relaxed ${m.role==="loba"?"bg-white/10":"bg-[#D8A94A] text-[#172117] ml-8"}`}>{m.role==="loba"&&<Sparkles size={13} className="inline mr-2 text-[#D8A94A]"/>}{m.text}</div>)}</div><div className="flex flex-wrap gap-2 mt-3">{suggestions.map(s=><button key={s} onClick={()=>ask(s)} className="text-[11px] border border-white/20 rounded-full px-3 py-1.5 hover:bg-white/10">{s}</button>)}</div><form onSubmit={submit} className="flex gap-2 mt-3"><input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Demander une analyse à LOBA…" className="min-w-0 flex-1 rounded-xl bg-white text-[#172117] px-3 py-2.5 text-sm outline-none"/><button className="rounded-xl bg-[#D8A94A] text-[#172117] px-3" aria-label="Envoyer"><Send size={17}/></button></form><p className="text-[10px] opacity-55 mt-3">V2 : recommandations analytiques uniquement. LOBA ne dépense rien, ne publie rien et ne contacte personne sans autorisation explicite.</p></section>;
 }
