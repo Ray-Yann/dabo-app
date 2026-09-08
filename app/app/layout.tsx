@@ -22,10 +22,10 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
   ];
 
   return (
-    <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app min-h-screen bg-paper text-ink flex flex-col`}>
-      <div className="flex-1 max-w-lg mx-auto w-full pb-24">{children}</div>
-      <div className="dabo-main-nav fixed bottom-0 left-0 right-0 bg-paper border-t border-borderLight">
-        <div className="max-w-lg mx-auto grid grid-cols-6">
+    <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
+      <div className="dabo-app-content flex-1 max-w-lg mx-auto w-full">{children}</div>
+      <nav className="dabo-main-nav fixed bottom-0 left-0 right-0 z-40 bg-paper border-t border-borderLight" aria-label="Navigation principale">
+        <div className="dabo-main-nav-grid max-w-lg mx-auto grid grid-cols-6">
           {TABS.map((t2) => {
             const Icon = t2.icon;
             const active = pathname === t2.href;
@@ -35,17 +35,17 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
                 onClick={() => router.push(t2.href)}
                 aria-current={active ? "page" : undefined}
                 aria-label={t2.label}
-                className="group flex min-h-[64px] flex-col items-center justify-center px-1 py-2"
+                className="dabo-main-nav-button group flex min-h-[64px] min-w-0 flex-col items-center justify-center px-0.5 py-2"
               >
                 <span
-                  className={`flex min-w-[48px] flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-1.5 transition-colors ${
+                  className={`dabo-main-nav-pill flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-1.5 transition-colors ${
                     active
                       ? "bg-ink text-paper shadow-sm"
                       : "text-muted group-hover:bg-white2 group-hover:text-ink"
                   }`}
                 >
                   <Icon size={22} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                  <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
+                  <span className={`dabo-main-nav-label text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
                     {t2.label}
                   </span>
                 </span>
@@ -53,7 +53,7 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
             );
           })}
         </div>
-      </div>
+      </nav>
     </div>
   );
 }

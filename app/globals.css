@@ -151,3 +151,62 @@ input, select, textarea {
 .dabo-user-app button {
   -webkit-font-smoothing: antialiased;
 }
+
+
+/* DABO Mobile UX — safe areas et navigation réellement adaptées aux appareils.
+   L'iPhone réserve une zone système en haut et autour de l'indicateur Home.
+   DABO laisse volontairement ces zones respirer au lieu de placer du contenu
+   ou des onglets dessous. Sur desktop, les inset valent 0 et n'ajoutent rien. */
+.dabo-app-frame {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.dabo-app-content {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+.dabo-main-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dabo-main-nav-grid {
+  min-width: 0;
+}
+
+.dabo-main-nav-button,
+.dabo-main-nav-pill {
+  min-width: 0;
+}
+
+.dabo-main-nav-pill {
+  width: calc(100% - 4px);
+}
+
+.dabo-main-nav-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: clamp(9px, 2.55vw, 11px) !important;
+}
+
+/* Les petits téléphones ont moins de 60 px par onglet avec six destinations.
+   On conserve les six libellés, mais on réduit seulement les espaces décoratifs. */
+@media (max-width: 380px) {
+  .dabo-main-nav-pill {
+    width: 100%;
+    padding-left: 1px;
+    padding-right: 1px;
+  }
+
+  .dabo-main-nav-button {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .dabo-app-content {
+    padding-bottom: 88px;
+  }
+}
