@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
 
   const db = createAdminClient();
   const since7 = isoAgo(7);
+  const since14 = isoAgo(14);
   const since30 = isoAgo(30);
   const since60 = isoAgo(60);
 
@@ -267,6 +268,31 @@ export async function GET(req: NextRequest) {
     ],
   };
 
+  // Croissance V1 : comparer uniquement des fenêtres de même durée.
+  // Une variation dont la période précédente vaut 0 reste non calculable plutôt que d'afficher un pourcentage trompeur.
+  const growthChange = (current: number, previous: number) => ({
+    current,
+    previous,
+    delta: current - previous,
+    rate: previous > 0 ? Math.round(((current - previous) / previous) * 100) : null,
+    comparable: previous > 0,
+  });
+  const newUsers7 = authUsers.filter((user) => user.created_at >= since7).length;
+  const previousUsers7 = authUsers.filter((user) => user.created_at >= since14 && user.created_at < since7).length;
+  const newHouseholds7 = H.filter((item) => item.created_at >= since7).length;
+  const previousHouseholds7 = H.filter((item) => item.created_at >= since14 && item.created_at < since7).length;
+  const newHouseholds30 = H.filter((item) => item.created_at >= since30).length;
+  const previousHouseholds30 = H.filter((item) => item.created_at >= since60 && item.created_at < since30).length;
+  const growth = {
+    totals: { users: authUsers.length, households: H.length },
+    users7: growthChange(newUsers7, previousUsers7),
+    users30: growthChange(current30.newUsers, previous30.newUsers),
+    households7: growthChange(newHouseholds7, previousHouseholds7),
+    households30: growthChange(newHouseholds30, previousHouseholds30),
+    activeHouseholds: { sevenDays: activityHouseholds(since7), thirtyDays: activityHouseholds(since30) },
+    rule: "Une variation n'est affichée que lorsque la période précédente contient au moins une observation. Sinon DABO conserve les volumes et indique que la comparaison n'est pas encore calculable.",
+  };
+
   // Rétention V1 : cohorte = première inscription mesurée par identité.
   // J1/J7/J30 = retour via app_open dans la fenêtre de 24 h commençant à D+N.
   const retention = calculateRetention(A);
@@ -457,6 +483,7 @@ export async function GET(req: NextRequest) {
     },
     kpiAvailability: { sharing: sharingAvailable, acquisition: acquisitionAvailable },
     acquisition: acquisitionAvailable ? acquisitionSummary : null,
+    growth,
     retention: {
       measuredSignups: retention.measuredSignups,
       j1: retention.j1,
