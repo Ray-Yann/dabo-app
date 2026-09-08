@@ -22,7 +22,7 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
   ];
 
   return (
-    <div className={`${dark ? "dabo-dark" : "dabo-light"} min-h-screen bg-paper text-ink flex flex-col`}>
+    <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app min-h-screen bg-paper text-ink flex flex-col`}>
       <div className="flex-1 max-w-lg mx-auto w-full pb-24">{children}</div>
       <div className="fixed bottom-0 left-0 right-0 bg-paper border-t border-borderLight">
         <div className="max-w-lg mx-auto grid grid-cols-6">
@@ -33,10 +33,22 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
               <button
                 key={t2.href}
                 onClick={() => router.push(t2.href)}
-                className="flex flex-col items-center justify-center py-3 gap-1"
+                aria-current={active ? "page" : undefined}
+                aria-label={t2.label}
+                className="group flex min-h-[64px] flex-col items-center justify-center px-1 py-2"
               >
-                <Icon size={20} strokeWidth={active ? 2.3 : 1.8} className={active ? "text-ink" : "text-border"} />
-                <span className={`text-[9px] ${active ? "text-ink font-medium" : "text-border"}`}>{t2.label}</span>
+                <span
+                  className={`flex min-w-[48px] flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-1.5 transition-colors ${
+                    active
+                      ? "bg-ink text-paper shadow-sm"
+                      : "text-muted group-hover:bg-white2 group-hover:text-ink"
+                  }`}
+                >
+                  <Icon size={22} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
+                  <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
+                    {t2.label}
+                  </span>
+                </span>
               </button>
             );
           })}

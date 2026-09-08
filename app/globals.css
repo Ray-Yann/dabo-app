@@ -79,3 +79,34 @@ input, select, textarea {
 .animate-check-pop {
   animation: check-pop 0.28s ease-out;
 }
+
+
+/* Accessibilité DABO — lisibilité renforcée dans l'application foyer.
+   Les petits textes restent compacts mais ne descendent plus à des tailles
+   difficiles à lire. Le cockpit Admin n'est volontairement pas affecté. */
+.dabo-user-app {
+  font-size: 16px;
+}
+
+.dabo-user-app .text-\[9px\],
+.dabo-user-app .text-\[10px\] {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.dabo-user-app .text-\[11px\],
+.dabo-user-app .text-xs {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dabo-user-app .text-sm {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Navigation principale : contraste suffisant même pour les onglets inactifs. */
+.dabo-user-app nav,
+.dabo-user-app button {
+  -webkit-font-smoothing: antialiased;
+}
