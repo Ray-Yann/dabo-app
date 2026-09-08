@@ -45,7 +45,7 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
                   }`}
                 >
                   <Icon size={22} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                  <span className={`dabo-main-nav-label text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
+                  <span className={`dabo-main-nav-label ${t2.href === "/app" ? "dabo-main-nav-label-today" : ""} text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
                     {t2.label}
                   </span>
                 </span>

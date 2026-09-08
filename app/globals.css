@@ -210,3 +210,20 @@ input, select, textarea {
     padding-bottom: 88px;
   }
 }
+
+
+/* UX Mobile V1.1 — le libellé français « Aujourd’hui » est le seul des six
+   onglets qui dépasse sur les largeurs iPhone. On adapte uniquement ce libellé,
+   sans réduire la lisibilité des cinq autres destinations. */
+@media (max-width: 430px) {
+  .dabo-main-nav-label-today {
+    font-size: 9px !important;
+    letter-spacing: -0.025em;
+  }
+}
+
+@media (max-width: 360px) {
+  .dabo-main-nav-label-today {
+    font-size: 8.5px !important;
+  }
+}
