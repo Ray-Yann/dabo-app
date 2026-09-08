@@ -277,6 +277,31 @@ export async function GET(req: NextRequest) {
   const accountsWithoutHousehold = Math.max(0, authUsers.length - usersWithHousehold);
   const accountToHouseholdRate = authUsers.length ? Math.round((usersWithHousehold / authUsers.length) * 100) : 0;
 
+  // Engagement V1 : on mesure l’usage observable des foyers sans le confondre avec la rétention.
+  // Un module est considéré utilisé sur 30 j s’il contient une action créée ou finalisée sur la période.
+  const taskHouseholds30 = new Set(
+    T.filter((item) => item.created_at >= since30 || (item.completed_at && item.completed_at >= since30)).map((item) => item.household_id),
+  );
+  const shoppingHouseholds30 = new Set(
+    S.filter((item) => item.created_at >= since30 || (item.bought_at && item.bought_at >= since30)).map((item) => item.household_id),
+  );
+  const calendarHouseholds30 = new Set(
+    E.filter((item) => item.created_at >= since30).map((item) => item.household_id),
+  );
+  const activeHouseholds30Count = activityHouseholds(since30);
+  const activeHouseholds7Count = activityHouseholds(since7);
+  const completedActions30 = current30.tasksCompleted + current30.shoppingBought + current30.eventsCreated;
+  const averageCompletedActionsPerActiveHousehold30 = activeHouseholds30Count
+    ? Math.round((completedActions30 / activeHouseholds30Count) * 10) / 10
+    : 0;
+  const multiModuleHouseholds30 = H.filter((household) =>
+    [taskHouseholds30.has(household.id), shoppingHouseholds30.has(household.id), calendarHouseholds30.has(household.id)]
+      .filter(Boolean).length >= 2,
+  ).length;
+  const threeModuleHouseholds30 = H.filter((household) =>
+    taskHouseholds30.has(household.id) && shoppingHouseholds30.has(household.id) && calendarHouseholds30.has(household.id),
+  ).length;
+
   if (newUsersDelta !== null && newUsersDelta >= 20 && current30.newUsers >= 5) {
     intelligence.push({
       id: "growth-up",
@@ -421,8 +446,15 @@ export async function GET(req: NextRequest) {
       multiHouseholdUsers: [...multi.values()].filter((count) => count > 1).length,
       newUsers7: authUsers.filter((user) => user.created_at >= since7).length,
       newUsers30: authUsers.filter((user) => user.created_at >= since30).length,
-      activeHouseholds7: activityHouseholds(since7),
-      activeHouseholds30: activityHouseholds(since30),
+      activeHouseholds7: activeHouseholds7Count,
+      activeHouseholds30: activeHouseholds30Count,
+      taskHouseholds30: taskHouseholds30.size,
+      shoppingHouseholds30: shoppingHouseholds30.size,
+      calendarHouseholds30: calendarHouseholds30.size,
+      multiModuleHouseholds30,
+      threeModuleHouseholds30,
+      completedActions30,
+      averageCompletedActionsPerActiveHousehold30,
       tasksCreated30: T.filter((item) => item.created_at >= since30).length,
       tasksCompleted30: T.filter((item) => item.completed_at && item.completed_at >= since30).length,
       shoppingBought30: S.filter((item) => item.bought_at && item.bought_at >= since30).length,
