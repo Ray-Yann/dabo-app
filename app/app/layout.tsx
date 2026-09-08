@@ -24,7 +24,7 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
   return (
     <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app min-h-screen bg-paper text-ink flex flex-col`}>
       <div className="flex-1 max-w-lg mx-auto w-full pb-24">{children}</div>
-      <div className="fixed bottom-0 left-0 right-0 bg-paper border-t border-borderLight">
+      <div className="dabo-main-nav fixed bottom-0 left-0 right-0 bg-paper border-t border-borderLight">
         <div className="max-w-lg mx-auto grid grid-cols-6">
           {TABS.map((t2) => {
             const Icon = t2.icon;

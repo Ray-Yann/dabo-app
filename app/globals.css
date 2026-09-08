@@ -82,27 +82,68 @@ input, select, textarea {
 
 
 /* Accessibilité DABO — lisibilité renforcée dans l'application foyer.
-   Les petits textes restent compacts mais ne descendent plus à des tailles
-   difficiles à lire. Le cockpit Admin n'est volontairement pas affecté. */
+   V2 augmente la hiérarchie typographique du contenu (titres, lignes,
+   métadonnées, boutons et formulaires) sans modifier le cockpit Admin. */
 .dabo-user-app {
-  font-size: 16px;
+  font-size: 17px;
 }
 
+/* Micro-textes et métadonnées : restent secondaires, mais lisibles. */
 .dabo-user-app .text-\[9px\],
 .dabo-user-app .text-\[10px\] {
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .dabo-user-app .text-\[11px\],
 .dabo-user-app .text-xs {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
+/* Texte courant, noms de tâches/courses, boutons et champs. */
 .dabo-user-app .text-sm {
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.5;
+}
+
+.dabo-user-app .text-base {
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* Hiérarchie des titres de pages et de blocs. */
+.dabo-user-app .text-lg {
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.dabo-user-app .text-xl {
+  font-size: 23px;
+  line-height: 1.3;
+}
+
+.dabo-user-app .text-2xl {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.dabo-user-app .text-3xl {
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+/* Les contrôles doivent rester confortables à lire, y compris sur mobile. */
+.dabo-user-app input,
+.dabo-user-app select,
+.dabo-user-app textarea {
+  font-size: max(16px, 1em);
+}
+
+/* La navigation V1 est déjà validée : conserver exactement sa taille. */
+.dabo-user-app .dabo-main-nav .text-\[10px\] {
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 /* Navigation principale : contraste suffisant même pour les onglets inactifs. */
