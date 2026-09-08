@@ -348,6 +348,26 @@ export async function GET(req: NextRequest) {
       tagline: "L’assistant DABO",
       intelligence: intelligence.slice(0, 4),
       periods: { current30, previous30 },
+      growthEngine: {
+        objective: "Transformer les utilisateurs satisfaits en croissance durable, sans pression ni dark patterns.",
+        funnel: [
+          { step: "Inscription", value: authUsers.length },
+          { step: "Compte → foyer", value: usersWithHousehold },
+          { step: "Foyer actif · 30 j", value: activityHouseholds(since30) },
+          { step: "Ambassadeurs · 30 j", value: new Set(SH.filter((item) => item.created_at >= since30).map((item) => item.user_id)).size },
+        ],
+        campaigns: [
+          { id: "success-share", title: "Partager après un moment utile", channel: "Dans DABO", status: "À tester", hypothesis: "Une invitation après une réussite du foyer sera mieux acceptée qu’une demande de partage générique.", action: "Tester une invitation douce après une liste de courses finalisée ou une semaine active.", guardrail: "Une seule sollicitation contextuelle ; jamais de culpabilisation." },
+          { id: "demo-social", title: "DABO en 20 secondes", channel: "Réseaux sociaux", status: "À préparer", hypothesis: "Une démonstration très courte du bénéfice concret de DABO peut améliorer la découverte du produit.", action: "Préparer 3 scripts FR/NL/EN centrés sur charge mentale, coordination et équité.", guardrail: "Promettre uniquement ce que DABO fait réellement aujourd’hui." },
+          { id: "reactivation", title: "Retour utile, pas notification vide", channel: "DABO / notification", status: "À mesurer", hypothesis: "Une relance liée à une action concrète du foyer peut réactiver sans créer de pression.", action: "Segmenter d’abord les foyers inactifs 14–30 jours avant tout envoi.", guardrail: "Fréquence basse, opt-out respecté, aucune mécanique anxiogène." },
+        ],
+        principles: ["Réduire la charge mentale", "Aucune croissance par culpabilisation", "Mesurer avant d’automatiser", "Dépense et publication externe sous autorisation"],
+      },
+      productRadar: [
+        { id: "bills", title: "Factures & Budget", stage: "À étudier", value: "Échéances, rappels, répartition et vision mensuelle des charges du foyer." },
+        { id: "services", title: "Services & professionnels", stage: "Vision", value: "Aider à trouver plombier, électricien, nounou, médecin ou autre professionnel selon le besoin du foyer." },
+        { id: "documents", title: "Documents du foyer", stage: "Vision", value: "Centraliser garanties, contrats et documents utiles avec rappels d’échéance." },
+      ],
     },
     kpiAvailability: { sharing: sharingAvailable },
     kpis: {
