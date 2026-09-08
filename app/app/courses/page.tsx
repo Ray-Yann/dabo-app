@@ -11,6 +11,7 @@ import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
+import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { PromosView } from "@/components/PromosView";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 
@@ -109,7 +110,7 @@ export default function CoursesPage() {
 
   async function addItem() {
     if (!addForm.name.trim() || !household) return;
-    await supabase.from("shopping_items").insert({
+    const { error: shoppingInsertError } = await supabase.from("shopping_items").insert({
       household_id: household.id,
       name: addForm.name.trim(),
       quantity: addForm.quantity || null,
@@ -117,6 +118,7 @@ export default function CoursesPage() {
       assigned_to: addForm.assignedTo || null,
       due_date: addForm.dueDate || null,
     });
+    if (!shoppingInsertError) void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "shopping" });
     if (addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: addForm.name.trim() });
     }

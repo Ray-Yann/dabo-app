@@ -19,8 +19,10 @@ import { completeHouseholdTask } from "@/lib/task-completion";
 import { ContributionBalanceData, countConfirmedContributionsSince, fetchContributionBalanceData } from "@/lib/task-contributions";
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
+import { trackAcquisitionEvent } from "@/lib/acquisition";
 
 export default function TodayPage() {
+  useEffect(() => { void trackAcquisitionEvent("app_open"); }, []);
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const router = useRouter();

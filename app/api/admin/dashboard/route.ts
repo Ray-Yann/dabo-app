@@ -93,6 +93,20 @@ export async function GET(req: NextRequest) {
     console.error("[admin/dashboard] Sharing KPI failed", error);
   }
 
+  // Funnel d'acquisition : optionnel et isolé, comme le KPI de partage.
+  let acquisitionRows: { event_name: string; visitor_id: string; referral_token: string | null; user_id: string | null; household_id: string | null; value_type: string | null; created_at: string }[] = [];
+  let acquisitionAvailable = true;
+  try {
+    const acquisition = await db.from("acquisition_events").select("event_name,visitor_id,referral_token,user_id,household_id,value_type,created_at");
+    if (acquisition.error) {
+      acquisitionAvailable = false;
+      console.error("[admin/dashboard] Acquisition funnel unavailable", acquisition.error);
+    } else acquisitionRows = acquisition.data || [];
+  } catch (error) {
+    acquisitionAvailable = false;
+    console.error("[admin/dashboard] Acquisition funnel failed", error);
+  }
+
   const H = households.data || [];
   const M = members.data || [];
   const T = tasks.data || [];
@@ -100,6 +114,7 @@ export async function GET(req: NextRequest) {
   const E = events.data || [];
   const C = contributions.data || [];
   const SH = shareRows;
+  const A = acquisitionRows;
   const authUsers = auth.data?.users || [];
 
   const active = M.filter((member) => !member.left_at && member.user_id);
@@ -217,6 +232,30 @@ export async function GET(req: NextRequest) {
     if (previous === 0) return current === 0 ? 0 : null;
     return Math.round(((current - previous) / previous) * 100);
   };
+
+  const uniqueVisitors = (rows: typeof A) => new Set(rows.map((item) => item.visitor_id)).size;
+  const attributed = A.filter((item) => item.referral_token);
+  const attributedVisits = uniqueVisitors(attributed.filter((item) => item.event_name === "landing_view"));
+  const attributedSignups = uniqueVisitors(attributed.filter((item) => item.event_name === "signup_completed"));
+  const attributedHouseholds = uniqueVisitors(attributed.filter((item) => item.event_name === "household_created" || item.event_name === "household_joined"));
+  const attributedFirstValue = uniqueVisitors(attributed.filter((item) => item.event_name === "first_value"));
+  const landingVisitors = uniqueVisitors(A.filter((item) => item.event_name === "landing_view"));
+
+  const retentionForDay = (day: number) => {
+    const signups = A.filter((item) => item.event_name === "signup_completed");
+    const now = Date.now();
+    const eligible = signups.filter((signup) => now - new Date(signup.created_at).getTime() >= day * 86400000);
+    if (!eligible.length) return { rate: 0, eligible: 0, retained: 0 };
+    const retained = eligible.filter((signup) => {
+      const start = new Date(signup.created_at).getTime() + day * 86400000;
+      const end = start + 86400000;
+      return A.some((event) => event.visitor_id === signup.visitor_id && event.event_name === "app_open" && new Date(event.created_at).getTime() >= start && new Date(event.created_at).getTime() < end);
+    }).length;
+    return { rate: Math.round((retained / eligible.length) * 100), eligible: eligible.length, retained };
+  };
+  const retentionJ1 = retentionForDay(1);
+  const retentionJ7 = retentionForDay(7);
+  const retentionJ30 = retentionForDay(30);
 
   type Insight = {
     id: string;
@@ -350,7 +389,12 @@ export async function GET(req: NextRequest) {
       periods: { current30, previous30 },
       growthEngine: {
         objective: "Transformer les utilisateurs satisfaits en croissance durable, sans pression ni dark patterns.",
-        funnel: [
+        funnel: acquisitionAvailable ? [
+          { step: "Visites via partage", value: attributedVisits },
+          { step: "Inscriptions attribuées", value: attributedSignups },
+          { step: "Foyer après partage", value: attributedHouseholds },
+          { step: "Première valeur", value: attributedFirstValue },
+        ] : [
           { step: "Inscription", value: authUsers.length },
           { step: "Compte → foyer", value: usersWithHousehold },
           { step: "Foyer actif · 30 j", value: activityHouseholds(since30) },
@@ -369,7 +413,7 @@ export async function GET(req: NextRequest) {
         { id: "documents", title: "Documents du foyer", stage: "Vision", value: "Centraliser garanties, contrats et documents utiles avec rappels d’échéance." },
       ],
     },
-    kpiAvailability: { sharing: sharingAvailable },
+    kpiAvailability: { sharing: sharingAvailable, acquisition: acquisitionAvailable },
     kpis: {
       users: authUsers.length,
       households: H.length,
@@ -388,6 +432,17 @@ export async function GET(req: NextRequest) {
       shareUsers30: new Set(SH.filter((item) => item.created_at >= since30).map((item) => item.user_id)).size,
       accountsWithoutHousehold,
       accountToHouseholdRate,
+      landingVisitors,
+      attributedVisits,
+      attributedSignups,
+      attributedHouseholds,
+      attributedFirstValue,
+      retentionJ1: retentionJ1.rate,
+      retentionJ7: retentionJ7.rate,
+      retentionJ30: retentionJ30.rate,
+      retentionJ1Eligible: retentionJ1.eligible,
+      retentionJ7Eligible: retentionJ7.eligible,
+      retentionJ30Eligible: retentionJ30.eligible,
     },
     recentHouseholds: householdDetails.slice(0, 8).map((household) => ({
       id: household.id,

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { genInviteCode } from "@/lib/utils";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
+import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 
 type Phase = "loading" | "auth" | "setup";
 type AuthMode = "signup" | "login" | "forgot";
@@ -32,6 +33,8 @@ export default function OnboardingPage() {
   // Filet de sécurité au cas où la classe serait restée d'une session précédente.
   useEffect(() => {
     document.documentElement.classList.remove("dark");
+    captureReferralFromUrl();
+    void trackAcquisitionEvent("landing_view");
   }, []);
 
   useEffect(() => {
@@ -109,6 +112,7 @@ export default function OnboardingPage() {
         setBusy(false);
         return;
       }
+      await trackAcquisitionEvent("signup_completed");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
@@ -167,6 +171,7 @@ export default function OnboardingPage() {
       setBusy(false);
       return;
     }
+    await trackAcquisitionEvent("household_created", { householdId: household.id });
     router.replace("/app");
   }
 
@@ -213,6 +218,7 @@ export default function OnboardingPage() {
       setBusy(false);
       return;
     }
+    await trackAcquisitionEvent("household_joined", { householdId: household.id });
     router.replace("/app");
   }
 

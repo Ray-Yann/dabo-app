@@ -9,6 +9,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
+import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil, LockKeyhole } from "lucide-react";
 
 type CalendarView = "household" | "personal";
@@ -64,6 +65,7 @@ export default function CalendarPage() {
       setErrorMessage(t("calendar_error_save"));
       return;
     }
+    void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "calendar" });
     setErrorMessage("");
     setTitle("");
     setEventDate("");

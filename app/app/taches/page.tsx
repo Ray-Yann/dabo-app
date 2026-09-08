@@ -12,6 +12,7 @@ import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search, MoreHorizontal
 import { IntroTip } from "@/components/IntroTip";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
+import { trackAcquisitionEvent } from "@/lib/acquisition";
 
 
 type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
@@ -179,7 +180,7 @@ export default function TasksPage() {
       routineId = routine?.id || null;
     }
 
-    await supabase.from("tasks").insert({
+    const { error: taskInsertError } = await supabase.from("tasks").insert({
       household_id: household.id,
       routine_id: routineId,
       name: addForm.name.trim(),
@@ -190,6 +191,7 @@ export default function TasksPage() {
       urgent: addForm.urgent,
       due_date: addForm.dueDate || null,
     });
+    if (!taskInsertError) void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "task" });
     if (addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: addForm.name.trim() });
     }

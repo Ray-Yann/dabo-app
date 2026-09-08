@@ -34,9 +34,15 @@ export function buildLobaAnalysis(kpis: Record<string, number>): LobaAnalysis {
     ? `${weakest.label} est le ratio mesurable le plus faible : ${weakest.rate}% (${weakest.numerator}/${weakest.denominator}).`
     : "Données insuffisantes pour identifier un signal dominant.";
 
+  const acquisitionStarted = (kpis.landingVisitors ?? 0) > 0 || (kpis.attributedVisits ?? 0) > 0;
+  const retentionStarted = (kpis.retentionJ1Eligible ?? 0) > 0;
   const gaps = [
-    "Le cockpit ne mesure pas encore partage → visite → inscription avec des liens attribués.",
-    "Les cohortes de rétention J1/J7/J30 ne sont pas encore disponibles.",
+    acquisitionStarted
+      ? "Le funnel attribué partage → visite → inscription → foyer → première valeur est instrumenté, mais il faut accumuler assez de trafic avant de conclure."
+      : "Le funnel attribué vient d’être instrumenté ; aucune visite mesurée n’est encore disponible.",
+    retentionStarted
+      ? `Les cohortes sont actives : J1 dispose actuellement de ${kpis.retentionJ1Eligible ?? 0} inscription(s) éligible(s). J7/J30 deviennent fiables seulement quand leurs cohortes ont eu le temps de mûrir.`
+      : "La rétention J1/J7/J30 est désormais instrumentée, mais aucune cohorte n’est encore assez ancienne pour produire un taux utile.",
     "Compte → foyer mesure des utilisateurs, tandis que foyers actifs mesure des foyers : ces deux étapes ne doivent pas être présentées comme une conversion séquentielle directe.",
   ];
 
@@ -80,7 +86,10 @@ export function answerLobaAdmin(
   const asksData = /donnée|donnee|mesur|sais-tu|disponible|manque/.test(q);
 
   if (asksFunnel) {
-    return `Analyse V5 : ${analysis.strongestSignal} Attention : je ne considère pas “Compte → foyer” puis “Foyer actif” comme deux conversions directement chaînées, car la première mesure des comptes et la seconde des foyers. Aujourd’hui, ${users - without}/${users} comptes sont rattachés à un foyer (${activation}%) et ${kpis.activeHouseholds30 ?? 0}/${kpis.households ?? 0} foyers sont actifs sur 30 jours (${analysis.ratios[1].rate}%). ${analysis.recommendation} Pour identifier la plus grosse fuite de tout le funnel avec certitude, il manque encore partage → visite → inscription et les cohortes J1/J7/J30.`;
+    if ((kpis.attributedVisits ?? 0) > 0) {
+      return `Funnel attribué DABO : ${kpis.attributedVisits ?? 0} visite(s) issue(s) d’un partage → ${kpis.attributedSignups ?? 0} inscription(s) → ${kpis.attributedHouseholds ?? 0} foyer(s) créé(s) ou rejoint(s) → ${kpis.attributedFirstValue ?? 0} première(s) action(s) utile(s). Je traite ce parcours séparément des KPI historiques pour ne pas mélanger les unités. Rétention disponible : J1 ${kpis.retentionJ1 ?? 0}% (${kpis.retentionJ1Eligible ?? 0} éligibles), J7 ${kpis.retentionJ7 ?? 0}% (${kpis.retentionJ7Eligible ?? 0} éligibles), J30 ${kpis.retentionJ30 ?? 0}% (${kpis.retentionJ30Eligible ?? 0} éligibles). Si l’échantillon est faible, je refuse d’en tirer une conclusion forte.`;
+    }
+    return `Analyse V5 : ${analysis.strongestSignal} Attention : je ne considère pas “Compte → foyer” puis “Foyer actif” comme deux conversions directement chaînées, car la première mesure des comptes et la seconde des foyers. Aujourd’hui, ${users - without}/${users} comptes sont rattachés à un foyer (${activation}%) et ${kpis.activeHouseholds30 ?? 0}/${kpis.households ?? 0} foyers sont actifs sur 30 jours (${analysis.ratios[1].rate}%). ${analysis.recommendation} Le funnel attribué partage → visite → inscription → foyer → première valeur et les cohortes J1/J7/J30 viennent d’être instrumentés ; je dois maintenant accumuler assez de nouvelles données avant de les utiliser pour conclure.`;
   }
 
   if (asksActivation) {
@@ -88,11 +97,13 @@ export function answerLobaAdmin(
   }
 
   if (asksRetention) {
-    return `${kpis.activeHouseholds30 ?? 0} foyers sur ${kpis.households ?? 0} ont eu une activité sur 30 jours, soit ${analysis.ratios[1].rate}%. C’est un indicateur d’activité, pas encore une vraie rétention. Je ne prétends donc pas connaître la rétention J7/J30 : il faut ajouter des cohortes par date d’activation et mesurer le retour des mêmes foyers.`;
+    const e1 = kpis.retentionJ1Eligible ?? 0, e7 = kpis.retentionJ7Eligible ?? 0, e30 = kpis.retentionJ30Eligible ?? 0;
+    if (e1 + e7 + e30 > 0) return `La rétention instrumentée suit le retour des mêmes visiteurs inscrits : J1 ${kpis.retentionJ1 ?? 0}% (${e1} éligibles), J7 ${kpis.retentionJ7 ?? 0}% (${e7} éligibles), J30 ${kpis.retentionJ30 ?? 0}% (${e30} éligibles). Je garde séparé l’indicateur “foyers actifs · 30 j”, qui mesure l’activité globale et non une cohorte. Avec de petits dénominateurs, ces taux restent exploratoires.`;
+    return `La rétention J1/J7/J30 est maintenant instrumentée, mais les nouvelles cohortes doivent d’abord vieillir avant d’être éligibles. En attendant, ${kpis.activeHouseholds30 ?? 0}/${kpis.households ?? 0} foyers ont eu une activité sur 30 jours (${analysis.ratios[1].rate}%), ce qui reste un indicateur d’activité et non un taux de rétention.`;
   }
 
   if (asksSharing) {
-    return `${kpis.shareUsers30 ?? 0} ambassadeur${(kpis.shareUsers30 ?? 0) === 1 ? "" : "s"} et ${shares} partage${shares === 1 ? "" : "s"} sont enregistrés sur 30 jours. C’est un signal d’usage du partage, pas encore un canal d’acquisition mesuré : sans lien attribué, je ne peux pas relier un partage à une visite, une inscription puis un foyer activé.`;
+    return `${kpis.shareUsers30 ?? 0} ambassadeur${(kpis.shareUsers30 ?? 0) === 1 ? "" : "s"} et ${shares} partage${shares === 1 ? "" : "s"} sont enregistrés sur 30 jours. Le partage dispose maintenant d’un lien attribué. Les nouveaux parcours pourront être reliés à la visite, l’inscription, le foyer puis la première valeur ; je n’extrapole pas tant que l’échantillon reste insuffisant.`;
   }
 
   if (asksPriority) {
@@ -102,7 +113,7 @@ export function answerLobaAdmin(
 
   if (asksGrowth) {
     const top = insights[0];
-    return `Pour faire grandir DABO, je sépare acquisition, activation et usage. Activation compte → foyer : ${activation}%. Foyers actifs sur 30 jours : ${analysis.ratios[1].rate}%. Partages sur 30 jours : ${shares}. Je testerais d’abord une expérience mesurable à faible pression, puis j’observerais son effet avant de l’automatiser.${top ? ` Signal actuel : ${top.title}.` : ""} Je ne peux pas encore attribuer de nouveaux utilisateurs à une campagne tant que partage → visite → inscription n’est pas instrumenté.`;
+    return `Pour faire grandir DABO, je sépare acquisition, activation et usage. Activation compte → foyer : ${activation}%. Foyers actifs sur 30 jours : ${analysis.ratios[1].rate}%. Partages sur 30 jours : ${shares}. Je testerais d’abord une expérience mesurable à faible pression, puis j’observerais son effet avant de l’automatiser.${top ? ` Signal actuel : ${top.title}.` : ""} Le funnel attribué est maintenant instrumenté ; je vais pouvoir comparer les nouveaux parcours dès qu’un volume suffisant sera observé.`;
   }
 
   if (asksData) {

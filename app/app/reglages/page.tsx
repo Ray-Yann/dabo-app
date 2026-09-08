@@ -190,7 +190,7 @@ export default function SettingsPage() {
     refresh();
   }
 
-  async function recordAppShare(method: "native" | "clipboard") {
+  async function recordAppShare(method: "native" | "clipboard", referralToken: string) {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -198,7 +198,7 @@ export default function SettingsPage() {
       await fetch("/api/share-app", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ method, householdId: household?.id || null }),
+        body: JSON.stringify({ method, householdId: household?.id || null, referralToken }),
       });
     } catch {
       // La mesure ne doit jamais bloquer l'action de partage.
@@ -206,15 +206,16 @@ export default function SettingsPage() {
   }
 
   async function shareApp() {
+    const referralToken = crypto.randomUUID();
     const shareData = {
       title: "Dabo",
       text: t("share_app_message"),
-      url: "https://dabo-app.vercel.app",
+      url: `https://dabo-app.vercel.app/?ref=${referralToken}`,
     };
     if (navigator.share) {
       try {
         await navigator.share(shareData);
-        await recordAppShare("native");
+        await recordAppShare("native", referralToken);
       } catch {
         // Partage annulé par la personne — aucun événement enregistré.
       }
@@ -222,7 +223,7 @@ export default function SettingsPage() {
       try {
         if (!navigator.clipboard) throw new Error("Clipboard unavailable");
         await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-        await recordAppShare("clipboard");
+        await recordAppShare("clipboard", referralToken);
         showFeedback("success", t("share_app_copied"));
       } catch {
         showFeedback("error", t("settings_error_copy"));

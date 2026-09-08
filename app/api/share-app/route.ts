@@ -10,10 +10,14 @@ export async function POST(req: NextRequest) {
   const user = await verifyUserToken(token);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  let body: { method?: ShareMethod; householdId?: string | null } = {};
+  let body: { method?: ShareMethod; householdId?: string | null; referralToken?: string | null } = {};
   try { body = await req.json(); } catch { /* corps vide/invalide */ }
   if (body.method !== "native" && body.method !== "clipboard") {
     return NextResponse.json({ error: "Méthode de partage invalide" }, { status: 400 });
+  }
+
+  if (body.referralToken && !/^[0-9a-f-]{36}$/i.test(body.referralToken)) {
+    return NextResponse.json({ error: "Référence de partage invalide" }, { status: 400 });
   }
 
   const db = createAdminClient();
@@ -27,6 +31,7 @@ export async function POST(req: NextRequest) {
     user_id: user.id,
     household_id: householdId,
     method: body.method,
+    referral_token: body.referralToken || null,
   });
   if (error) return NextResponse.json({ error: "Partage effectué, mais mesure indisponible" }, { status: 500 });
   return NextResponse.json({ ok: true });
