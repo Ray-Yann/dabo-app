@@ -94,3 +94,10 @@ test("LOBA Actions complètes couvre Courses, Tâches et Calendrier avec confirm
   assert.match(prompt,/ne change jamais personal↔household/i);
   assert.match(prompt,/confirmation explicite/i);
 });
+
+test("LOBA Finance reste ancrée aux agrégats serveur et protège les écritures",()=>{
+ const prompt=buildHouseholdPrompt({household:{id:"h1",name:"Foyer"},currentMember:{id:"m1",firstName:"Ray",language:"fr"},members:[{id:"m1",firstName:"Ray"}],tasks:[],shopping:[],events:[],finance:{currency:"EUR",month:{start:"2026-09-01",endExclusive:"2026-10-01",spent:75,pendingBills:50,commitments:125,byCategory:{courses:25}},year:{start:"2026-01-01",endExclusive:"2027-01-01",spent:300},pendingBills:[],budgets:[],recentTransactions:[]},generatedAt:"2026-09-10T01:00:00Z"});
+ assert.match(prompt,/privilégie les agrégats context\.finance\.month\/year/);
+ assert.match(prompt,/Aucune dépense privée en V1 LOBA/);
+ assert.match(prompt,/ne mélange jamais argent et points de tâches/);
+});

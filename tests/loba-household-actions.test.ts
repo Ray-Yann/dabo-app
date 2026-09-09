@@ -39,3 +39,18 @@ test("LOBA Actions complètes borne les modifications et suppressions",()=>{
  assert.equal(normalizeHouseholdAction({type:"calendar.update",eventId:"e1",changes:{eventDate:"2026-02-30"}}),null);
  assert.equal(normalizeHouseholdAction({type:"calendar.delete",eventId:"e1"})?.type,"calendar.delete");
 });
+
+test("LOBA Finance accepte seulement des écritures complètes et bornées",()=>{
+ const expense=normalizeHouseholdAction({type:"finance.expense.add",label:" Essence ",amount:32.5,category:"transport",occurredOn:"2026-09-10",paidBy:"m1"});
+ assert.deepEqual(expense,{type:"finance.expense.add",label:"Essence",amount:32.5,category:"transport",occurredOn:"2026-09-10",paidBy:"m1"});
+ assert.equal(normalizeHouseholdAction({type:"finance.expense.add",label:"Essence",amount:-1,category:"transport",occurredOn:"2026-09-10",paidBy:"m1"}),null);
+ assert.equal(normalizeHouseholdAction({type:"finance.expense.add",label:"Essence",amount:32,category:"crypto",occurredOn:"2026-09-10",paidBy:"m1"}),null);
+ assert.equal(normalizeHouseholdAction({type:"finance.bill.add",label:"Électricité",amount:50,category:"energie",dueOn:"2026-02-30"}),null);
+ assert.equal(normalizeHouseholdAction({type:"finance.bill.add",label:"Électricité",amount:50,category:"energie",dueOn:"2026-09-15"})?.type,"finance.bill.add");
+});
+
+test("LOBA Finance exige un ID exact, un payeur et une date pour payer une facture",()=>{
+ assert.equal(normalizeHouseholdAction({type:"finance.bill.pay",billId:"b1",paidBy:"m1",paidOn:"2026-09-10"})?.type,"finance.bill.pay");
+ assert.equal(normalizeHouseholdAction({type:"finance.bill.pay",billId:"b1",paidBy:"",paidOn:"2026-09-10"}),null);
+ assert.equal(normalizeHouseholdAction({type:"finance.bill.pay",billId:"b1",paidBy:"m1",paidOn:"demain"}),null);
+});
