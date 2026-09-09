@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   categoryTotals,
+  financePeriodLabel,
   financePeriodRange,
   percentageChange,
   previousPeriodRange,
+  shiftFinancePeriodAnchor,
   shoppingSessionReady,
   sumPendingBills,
   sumPostedTransactions,
@@ -51,4 +53,17 @@ test("Une session Courses devient éligible après 10 minutes de calme", () => {
   const now = new Date("2026-09-09T14:20:00Z");
   assert.equal(shoppingSessionReady("2026-09-09T14:09:59Z", now), true);
   assert.equal(shoppingSessionReady("2026-09-09T14:15:00Z", now), false);
+});
+
+
+test("Finance navigue entre les périodes sans dépendre de la date du jour", () => {
+  const anchor = new Date(2026, 8, 9);
+  assert.equal(financePeriodLabel("month", shiftFinancePeriodAnchor("month", anchor, 1)), "Octobre 2026");
+  assert.equal(financePeriodLabel("year", shiftFinancePeriodAnchor("year", anchor, 1)), "2027");
+  assert.equal(financePeriodLabel("quarter", shiftFinancePeriodAnchor("quarter", anchor, -1)), "T2 2026");
+});
+
+test("Finance conserve une plage cohérente quand on navigue vers 2027", () => {
+  const nextYear = shiftFinancePeriodAnchor("year", new Date(2026, 8, 9), 1);
+  assert.deepEqual(financePeriodRange("year", nextYear), { start: "2027-01-01", endExclusive: "2028-01-01" });
 });

@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { Header } from "@/components/Header";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import {
   categoryTotals,
+  financePeriodLabel,
   financePeriodRange,
   percentageChange,
   previousPeriodRange,
+  shiftFinancePeriodAnchor,
   sumPendingBills,
   sumPostedTransactions,
   type FinancePeriod,
@@ -54,7 +56,6 @@ function parseMoneyInput(raw: string) {
   return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
 }
 function todayKey() { return new Date().toISOString().slice(0,10); }
-function monthTitle() { const s = new Intl.DateTimeFormat("fr-BE", { month:"long", year:"numeric" }).format(new Date()); return s.charAt(0).toUpperCase()+s.slice(1); }
 
 export default function BudgetPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -62,6 +63,7 @@ export default function BudgetPage() {
   const [bills,setBills]=useState<Bill[]>([]);
   const [budgets,setBudgets]=useState<Budget[]>([]);
   const [period,setPeriod]=useState<FinancePeriod>("month");
+  const [periodAnchor,setPeriodAnchor]=useState(()=>new Date());
   const [form,setForm]=useState<FormKind>(null);
   const [payingBill,setPayingBill]=useState<Bill|null>(null);
   const [busy,setBusy]=useState(false);
@@ -84,14 +86,15 @@ export default function BudgetPage() {
   useEffect(()=>{ load().catch(e=>{console.error(e);setError("Impossible de charger les données Finance.");}); },[load]);
   useEffect(()=>{ if(me&&!payer) setPayer(me.id); },[me,payer]);
 
-  const range=useMemo(()=>financePeriodRange(period),[period]);
-  const previous=useMemo(()=>previousPeriodRange(period),[period]);
+  const range=useMemo(()=>financePeriodRange(period,periodAnchor),[period,periodAnchor]);
+  const previous=useMemo(()=>previousPeriodRange(period,periodAnchor),[period,periodAnchor]);
+  const periodLabel=useMemo(()=>financePeriodLabel(period,periodAnchor),[period,periodAnchor]);
   const spent=sumPostedTransactions(transactions,range.start,range.endExclusive);
   const previousSpent=sumPostedTransactions(transactions,previous.start,previous.endExclusive);
   const change=percentageChange(spent,previousSpent);
   const pending=sumPendingBills(bills,range.start,range.endExclusive);
   const commitments=Math.round((spent+pending)*100)/100;
-  const monthRange=financePeriodRange("month");
+  const monthRange=financePeriodRange("month",periodAnchor);
   const monthCats=categoryTotals(transactions,monthRange.start,monthRange.endExclusive);
   const visibleTx=transactions.filter(t=>t.status==="posted"&&t.occurred_on>=range.start&&t.occurred_on<range.endExclusive).slice(0,8);
   const visibleBills=bills.filter(b=>b.status==="pending"&&b.due_on>=range.start&&b.due_on<range.endExclusive).slice(0,8);
@@ -142,8 +145,13 @@ export default function BudgetPage() {
     </div>
 
     <section className="mx-5 rounded-3xl border border-borderLight bg-paper p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-wide text-muted">{period==="month"?monthTitle():PERIOD_LABELS[period]}</p><h2 className="mt-1 font-serif text-xl">Où en est le foyer ?</h2></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-wide text-muted">{periodLabel}</p><h2 className="mt-1 font-serif text-xl">Où en est le foyer ?</h2></div>
         <div className="relative"><select value={period} onChange={e=>setPeriod(e.target.value as FinancePeriod)} className="appearance-none rounded-xl border border-borderLight bg-paper py-2 pl-3 pr-8 text-xs font-semibold"><option value="week">Semaine</option><option value="month">Mois</option><option value="year">Année</option><option value="quarter">Trimestre</option><option value="semester">Semestre</option></select><ChevronDown size={14} className="pointer-events-none absolute right-2 top-2.5 text-muted"/></div></div>
+      <div className="mt-4 grid grid-cols-[44px_1fr_44px] items-center gap-2" aria-label="Navigation entre les périodes">
+        <button type="button" onClick={()=>setPeriodAnchor(current=>shiftFinancePeriodAnchor(period,current,-1))} aria-label="Période précédente" className="flex h-11 items-center justify-center rounded-xl border border-borderLight bg-white2 text-ink"><ChevronLeft size={18}/></button>
+        <button type="button" onClick={()=>setPeriodAnchor(new Date())} className="min-w-0 rounded-xl border border-borderLight bg-white2 px-3 py-2 text-center text-sm font-semibold text-ink"><span className="block truncate">{periodLabel}</span><span className="block text-[10px] font-normal text-muted">Revenir à aujourd’hui</span></button>
+        <button type="button" onClick={()=>setPeriodAnchor(current=>shiftFinancePeriodAnchor(period,current,1))} aria-label="Période suivante" className="flex h-11 items-center justify-center rounded-xl border border-borderLight bg-white2 text-ink"><ChevronRight size={18}/></button>
+      </div>
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metric label="Déjà dépensé" value={money(spent)} note={change===null?"Pas de comparaison fiable":change===0?"Stable vs période précédente":`${change>0?"+":""}${change}% vs période précédente`}/>
         <Metric label="Encore à payer" value={money(pending)} note={`${visibleBills.length} facture${visibleBills.length>1?"s":""} dans la période`}/>

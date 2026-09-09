@@ -60,6 +60,33 @@ export function financePeriodRange(period: FinancePeriod, now = new Date()): { s
   return { start: key(start), endExclusive: key(end) };
 }
 
+export function shiftFinancePeriodAnchor(period: FinancePeriod, anchor: Date, direction: -1 | 1): Date {
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const d = anchor.getDate();
+  if (period === "week") return new Date(y, m, d + direction * 7);
+  if (period === "month") return new Date(y, m + direction, 15);
+  if (period === "quarter") return new Date(y, m + direction * 3, 15);
+  if (period === "semester") return new Date(y, m + direction * 6, 15);
+  return new Date(y + direction, m, 15);
+}
+
+export function financePeriodLabel(period: FinancePeriod, anchor = new Date(), locale = "fr-BE"): string {
+  const range = financePeriodRange(period, anchor);
+  const start = new Date(`${range.start}T12:00:00`);
+  const end = new Date(`${range.endExclusive}T12:00:00`);
+  end.setDate(end.getDate() - 1);
+  const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+  if (period === "week") {
+    const fmt = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short" });
+    return `${fmt.format(start)} – ${fmt.format(end)} ${end.getFullYear()}`;
+  }
+  if (period === "month") return cap(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(start));
+  if (period === "quarter") return `T${Math.floor(start.getMonth() / 3) + 1} ${start.getFullYear()}`;
+  if (period === "semester") return `S${start.getMonth() < 6 ? 1 : 2} ${start.getFullYear()}`;
+  return String(start.getFullYear());
+}
+
 export function sumPostedTransactions(transactions: FinanceTransactionLike[], start: string, endExclusive: string): number {
   if (!validDateKey(start) || !validDateKey(endExclusive)) throw new Error("Période invalide");
   return normalizeMoney(transactions
