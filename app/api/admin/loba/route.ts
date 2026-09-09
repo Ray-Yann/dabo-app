@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: question },
         ],
         temperature: 0.35,
-        max_completion_tokens: 900,
+        max_completion_tokens: 650,
       }),
       signal: AbortSignal.timeout(25_000),
     });

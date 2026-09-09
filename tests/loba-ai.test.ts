@@ -16,3 +16,11 @@ test("LOBA IA limite et nettoie l'historique envoyé au modèle",()=>{
  assert.equal(cleaned[0].content,"message 4");
  assert.equal(cleaned.at(-1)?.content,"message 13");
 });
+
+test("LOBA IA impose une réponse proportionnée et une discipline stricte sur les faits",()=>{
+ const prompt=buildLobaSystemPrompt({kpis:{activeHouseholds30d:0},insights:[],funnel:[]});
+ assert.match(prompt,/question simple = 2 à 5/);
+ assert.match(prompt,/le cockpit affiche 0/);
+ assert.match(prompt,/INTERPRÉTATION/);
+ assert.match(prompt,/grands tableaux/);
+});
