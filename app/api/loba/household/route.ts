@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
 import { buildHouseholdPrompt, sanitizeHouseholdHistory, type LobaHouseholdContext } from "@/lib/loba-household-ai";
+import { normalizeHouseholdAction, parseLobaHouseholdEnvelope } from "@/lib/loba-household-actions";
 import { LOBA_DEFAULT_MODEL, type LobaAiMessage } from "@/lib/loba-ai";
 import { computeContributionMemberPoints } from "@/lib/task-contributions";
 
@@ -12,11 +13,10 @@ export async function POST(req: NextRequest) {
   const user = await verifyUserToken(token);
   if (!user) return NextResponse.json({ error: "Session invalide" }, { status: 401 });
 
-  let body: { question?: unknown; history?: unknown; householdId?: unknown };
+  let body: { question?: unknown; history?: unknown; householdId?: unknown; confirmAction?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Requête invalide" }, { status: 400 }); }
-  const question = typeof body.question === "string" ? body.question.trim().slice(0, 3000) : "";
   const householdId = typeof body.householdId === "string" ? body.householdId : "";
-  if (!question || !householdId) return NextResponse.json({ error: "Question ou foyer manquant" }, { status: 400 });
+  if (!householdId) return NextResponse.json({ error: "Foyer manquant" }, { status: 400 });
 
   const db = createAdminClient();
   const { data: membership } = await db.from("members")
@@ -24,6 +24,23 @@ export async function POST(req: NextRequest) {
     .eq("user_id", user.id).eq("household_id", householdId).is("left_at", null).maybeSingle();
   if (!membership) return NextResponse.json({ error: "Accès à ce foyer refusé" }, { status: 403 });
 
+  // Écriture volontairement séparée de l'IA : seul un clic explicite de confirmation arrive ici.
+  if (body.confirmAction !== undefined) {
+    const action = normalizeHouseholdAction(body.confirmAction);
+    if (!action) return NextResponse.json({ error: "Action LOBA invalide" }, { status: 400 });
+    const { data: inserted, error } = await db.from("shopping_items").insert({
+      household_id: householdId,
+      name: action.item,
+      quantity: action.quantity,
+      urgent: false,
+      status: "to_buy",
+    }).select("id,name,quantity,status").single();
+    if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cet article." }, { status: 500 });
+    return NextResponse.json({ ok: true, action: "shopping.add", item: inserted, mode: "household-confirmed-action" });
+  }
+
+  const question = typeof body.question === "string" ? body.question.trim().slice(0, 3000) : "";
+  if (!question) return NextResponse.json({ error: "Question manquante" }, { status: 400 });
   const apiKey = process.env.GROQ_API_KEY?.trim();
   if (!apiKey) return NextResponse.json({ error: "LOBA IA n'est pas configurée." }, { status: 503 });
 
@@ -47,7 +64,6 @@ export async function POST(req: NextRequest) {
     participantRows = data || [];
   }
   const points = computeContributionMemberPoints(members.map((m) => m.id), contributions, participantRows, new Date(since30d));
-
   const context: LobaHouseholdContext = {
     household: { id: householdRes.data.id, name: householdRes.data.name },
     currentMember: { id: membership.id, firstName: membership.first_name, language: membership.language || "fr" },
@@ -62,11 +78,12 @@ export async function POST(req: NextRequest) {
   const history = sanitizeHouseholdHistory(Array.isArray(body.history) ? body.history as LobaAiMessage[] : []);
   const model = process.env.LOBA_AI_MODEL?.trim() || LOBA_DEFAULT_MODEL;
   try {
-    const response = await fetch(GROQ_ENDPOINT, { method:"POST", headers:{ Authorization:`Bearer ${apiKey}`, "Content-Type":"application/json" }, body:JSON.stringify({ model, messages:[{role:"system",content:buildHouseholdPrompt(context)},...history,{role:"user",content:question}], temperature:0.25, max_completion_tokens:500 }), signal:AbortSignal.timeout(25000) });
+    const response = await fetch(GROQ_ENDPOINT, { method:"POST", headers:{ Authorization:`Bearer ${apiKey}`, "Content-Type":"application/json" }, body:JSON.stringify({ model, messages:[{role:"system",content:buildHouseholdPrompt(context)},...history,{role:"user",content:question}], temperature:0.2, max_completion_tokens:500, response_format:{type:"json_object"} }), signal:AbortSignal.timeout(25000) });
     if (!response.ok) return NextResponse.json({ error: response.status === 429 ? "LOBA a atteint sa limite gratuite temporaire." : "Le moteur IA de LOBA est momentanément indisponible." }, { status: response.status === 429 ? 429 : 502 });
     const data = await response.json() as { choices?: Array<{message?:{content?:string}}> };
-    const answer = data.choices?.[0]?.message?.content?.trim();
-    if (!answer) return NextResponse.json({ error:"LOBA n'a pas produit de réponse." }, { status:502 });
-    return NextResponse.json({ answer, engine:"ai", mode:"household-readonly" });
+    const raw = data.choices?.[0]?.message?.content?.trim();
+    if (!raw) return NextResponse.json({ error:"LOBA n'a pas produit de réponse." }, { status:502 });
+    const envelope = parseLobaHouseholdEnvelope(raw);
+    return NextResponse.json({ ...envelope, engine:"ai", mode:"household-confirm-before-write" });
   } catch { return NextResponse.json({ error:"Le moteur IA de LOBA est momentanément indisponible." }, { status:502 }); }
 }
