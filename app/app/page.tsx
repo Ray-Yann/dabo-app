@@ -327,15 +327,7 @@ export default function TodayPage() {
           )}
         </section>
 
-      <LobaHouseholdChat
-        householdName={household.name}
-        pendingTasks={tasks.length}
-        shoppingItems={items.length}
-        insightSummaries={daboInsights.map((insight) => {
-          const detail = insightDetails(insight);
-          return `${detail.title} — ${detail.message}`;
-        })}
-      />
+      <LobaHouseholdChat householdName={household.name} />
 
       {household.equity_score_enabled && (
         <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
