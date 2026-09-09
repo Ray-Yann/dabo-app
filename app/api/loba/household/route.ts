@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
 import { buildHouseholdPrompt, sanitizeHouseholdHistory, type LobaHouseholdContext } from "@/lib/loba-household-ai";
-import { normalizeHouseholdAction, parseLobaHouseholdEnvelope } from "@/lib/loba-household-actions";
+import { normalizeHouseholdAction, parseLobaHouseholdEnvelope, taskActionPoints } from "@/lib/loba-household-actions";
 import { LOBA_DEFAULT_MODEL, type LobaAiMessage } from "@/lib/loba-ai";
 import { computeContributionMemberPoints } from "@/lib/task-contributions";
 
@@ -28,15 +28,22 @@ export async function POST(req: NextRequest) {
   if (body.confirmAction !== undefined) {
     const action = normalizeHouseholdAction(body.confirmAction);
     if (!action) return NextResponse.json({ error: "Action LOBA invalide" }, { status: 400 });
-    const { data: inserted, error } = await db.from("shopping_items").insert({
-      household_id: householdId,
-      name: action.item,
-      quantity: action.quantity,
-      urgent: false,
-      status: "to_buy",
-    }).select("id,name,quantity,status").single();
-    if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cet article." }, { status: 500 });
-    return NextResponse.json({ ok: true, action: "shopping.add", item: inserted, mode: "household-confirmed-action" });
+    if (action.type === "shopping.add") {
+      const { data: inserted, error } = await db.from("shopping_items").insert({
+        household_id: householdId, name: action.item, quantity: action.quantity, urgent: false, status: "to_buy",
+      }).select("id,name,quantity,status").single();
+      if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cet article." }, { status: 500 });
+      return NextResponse.json({ ok: true, action: "shopping.add", item: inserted, mode: "household-confirmed-action" });
+    }
+
+    const memberIds = new Set((await db.from("members").select("id").eq("household_id", householdId).is("left_at", null)).data?.map((m) => m.id) || []);
+    if (action.assignedTo && !memberIds.has(action.assignedTo)) return NextResponse.json({ error: "Le membre choisi n'appartient plus à ce foyer." }, { status: 400 });
+    const { data: inserted, error } = await db.from("tasks").insert({
+      household_id: householdId, name: action.name, weight_points: taskActionPoints(action), duration_key: action.durationKey,
+      effort_level: action.effortLevel, assigned_to: action.assignedTo, urgent: action.urgent, due_date: action.dueDate, status: "pending",
+    }).select("id,name,due_date,assigned_to,urgent,duration_key,effort_level,weight_points,status").single();
+    if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cette tâche." }, { status: 500 });
+    return NextResponse.json({ ok: true, action: "task.add", task: inserted, mode: "household-confirmed-action" });
   }
 
   const question = typeof body.question === "string" ? body.question.trim().slice(0, 3000) : "";

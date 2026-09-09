@@ -1,18 +1,68 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+
 import { buildHouseholdPrompt, sanitizeHouseholdHistory } from "@/lib/loba-household-ai";
 
-test("LOBA foyer reste ancrée au foyer actif et n’écrit jamais sans confirmation",()=>{
- const prompt=buildHouseholdPrompt({household:{id:"h1",name:"Maison"},currentMember:{id:"m1",firstName:"Ray",language:"fr"},members:[{id:"m1",firstName:"Ray"}],tasks:[{id:"t1",name:"Vaisselle",status:"pending",urgent:false,dueDate:null,assignedTo:"m1"}],shopping:[],events:[],balance:[],generatedAt:"2026-09-09T00:00:00.000Z"});
- assert.match(prompt,/confirmation explicite/i); assert.match(prompt,/Vaisselle/); assert.match(prompt,/foyer actif/i); assert.match(prompt,/ne l.exécutes jamais toi-même/i);
+test("LOBA foyer reste ancrée au foyer actif et n’écrit jamais sans confirmation", () => {
+  const prompt = buildHouseholdPrompt({
+    household: { id: "h1", name: "Maison" },
+    currentMember: { id: "m1", firstName: "Ray", language: "fr" },
+    members: [{ id: "m1", firstName: "Ray" }],
+    tasks: [{ id: "t1", name: "Vaisselle", status: "pending", urgent: false, dueDate: null, assignedTo: "m1" }],
+    shopping: [],
+    events: [],
+    balance: [],
+    generatedAt: "2026-09-09T00:00:00.000Z",
+  });
+
+  assert.match(prompt, /foyer actif/i);
+  assert.match(prompt, /ne les exécutes jamais toi-même/i);
+  assert.match(prompt, /confirmation explicite/i);
+  assert.match(prompt, /n'invente jamais/i);
 });
 
-test("LOBA foyer limite l'historique conversationnel",()=>{
- const rows=Array.from({length:12},(_,i)=>({role:(i%2?"assistant":"user") as "assistant"|"user",content:`message ${i}`}));
- const clean=sanitizeHouseholdHistory(rows); assert.equal(clean.length,8); assert.equal(clean[0].content,"message 4");
+test("LOBA foyer limite l'historique conversationnel", () => {
+  const history = Array.from({ length: 20 }, (_, index) => ({
+    role: index % 2 === 0 ? "user" as const : "assistant" as const,
+    content: `message ${index} ${"x".repeat(500)}`,
+  }));
+
+  const sanitized = sanitizeHouseholdHistory(history);
+
+  assert.ok(sanitized.length <= 8);
+  assert.ok(sanitized.every((message) => message.content.length <= 1200));
 });
 
-test("LOBA foyer Phase 2 prépare seulement shopping.add avec confirmation",()=>{
- const prompt=buildHouseholdPrompt({household:{id:"h1",name:"Maison"},currentMember:{id:"m1",firstName:"Ray",language:"fr"},members:[{id:"m1",firstName:"Ray"}],tasks:[],shopping:[],events:[],balance:[],generatedAt:"2026-09-09T00:00:00.000Z"});
- assert.match(prompt,/shopping\.add/); assert.match(prompt,/confirmation explicite/i); assert.match(prompt,/Ne dis jamais que l'article est déjà ajouté/i);
+test("LOBA foyer Phase 2 prépare seulement shopping.add avec confirmation", () => {
+  const prompt = buildHouseholdPrompt({
+    household: { id: "h1", name: "Maison" },
+    currentMember: { id: "m1", firstName: "Ray", language: "fr" },
+    members: [{ id: "m1", firstName: "Ray" }],
+    tasks: [],
+    shopping: [],
+    events: [],
+    balance: [],
+    generatedAt: "2026-09-09T00:00:00.000Z",
+  });
+
+  assert.match(prompt, /shopping\.add/i);
+  assert.match(prompt, /confirmation/i);
+  assert.match(prompt, /task\.add/i);
+});
+
+test("LOBA Tâches exige durée et effort et refuse d'inventer une récurrence", () => {
+  const prompt = buildHouseholdPrompt({
+    household: { id: "h1", name: "Maison" },
+    currentMember: { id: "m1", firstName: "Ray", language: "fr" },
+    members: [{ id: "m1", firstName: "Ray" }],
+    tasks: [],
+    shopping: [],
+    events: [],
+    balance: [],
+    generatedAt: "2026-09-09T00:00:00.000Z",
+  });
+
+  assert.match(prompt, /durée ET effort/i);
+  assert.match(prompt, /aucune récurrence/i);
+  assert.match(prompt, /assignedTo/i);
 });

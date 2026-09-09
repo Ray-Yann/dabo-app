@@ -1,19 +1,64 @@
-export type LobaHouseholdAction = {
+import { DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
+
+export type LobaShoppingAddAction = {
   type: "shopping.add";
   item: string;
   quantity: string | null;
 };
 
+export type LobaTaskAddAction = {
+  type: "task.add";
+  name: string;
+  dueDate: string | null;
+  assignedTo: string | null;
+  urgent: boolean;
+  durationKey: string;
+  effortLevel: string;
+};
+
+export type LobaHouseholdAction = LobaShoppingAddAction | LobaTaskAddAction;
+
+function cleanText(value: unknown, max: number) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
+}
+
+function validCivilDate(value: unknown): string | null | undefined {
+  if (value === null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [y,m,d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y,m-1,d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m-1 || date.getUTCDate() !== d) return undefined;
+  return value;
+}
+
 export function normalizeHouseholdAction(value: unknown): LobaHouseholdAction | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
-  if (row.type !== "shopping.add") return null;
-  const item = typeof row.item === "string" ? row.item.trim().replace(/\s+/g, " ").slice(0, 160) : "";
-  if (!item) return null;
-  const quantity = typeof row.quantity === "string" && row.quantity.trim()
-    ? row.quantity.trim().replace(/\s+/g, " ").slice(0, 80)
-    : null;
-  return { type: "shopping.add", item, quantity };
+
+  if (row.type === "shopping.add") {
+    const item = cleanText(row.item, 160);
+    if (!item) return null;
+    const quantity = cleanText(row.quantity, 80) || null;
+    return { type: "shopping.add", item, quantity };
+  }
+
+  if (row.type === "task.add") {
+    const name = cleanText(row.name, 160);
+    const dueDate = validCivilDate(row.dueDate);
+    const assignedTo = row.assignedTo === null || row.assignedTo === "" ? null : cleanText(row.assignedTo, 80);
+    const durationKey = cleanText(row.durationKey, 20);
+    const effortLevel = cleanText(row.effortLevel, 20);
+    if (!name || dueDate === undefined || assignedTo === "" || typeof row.urgent !== "boolean") return null;
+    if (!DURATION_OPTIONS.some((x) => x.key === durationKey)) return null;
+    if (!EFFORT_OPTIONS.some((x) => x.key === effortLevel)) return null;
+    return { type: "task.add", name, dueDate, assignedTo, urgent: row.urgent, durationKey, effortLevel };
+  }
+
+  return null;
+}
+
+export function taskActionPoints(action: LobaTaskAddAction) {
+  return computeTaskPoints(action.durationKey, action.effortLevel);
 }
 
 export function parseLobaHouseholdEnvelope(raw: string): { answer: string; proposedAction: LobaHouseholdAction | null } {
