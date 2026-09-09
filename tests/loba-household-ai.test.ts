@@ -79,3 +79,16 @@ test("LOBA Calendrier exige une portée explicite et protège le personnel", () 
   assert.match(prompt, /private_owner_id au membre connecté/i);
   assert.match(prompt, /aucune récurrence/i);
 });
+
+test("LOBA Phase 3 ne modifie que l’attribution et exige une cible non ambiguë", () => {
+  const prompt = buildHouseholdPrompt({
+    household:{id:"h1",name:"Maison"}, currentMember:{id:"m1",firstName:"Ray",language:"fr"},
+    members:[{id:"m1",firstName:"Ray"},{id:"m2",firstName:"Manga"}],
+    tasks:[{id:"t1",name:"Nettoyer ma chambre",status:"pending",urgent:false,dueDate:"2026-09-10",assignedTo:null}],
+    shopping:[],events:[],balance:[],generatedAt:"2026-09-09T00:00:00.000Z"
+  });
+  assert.match(prompt,/task\.update/i);
+  assert.match(prompt,/expectedAssignedTo/i);
+  assert.match(prompt,/plusieurs tâches peuvent correspondre/i);
+  assert.match(prompt,/AUCUN autre champ/i);
+});

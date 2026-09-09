@@ -27,3 +27,10 @@ test("LOBA Calendrier accepte seulement une création datée et à portée expli
  assert.equal(normalizeHouseholdAction({type:"calendar.add",title:"Dentiste",eventDate:"2026-09-11",visibility:"personal",recurring:true}),null);
  assert.equal(normalizeHouseholdAction({type:"calendar.add",title:"Dentiste",eventDate:"2026-02-30",visibility:"personal",recurring:false}),null);
 });
+
+test("LOBA Phase 3 borne la modification à l’attribution d’une tâche",()=>{
+ const action=normalizeHouseholdAction({type:"task.update",taskId:"t1",assignedTo:"m2",expectedAssignedTo:null});
+ assert.deepEqual(action,{type:"task.update",taskId:"t1",assignedTo:"m2",expectedAssignedTo:null,taskName:undefined,previousAssignedToName:undefined,assignedToName:undefined});
+ assert.equal(normalizeHouseholdAction({type:"task.update",taskId:"",assignedTo:"m2",expectedAssignedTo:null}),null);
+ assert.equal(normalizeHouseholdAction({type:"task.update",taskId:"t1",assignedTo:"m2",expectedAssignedTo:null,name:"Nouveau nom"})?.type,"task.update");
+});

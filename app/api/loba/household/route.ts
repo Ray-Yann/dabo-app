@@ -36,6 +36,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, action: "shopping.add", item: inserted, mode: "household-confirmed-action" });
     }
 
+    if (action.type === "task.update") {
+      const { data: currentTask } = await db.from("tasks")
+        .select("id,name,assigned_to,status")
+        .eq("id", action.taskId).eq("household_id", householdId).eq("status", "pending").maybeSingle();
+      if (!currentTask) return NextResponse.json({ error: "Cette tâche n’est plus disponible dans ce foyer." }, { status: 404 });
+      if ((currentTask.assigned_to || null) !== action.expectedAssignedTo) {
+        return NextResponse.json({ error: "Cette tâche a changé depuis la proposition de LOBA. Demande-lui de vérifier à nouveau avant de modifier." }, { status: 409 });
+      }
+      if (action.assignedTo) {
+        const { data: targetMember } = await db.from("members").select("id").eq("id", action.assignedTo).eq("household_id", householdId).is("left_at", null).maybeSingle();
+        if (!targetMember) return NextResponse.json({ error: "Le membre choisi n’appartient plus à ce foyer." }, { status: 400 });
+      }
+      const { data: updated, error } = await db.from("tasks").update({ assigned_to: action.assignedTo }).eq("id", currentTask.id).eq("household_id", householdId).select("id,name,assigned_to,status").single();
+      if (error || !updated) return NextResponse.json({ error: "DABO n’a pas pu modifier cette tâche." }, { status: 500 });
+      return NextResponse.json({ ok: true, action: "task.update", task: updated, mode: "household-confirmed-action" });
+    }
+
     if (action.type === "calendar.add") {
       const { data: inserted, error } = await db.from("calendar_events").insert({
         household_id: householdId,
@@ -106,6 +123,16 @@ export async function POST(req: NextRequest) {
     const raw = data.choices?.[0]?.message?.content?.trim();
     if (!raw) return NextResponse.json({ error:"LOBA n'a pas produit de réponse." }, { status:502 });
     const envelope = parseLobaHouseholdEnvelope(raw);
+    if (envelope.proposedAction?.type === "task.update") {
+      const proposed = envelope.proposedAction;
+      const task = context.tasks.find((x) => x.id === proposed.taskId);
+      const target = proposed.assignedTo ? context.members.find((x) => x.id === proposed.assignedTo) : null;
+      const previous = task?.assignedTo ? context.members.find((x) => x.id === task.assignedTo) : null;
+      if (!task || proposed.expectedAssignedTo !== task.assignedTo || (proposed.assignedTo && !target)) {
+        return NextResponse.json({ answer:"Je n’ai pas pu identifier cette modification avec assez de certitude. Peux-tu préciser la tâche et la personne concernée ?", proposedAction:null, engine:"ai", mode:"household-confirm-before-write" });
+      }
+      envelope.proposedAction = { ...proposed, taskName:task.name, previousAssignedToName:previous?.firstName || null, assignedToName:target?.firstName || null };
+    }
     return NextResponse.json({ ...envelope, engine:"ai", mode:"household-confirm-before-write" });
   } catch { return NextResponse.json({ error:"Le moteur IA de LOBA est momentanément indisponible." }, { status:502 }); }
 }

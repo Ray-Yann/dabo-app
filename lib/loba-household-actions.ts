@@ -24,7 +24,17 @@ export type LobaCalendarAddAction = {
   recurring: false;
 };
 
-export type LobaHouseholdAction = LobaShoppingAddAction | LobaTaskAddAction | LobaCalendarAddAction;
+export type LobaTaskUpdateAction = {
+  type: "task.update";
+  taskId: string;
+  assignedTo: string | null;
+  expectedAssignedTo: string | null;
+  taskName?: string;
+  previousAssignedToName?: string | null;
+  assignedToName?: string | null;
+};
+
+export type LobaHouseholdAction = LobaShoppingAddAction | LobaTaskAddAction | LobaCalendarAddAction | LobaTaskUpdateAction;
 
 function cleanText(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
@@ -60,6 +70,17 @@ export function normalizeHouseholdAction(value: unknown): LobaHouseholdAction | 
     if (!DURATION_OPTIONS.some((x) => x.key === durationKey)) return null;
     if (!EFFORT_OPTIONS.some((x) => x.key === effortLevel)) return null;
     return { type: "task.add", name, dueDate, assignedTo, urgent: row.urgent, durationKey, effortLevel };
+  }
+
+  if (row.type === "task.update") {
+    const taskId = cleanText(row.taskId, 100);
+    const assignedTo = row.assignedTo === null || row.assignedTo === "" ? null : cleanText(row.assignedTo, 100);
+    const expectedAssignedTo = row.expectedAssignedTo === null || row.expectedAssignedTo === "" ? null : cleanText(row.expectedAssignedTo, 100);
+    if (!taskId || assignedTo === "" || expectedAssignedTo === "") return null;
+    const taskName = cleanText(row.taskName, 160) || undefined;
+    const previousAssignedToName = row.previousAssignedToName === null ? null : (cleanText(row.previousAssignedToName, 80) || undefined);
+    const assignedToName = row.assignedToName === null ? null : (cleanText(row.assignedToName, 80) || undefined);
+    return { type: "task.update", taskId, assignedTo, expectedAssignedTo, taskName, previousAssignedToName, assignedToName };
   }
 
   if (row.type === "calendar.add") {
