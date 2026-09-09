@@ -35,6 +35,23 @@ const CATEGORY_LABELS: Record<string, string> = {
 const PERIOD_LABELS: Record<FinancePeriod, string> = { week:"Semaine", month:"Mois", quarter:"Trimestre", semester:"Semestre", year:"Année" };
 
 function money(value: number) { return new Intl.NumberFormat("fr-BE", { style:"currency", currency:"EUR" }).format(value); }
+function parseMoneyInput(raw: string) {
+  let value = raw.trim().replace(/ /g, "").replace(/\s/g, "").replace(/EUR/gi, "").replace(/€/g, "");
+  if (!value) return null;
+
+  const comma = value.lastIndexOf(",");
+  const dot = value.lastIndexOf(".");
+  if (comma >= 0 && dot >= 0) {
+    if (comma > dot) value = value.replace(/\./g, "").replace(",", ".");
+    else value = value.replace(/,/g, "");
+  } else if (comma >= 0) {
+    value = value.replace(",", ".");
+  }
+
+  if (!/^\d+(?:\.\d{0,2})?$/.test(value)) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
+}
 function todayKey() { return new Date().toISOString().slice(0,10); }
 function monthTitle() { const s = new Intl.DateTimeFormat("fr-BE", { month:"long", year:"numeric" }).format(new Date()); return s.charAt(0).toUpperCase()+s.slice(1); }
 
@@ -78,7 +95,7 @@ export default function BudgetPage() {
   const visibleBills=bills.filter(b=>b.status==="pending"&&b.due_on>=range.start&&b.due_on<range.endExclusive).slice(0,8);
 
   function reset(next:FormKind=null){setForm(next);setLabel("");setAmount("");setCategory("autre");setDate(todayKey());setPayer(me?.id||"");setError(null);}
-  function parsedAmount(){ const n=Number(amount.replace(",",".")); return Number.isFinite(n)&&n>0?Math.round(n*100)/100:null; }
+  function parsedAmount(){ return parseMoneyInput(amount); }
 
   async function save(){
     if(!household||!me||busy) return; const value=parsedAmount();
@@ -138,7 +155,8 @@ export default function BudgetPage() {
       <div className="flex items-center justify-between"><h3 className="font-serif text-lg">{form==="expense"?"Ajouter une dépense":form==="bill"?"Ajouter une facture":"Ajouter un repère mensuel"}</h3><button onClick={()=>reset()} className="text-sm text-muted">Annuler</button></div>
       <div className="mt-4 space-y-3">
         {form!=="reference"&&<input value={label} onChange={e=>setLabel(e.target.value)} placeholder={form==="bill"?"Ex. Internet":"Ex. Courses Delhaize"} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm outline-none"/>}
-        <div className="grid grid-cols-2 gap-3"><input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0,00 €" className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm outline-none"/><select value={category} onChange={e=>setCategory(e.target.value)} className="w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}</select></div>
+        <div className="grid grid-cols-2 gap-3"><input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} onBlur={()=>{const value=parseMoneyInput(amount);if(value!==null)setAmount(money(value));}} placeholder="0,00" aria-label="Montant en euros" className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm outline-none"/><select value={category} onChange={e=>setCategory(e.target.value)} className="w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}</select></div>
+        <p className="-mt-1 text-xs text-muted">Saisis simplement 25 ou 25,50. DABO affiche automatiquement le montant en €.</p>
         {form!=="reference"&&<div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-xs text-muted">{form==="bill"?"Échéance":"Date"}<input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1 w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm text-ink"/></label>{form==="expense"&&<label className="text-xs text-muted">Payé par<select value={payer} onChange={e=>setPayer(e.target.value)} className="mt-1 w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm text-ink">{members.map(m=><option key={m.id} value={m.id}>{m.first_name}{m.id===me.id?" (moi)":""}</option>)}</select></label>}</div>}
         <button disabled={busy} onClick={save} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50">{busy?"Enregistrement…":"Enregistrer"}</button>
       </div>
