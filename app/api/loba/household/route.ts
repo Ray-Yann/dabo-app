@@ -1,138 +1,42 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
-import { buildHouseholdPrompt, sanitizeHouseholdHistory, type LobaHouseholdContext } from "@/lib/loba-household-ai";
-import { normalizeHouseholdAction, parseLobaHouseholdEnvelope, taskActionPoints } from "@/lib/loba-household-actions";
-import { LOBA_DEFAULT_MODEL, type LobaAiMessage } from "@/lib/loba-ai";
+import { NextRequest,NextResponse } from "next/server";
+import { createAdminClient,verifyUserToken } from "@/lib/supabase-admin";
+import { buildHouseholdPrompt,sanitizeHouseholdHistory,type LobaHouseholdContext } from "@/lib/loba-household-ai";
+import { normalizeHouseholdAction,parseLobaHouseholdEnvelope,taskActionPoints,type LobaHouseholdAction } from "@/lib/loba-household-actions";
+import { LOBA_DEFAULT_MODEL,type LobaAiMessage } from "@/lib/loba-ai";
 import { computeContributionMemberPoints } from "@/lib/task-contributions";
+import { computeTaskPoints } from "@/lib/types";
+export const dynamic="force-dynamic";const GROQ_ENDPOINT="https://api.groq.com/openai/v1/chat/completions";
+const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
+function taskSnap(x:any){return{name:x.name,dueDate:x.due_date??null,assignedTo:x.assigned_to??null,urgent:!!x.urgent,durationKey:x.duration_key??null,effortLevel:x.effort_level??null,routineId:x.routine_id??null}}
+function shopSnap(x:any){return{name:x.name,quantity:x.quantity??null,dueDate:x.due_date??null,assignedTo:x.assigned_to??null,urgent:!!x.urgent,status:x.status}}
+function eventSnap(x:any){return{title:x.title,eventDate:x.event_date,visibility:x.visibility,recurring:!!x.recurring,privateOwnerId:x.private_owner_id??null}}
+function summary(changes:Record<string,unknown>,before:Record<string,unknown>,members:Array<{id:string;firstName:string}>){const label=(k:string,v:unknown)=>k==="assignedTo"?(v?members.find(m=>m.id===v)?.firstName||"Membre":"Non assigné"):k==="urgent"?(v?"Urgente":"Non urgente"):v===null?"Aucun":String(v);const names:Record<string,string>={name:"Nom",quantity:"Quantité",dueDate:"Date",assignedTo:"Attribution",urgent:"Priorité",durationKey:"Durée",effortLevel:"Effort",title:"Titre",eventDate:"Date"};return Object.entries(changes).map(([k,v])=>`${names[k]||k} : ${label(k,before[k])} → ${label(k,v)}`).join(" · ")}
 
-export const dynamic = "force-dynamic";
-const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+export async function POST(req:NextRequest){
+ const token=req.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||"",user=await verifyUserToken(token);if(!user)return NextResponse.json({error:"Session invalide"},{status:401});
+ let body:{question?:unknown;history?:unknown;householdId?:unknown;confirmAction?:unknown};try{body=await req.json()}catch{return NextResponse.json({error:"Requête invalide"},{status:400})}
+ const householdId=typeof body.householdId==="string"?body.householdId:"";if(!householdId)return NextResponse.json({error:"Foyer manquant"},{status:400});
+ const db=createAdminClient(),{data:membership}=await db.from("members").select("id,household_id,first_name,language,left_at").eq("user_id",user.id).eq("household_id",householdId).is("left_at",null).maybeSingle();if(!membership)return NextResponse.json({error:"Accès à ce foyer refusé"},{status:403});
+ const memberRows=async()=>((await db.from("members").select("id,first_name").eq("household_id",householdId).is("left_at",null)).data||[]);
+ const validMember=async(id:string|null|undefined)=>!id||!!(await db.from("members").select("id").eq("id",id).eq("household_id",householdId).is("left_at",null).maybeSingle()).data;
 
-export async function POST(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  const user = await verifyUserToken(token);
-  if (!user) return NextResponse.json({ error: "Session invalide" }, { status: 401 });
+ if(body.confirmAction!==undefined){const a=normalizeHouseholdAction(body.confirmAction);if(!a)return NextResponse.json({error:"Action LOBA invalide"},{status:400});
+  if(a.type==="shopping.add"){const{data,error}=await db.from("shopping_items").insert({household_id:householdId,name:a.item,quantity:a.quantity,urgent:false,status:"to_buy"}).select("id,name,quantity,status").single();return error||!data?NextResponse.json({error:"DABO n'a pas pu ajouter cet article."},{status:500}):NextResponse.json({ok:true,action:a.type,item:data})}
+  if(a.type==="task.add"){if(!(await validMember(a.assignedTo)))return NextResponse.json({error:"Le membre choisi n'appartient plus à ce foyer."},{status:400});const{data,error}=await db.from("tasks").insert({household_id:householdId,name:a.name,weight_points:taskActionPoints(a),duration_key:a.durationKey,effort_level:a.effortLevel,assigned_to:a.assignedTo,urgent:a.urgent,due_date:a.dueDate,status:"pending"}).select("id,name").single();return error||!data?NextResponse.json({error:"DABO n'a pas pu ajouter cette tâche."},{status:500}):NextResponse.json({ok:true,action:a.type,task:data})}
+  if(a.type==="calendar.add"){const{data,error}=await db.from("calendar_events").insert({household_id:householdId,created_by:membership.id,title:a.title,event_date:a.eventDate,recurring:false,reminder_days_before:7,visibility:a.visibility,private_owner_id:a.visibility==="personal"?membership.id:null}).select("id,title").single();return error||!data?NextResponse.json({error:"DABO n'a pas pu ajouter cet événement."},{status:500}):NextResponse.json({ok:true,action:a.type,event:data})}
+  if(a.type==="task.update"||a.type==="task.delete"){const{data:t}=await db.from("tasks").select("id,name,status,assigned_to,due_date,urgent,duration_key,effort_level,routine_id").eq("id",a.taskId).eq("household_id",householdId).eq("status","pending").maybeSingle();if(!t)return NextResponse.json({error:"Cette tâche n’est plus disponible dans ce foyer."},{status:404});if(!a.expected||!same(taskSnap(t),a.expected))return NextResponse.json({error:"Cette tâche a changé depuis la proposition de LOBA. Demande-lui de vérifier à nouveau."},{status:409});
+   if(a.type==="task.delete"){if(t.routine_id)return NextResponse.json({error:"LOBA ne supprime pas encore une tâche récurrente : utilise la page Tâches pour choisir la portée de suppression."},{status:400});const{error}=await db.from("tasks").delete().eq("id",t.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu supprimer cette tâche."},{status:500}):NextResponse.json({ok:true,action:a.type})}
+   if("assignedTo" in a.changes&&!(await validMember(a.changes.assignedTo)))return NextResponse.json({error:"Le membre choisi n’appartient plus à ce foyer."},{status:400});const u:any={};if(a.changes.name!==undefined)u.name=a.changes.name;if(a.changes.dueDate!==undefined)u.due_date=a.changes.dueDate;if(a.changes.assignedTo!==undefined)u.assigned_to=a.changes.assignedTo;if(a.changes.urgent!==undefined)u.urgent=a.changes.urgent;if(a.changes.durationKey!==undefined)u.duration_key=a.changes.durationKey;if(a.changes.effortLevel!==undefined)u.effort_level=a.changes.effortLevel;const duration=a.changes.durationKey??t.duration_key,effort=a.changes.effortLevel??t.effort_level;if((a.changes.durationKey!==undefined||a.changes.effortLevel!==undefined)&&duration&&effort)u.weight_points=computeTaskPoints(duration,effort);const{error}=await db.from("tasks").update(u).eq("id",t.id).eq("household_id",householdId);if(error)return NextResponse.json({error:"DABO n’a pas pu modifier cette tâche."},{status:500});if(t.routine_id){const ru:any={};if(a.changes.name!==undefined)ru.name=a.changes.name;if(a.changes.durationKey!==undefined)ru.duration_key=a.changes.durationKey;if(a.changes.effortLevel!==undefined)ru.effort_level=a.changes.effortLevel;if(u.weight_points!==undefined)ru.weight_points=u.weight_points;if(a.changes.assignedTo!==undefined)ru.last_assigned_member=a.changes.assignedTo;if(a.changes.dueDate!==undefined&&a.changes.dueDate)ru.anchor_date=a.changes.dueDate;if(Object.keys(ru).length)await db.from("routines").update(ru).eq("id",t.routine_id).eq("household_id",householdId)}return NextResponse.json({ok:true,action:a.type})}
+  if(a.type==="shopping.update"||a.type==="shopping.delete"){const{data:i}=await db.from("shopping_items").select("id,name,quantity,due_date,assigned_to,urgent,status").eq("id",a.itemId).eq("household_id",householdId).eq("status","to_buy").maybeSingle();if(!i)return NextResponse.json({error:"Cet article n’est plus dans les courses à acheter."},{status:404});if(!a.expected||!same(shopSnap(i),a.expected))return NextResponse.json({error:"Cet article a changé depuis la proposition de LOBA. Demande-lui de vérifier à nouveau."},{status:409});if(a.type==="shopping.delete"){const{error}=await db.from("shopping_items").delete().eq("id",i.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu supprimer cet article."},{status:500}):NextResponse.json({ok:true,action:a.type})}if("assignedTo" in a.changes&&!(await validMember(a.changes.assignedTo)))return NextResponse.json({error:"Le membre choisi n’appartient plus à ce foyer."},{status:400});const u:any={};if(a.changes.name!==undefined)u.name=a.changes.name;if(a.changes.quantity!==undefined)u.quantity=a.changes.quantity;if(a.changes.dueDate!==undefined)u.due_date=a.changes.dueDate;if(a.changes.assignedTo!==undefined)u.assigned_to=a.changes.assignedTo;if(a.changes.urgent!==undefined)u.urgent=a.changes.urgent;const{error}=await db.from("shopping_items").update(u).eq("id",i.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu modifier cet article."},{status:500}):NextResponse.json({ok:true,action:a.type})}
+  if(a.type==="calendar.update"||a.type==="calendar.delete"){let q=db.from("calendar_events").select("id,title,event_date,visibility,recurring,private_owner_id").eq("id",a.eventId).eq("household_id",householdId);const{data:e}=await q.maybeSingle();if(!e)return NextResponse.json({error:"Cet événement n’est plus disponible."},{status:404});if(e.visibility==="personal"&&e.private_owner_id!==membership.id)return NextResponse.json({error:"Cet événement personnel ne t’appartient pas."},{status:403});if(!a.expected||!same(eventSnap(e),a.expected))return NextResponse.json({error:"Cet événement a changé depuis la proposition de LOBA. Demande-lui de vérifier à nouveau."},{status:409});if(a.type==="calendar.delete"){const{error}=await db.from("calendar_events").delete().eq("id",e.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu supprimer cet événement."},{status:500}):NextResponse.json({ok:true,action:a.type})}const u:any={};if(a.changes.title!==undefined)u.title=a.changes.title;if(a.changes.eventDate!==undefined)u.event_date=a.changes.eventDate;const{error}=await db.from("calendar_events").update(u).eq("id",e.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu modifier cet événement."},{status:500}):NextResponse.json({ok:true,action:a.type})}
+ }
 
-  let body: { question?: unknown; history?: unknown; householdId?: unknown; confirmAction?: unknown };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Requête invalide" }, { status: 400 }); }
-  const householdId = typeof body.householdId === "string" ? body.householdId : "";
-  if (!householdId) return NextResponse.json({ error: "Foyer manquant" }, { status: 400 });
-
-  const db = createAdminClient();
-  const { data: membership } = await db.from("members")
-    .select("id,household_id,first_name,language,left_at")
-    .eq("user_id", user.id).eq("household_id", householdId).is("left_at", null).maybeSingle();
-  if (!membership) return NextResponse.json({ error: "Accès à ce foyer refusé" }, { status: 403 });
-
-  // Écriture volontairement séparée de l'IA : seul un clic explicite de confirmation arrive ici.
-  if (body.confirmAction !== undefined) {
-    const action = normalizeHouseholdAction(body.confirmAction);
-    if (!action) return NextResponse.json({ error: "Action LOBA invalide" }, { status: 400 });
-    if (action.type === "shopping.add") {
-      const { data: inserted, error } = await db.from("shopping_items").insert({
-        household_id: householdId, name: action.item, quantity: action.quantity, urgent: false, status: "to_buy",
-      }).select("id,name,quantity,status").single();
-      if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cet article." }, { status: 500 });
-      return NextResponse.json({ ok: true, action: "shopping.add", item: inserted, mode: "household-confirmed-action" });
-    }
-
-    if (action.type === "task.update") {
-      const { data: currentTask } = await db.from("tasks")
-        .select("id,name,assigned_to,status")
-        .eq("id", action.taskId).eq("household_id", householdId).eq("status", "pending").maybeSingle();
-      if (!currentTask) return NextResponse.json({ error: "Cette tâche n’est plus disponible dans ce foyer." }, { status: 404 });
-      if ((currentTask.assigned_to || null) !== action.expectedAssignedTo) {
-        return NextResponse.json({ error: "Cette tâche a changé depuis la proposition de LOBA. Demande-lui de vérifier à nouveau avant de modifier." }, { status: 409 });
-      }
-      if (action.assignedTo) {
-        const { data: targetMember } = await db.from("members").select("id").eq("id", action.assignedTo).eq("household_id", householdId).is("left_at", null).maybeSingle();
-        if (!targetMember) return NextResponse.json({ error: "Le membre choisi n’appartient plus à ce foyer." }, { status: 400 });
-      }
-      const { data: updated, error } = await db.from("tasks").update({ assigned_to: action.assignedTo }).eq("id", currentTask.id).eq("household_id", householdId).select("id,name,assigned_to,status").single();
-      if (error || !updated) return NextResponse.json({ error: "DABO n’a pas pu modifier cette tâche." }, { status: 500 });
-      return NextResponse.json({ ok: true, action: "task.update", task: updated, mode: "household-confirmed-action" });
-    }
-
-    if (action.type === "calendar.add") {
-      const { data: inserted, error } = await db.from("calendar_events").insert({
-        household_id: householdId,
-        created_by: membership.id,
-        title: action.title,
-        event_date: action.eventDate,
-        recurring: false,
-        reminder_days_before: 7,
-        visibility: action.visibility,
-        private_owner_id: action.visibility === "personal" ? membership.id : null,
-      }).select("id,title,event_date,recurring,visibility,private_owner_id,created_by").single();
-      if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cet événement." }, { status: 500 });
-      return NextResponse.json({ ok: true, action: "calendar.add", event: inserted, mode: "household-confirmed-action" });
-    }
-
-    const memberIds = new Set((await db.from("members").select("id").eq("household_id", householdId).is("left_at", null)).data?.map((m) => m.id) || []);
-    if (action.assignedTo && !memberIds.has(action.assignedTo)) return NextResponse.json({ error: "Le membre choisi n'appartient plus à ce foyer." }, { status: 400 });
-    const { data: inserted, error } = await db.from("tasks").insert({
-      household_id: householdId, name: action.name, weight_points: taskActionPoints(action), duration_key: action.durationKey,
-      effort_level: action.effortLevel, assigned_to: action.assignedTo, urgent: action.urgent, due_date: action.dueDate, status: "pending",
-    }).select("id,name,due_date,assigned_to,urgent,duration_key,effort_level,weight_points,status").single();
-    if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cette tâche." }, { status: 500 });
-    return NextResponse.json({ ok: true, action: "task.add", task: inserted, mode: "household-confirmed-action" });
-  }
-
-  const question = typeof body.question === "string" ? body.question.trim().slice(0, 3000) : "";
-  if (!question) return NextResponse.json({ error: "Question manquante" }, { status: 400 });
-  const apiKey = process.env.GROQ_API_KEY?.trim();
-  if (!apiKey) return NextResponse.json({ error: "LOBA IA n'est pas configurée." }, { status: 503 });
-
-  const since30d = new Date(Date.now() - 30 * 86400000).toISOString();
-  const [householdRes, membersRes, tasksRes, shoppingRes, sharedEventsRes, personalEventsRes, contributionsRes] = await Promise.all([
-    db.from("households").select("id,name").eq("id", householdId).single(),
-    db.from("members").select("id,first_name,user_id,left_at").eq("household_id", householdId).is("left_at", null).not("user_id", "is", null),
-    db.from("tasks").select("id,name,status,urgent,due_date,assigned_to").eq("household_id", householdId).eq("status", "pending").limit(100),
-    db.from("shopping_items").select("id,name,quantity,urgent,due_date,assigned_to").eq("household_id", householdId).eq("status", "to_buy").limit(100),
-    db.from("calendar_events").select("id,title,event_date,recurring,visibility").eq("household_id", householdId).eq("visibility", "household").limit(100),
-    db.from("calendar_events").select("id,title,event_date,recurring,visibility").eq("household_id", householdId).eq("visibility", "personal").eq("private_owner_id", membership.id).limit(100),
-    db.from("task_contributions").select("id,task_id,household_id,completed_at,duration_key,effort_level,weight_points,performer_status,cancelled_at").eq("household_id", householdId).gte("completed_at", since30d).is("cancelled_at", null),
-  ]);
-  if (householdRes.error || !householdRes.data) return NextResponse.json({ error: "Foyer introuvable" }, { status: 404 });
-
-  const members = membersRes.data || [];
-  const contributions = contributionsRes.data || [];
-  let participantRows: Array<{ contribution_id: string; member_id: string; share_weight: number }> = [];
-  if (contributions.length) {
-    const { data } = await db.from("task_contribution_participants").select("contribution_id,member_id,share_weight").in("contribution_id", contributions.map((x) => x.id));
-    participantRows = data || [];
-  }
-  const points = computeContributionMemberPoints(members.map((m) => m.id), contributions, participantRows, new Date(since30d));
-  const context: LobaHouseholdContext = {
-    household: { id: householdRes.data.id, name: householdRes.data.name },
-    currentMember: { id: membership.id, firstName: membership.first_name, language: membership.language || "fr" },
-    members: members.map((m) => ({ id: m.id, firstName: m.first_name })),
-    tasks: (tasksRes.data || []).map((x) => ({ id:x.id,name:x.name,status:x.status,urgent:x.urgent,dueDate:x.due_date,assignedTo:x.assigned_to })),
-    shopping: (shoppingRes.data || []).map((x) => ({ id:x.id,name:x.name,quantity:x.quantity,urgent:x.urgent,dueDate:x.due_date,assignedTo:x.assigned_to })),
-    events: [...(sharedEventsRes.data || []), ...(personalEventsRes.data || [])].map((x) => ({ id:x.id,title:x.title,eventDate:x.event_date,recurring:x.recurring,visibility:x.visibility as "household"|"personal" })),
-    balance: members.map((m) => ({ memberId:m.id, firstName:m.first_name, points30d: Math.round((points.get(m.id) || 0) * 10) / 10 })),
-    generatedAt: new Date().toISOString(),
-  };
-
-  const history = sanitizeHouseholdHistory(Array.isArray(body.history) ? body.history as LobaAiMessage[] : []);
-  const model = process.env.LOBA_AI_MODEL?.trim() || LOBA_DEFAULT_MODEL;
-  try {
-    const response = await fetch(GROQ_ENDPOINT, { method:"POST", headers:{ Authorization:`Bearer ${apiKey}`, "Content-Type":"application/json" }, body:JSON.stringify({ model, messages:[{role:"system",content:buildHouseholdPrompt(context)},...history,{role:"user",content:question}], temperature:0.2, max_completion_tokens:500, response_format:{type:"json_object"} }), signal:AbortSignal.timeout(25000) });
-    if (!response.ok) return NextResponse.json({ error: response.status === 429 ? "LOBA a atteint sa limite gratuite temporaire." : "Le moteur IA de LOBA est momentanément indisponible." }, { status: response.status === 429 ? 429 : 502 });
-    const data = await response.json() as { choices?: Array<{message?:{content?:string}}> };
-    const raw = data.choices?.[0]?.message?.content?.trim();
-    if (!raw) return NextResponse.json({ error:"LOBA n'a pas produit de réponse." }, { status:502 });
-    const envelope = parseLobaHouseholdEnvelope(raw);
-    if (envelope.proposedAction?.type === "task.update") {
-      const proposed = envelope.proposedAction;
-      const task = context.tasks.find((x) => x.id === proposed.taskId);
-      const target = proposed.assignedTo ? context.members.find((x) => x.id === proposed.assignedTo) : null;
-      const previous = task?.assignedTo ? context.members.find((x) => x.id === task.assignedTo) : null;
-      if (!task || proposed.expectedAssignedTo !== task.assignedTo || (proposed.assignedTo && !target)) {
-        return NextResponse.json({ answer:"Je n’ai pas pu identifier cette modification avec assez de certitude. Peux-tu préciser la tâche et la personne concernée ?", proposedAction:null, engine:"ai", mode:"household-confirm-before-write" });
-      }
-      envelope.proposedAction = { ...proposed, taskName:task.name, previousAssignedToName:previous?.firstName || null, assignedToName:target?.firstName || null };
-    }
-    return NextResponse.json({ ...envelope, engine:"ai", mode:"household-confirm-before-write" });
-  } catch { return NextResponse.json({ error:"Le moteur IA de LOBA est momentanément indisponible." }, { status:502 }); }
+ const question=typeof body.question==="string"?body.question.trim().slice(0,3000):"";if(!question)return NextResponse.json({error:"Question manquante"},{status:400});const apiKey=process.env.GROQ_API_KEY?.trim();if(!apiKey)return NextResponse.json({error:"LOBA IA n'est pas configurée."},{status:503});const since30d=new Date(Date.now()-30*86400000).toISOString();
+ const[householdRes,membersRes,tasksRes,shoppingRes,sharedEventsRes,personalEventsRes,contributionsRes]=await Promise.all([db.from("households").select("id,name").eq("id",householdId).single(),db.from("members").select("id,first_name,user_id,left_at").eq("household_id",householdId).is("left_at",null).not("user_id","is",null),db.from("tasks").select("id,name,status,urgent,due_date,assigned_to,duration_key,effort_level,routine_id").eq("household_id",householdId).eq("status","pending").limit(100),db.from("shopping_items").select("id,name,quantity,urgent,due_date,assigned_to,status").eq("household_id",householdId).eq("status","to_buy").limit(100),db.from("calendar_events").select("id,title,event_date,recurring,visibility,private_owner_id").eq("household_id",householdId).eq("visibility","household").limit(100),db.from("calendar_events").select("id,title,event_date,recurring,visibility,private_owner_id").eq("household_id",householdId).eq("visibility","personal").eq("private_owner_id",membership.id).limit(100),db.from("task_contributions").select("id,task_id,household_id,completed_at,duration_key,effort_level,weight_points,performer_status,cancelled_at").eq("household_id",householdId).gte("completed_at",since30d).is("cancelled_at",null)]);if(householdRes.error||!householdRes.data)return NextResponse.json({error:"Foyer introuvable"},{status:404});
+ const members=membersRes.data||[],contributions=contributionsRes.data||[];let participantRows:any[]=[];if(contributions.length)participantRows=(await db.from("task_contribution_participants").select("contribution_id,member_id,share_weight").in("contribution_id",contributions.map(x=>x.id))).data||[];const points=computeContributionMemberPoints(members.map(m=>m.id),contributions,participantRows,new Date(since30d));const context:LobaHouseholdContext={household:{id:householdRes.data.id,name:householdRes.data.name},currentMember:{id:membership.id,firstName:membership.first_name,language:membership.language||"fr"},members:members.map(m=>({id:m.id,firstName:m.first_name})),tasks:(tasksRes.data||[]).map(x=>({id:x.id,name:x.name,status:x.status,urgent:x.urgent,dueDate:x.due_date,assignedTo:x.assigned_to,durationKey:x.duration_key,effortLevel:x.effort_level,routineId:x.routine_id})),shopping:(shoppingRes.data||[]).map(x=>({id:x.id,name:x.name,quantity:x.quantity,urgent:x.urgent,dueDate:x.due_date,assignedTo:x.assigned_to})),events:[...(sharedEventsRes.data||[]),...(personalEventsRes.data||[])].map(x=>({id:x.id,title:x.title,eventDate:x.event_date,recurring:x.recurring,visibility:x.visibility as "household"|"personal"})),balance:members.map(m=>({memberId:m.id,firstName:m.first_name,points30d:Math.round((points.get(m.id)||0)*10)/10})),generatedAt:new Date().toISOString()};
+ const history=sanitizeHouseholdHistory(Array.isArray(body.history)?body.history as LobaAiMessage[]:[]),model=process.env.LOBA_AI_MODEL?.trim()||LOBA_DEFAULT_MODEL;try{const response=await fetch(GROQ_ENDPOINT,{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model,messages:[{role:"system",content:buildHouseholdPrompt(context)},...history,{role:"user",content:question}],temperature:.2,max_completion_tokens:650,response_format:{type:"json_object"}}),signal:AbortSignal.timeout(25000)});if(!response.ok)return NextResponse.json({error:response.status===429?"LOBA a atteint sa limite gratuite temporaire.":"Le moteur IA de LOBA est momentanément indisponible."},{status:response.status===429?429:502});const data=await response.json() as any,raw=data.choices?.[0]?.message?.content?.trim();if(!raw)return NextResponse.json({error:"LOBA n'a pas produit de réponse."},{status:502});const env=parseLobaHouseholdEnvelope(raw),a=env.proposedAction;if(a){const memberList=context.members;
+   if(a.type==="task.update"||a.type==="task.delete"){const t=(tasksRes.data||[]).find(x=>x.id===a.taskId);if(!t||(a.type==="task.delete"&&t.routine_id)|| (a.type==="task.update"&&"assignedTo" in a.changes&&a.changes.assignedTo&&!memberList.some(m=>m.id===a.changes.assignedTo)))env.proposedAction=null;else {const snap=taskSnap(t);env.proposedAction={...a,expected:snap,taskName:t.name,...(a.type==="task.update"?{changeSummary:summary(a.changes,snap,memberList)}:{})} as LobaHouseholdAction}}
+   if(a.type==="shopping.update"||a.type==="shopping.delete"){const i=(shoppingRes.data||[]).find(x=>x.id===a.itemId);if(!i||(a.type==="shopping.update"&&"assignedTo" in a.changes&&a.changes.assignedTo&&!memberList.some(m=>m.id===a.changes.assignedTo)))env.proposedAction=null;else{const snap=shopSnap(i);env.proposedAction={...a,expected:snap,itemName:i.name,...(a.type==="shopping.update"?{changeSummary:summary(a.changes,snap,memberList)}:{})} as LobaHouseholdAction}}
+   if(a.type==="calendar.update"||a.type==="calendar.delete"){const e=[...(sharedEventsRes.data||[]),...(personalEventsRes.data||[])].find(x=>x.id===a.eventId);if(!e)env.proposedAction=null;else{const snap=eventSnap(e);env.proposedAction={...a,expected:snap,eventTitle:e.title,visibility:e.visibility as "household"|"personal",...(a.type==="calendar.update"?{changeSummary:summary(a.changes,snap,memberList)}:{})} as LobaHouseholdAction}}
+  }return NextResponse.json({...env,engine:"ai",mode:"household-confirm-before-write"})}catch{return NextResponse.json({error:"Le moteur IA de LOBA est momentanément indisponible."},{status:502})}
 }

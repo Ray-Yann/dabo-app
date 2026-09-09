@@ -1,111 +1,35 @@
 import { DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
 
-export type LobaShoppingAddAction = {
-  type: "shopping.add";
-  item: string;
-  quantity: string | null;
-};
+export type LobaShoppingAddAction={type:"shopping.add";item:string;quantity:string|null};
+export type LobaTaskAddAction={type:"task.add";name:string;dueDate:string|null;assignedTo:string|null;urgent:boolean;durationKey:string;effortLevel:string};
+export type LobaCalendarAddAction={type:"calendar.add";title:string;eventDate:string;visibility:"household"|"personal";recurring:false};
+export type LobaTaskUpdateAction={type:"task.update";taskId:string;changes:{name?:string;dueDate?:string|null;assignedTo?:string|null;urgent?:boolean;durationKey?:string;effortLevel?:string};expected?:Record<string,unknown>;taskName?:string;changeSummary?:string};
+export type LobaTaskDeleteAction={type:"task.delete";taskId:string;expected?:Record<string,unknown>;taskName?:string};
+export type LobaShoppingUpdateAction={type:"shopping.update";itemId:string;changes:{name?:string;quantity?:string|null;dueDate?:string|null;assignedTo?:string|null;urgent?:boolean};expected?:Record<string,unknown>;itemName?:string;changeSummary?:string};
+export type LobaShoppingDeleteAction={type:"shopping.delete";itemId:string;expected?:Record<string,unknown>;itemName?:string};
+export type LobaCalendarUpdateAction={type:"calendar.update";eventId:string;changes:{title?:string;eventDate?:string};expected?:Record<string,unknown>;eventTitle?:string;visibility?:"household"|"personal";changeSummary?:string};
+export type LobaCalendarDeleteAction={type:"calendar.delete";eventId:string;expected?:Record<string,unknown>;eventTitle?:string;visibility?:"household"|"personal"};
+export type LobaHouseholdAction=LobaShoppingAddAction|LobaTaskAddAction|LobaCalendarAddAction|LobaTaskUpdateAction|LobaTaskDeleteAction|LobaShoppingUpdateAction|LobaShoppingDeleteAction|LobaCalendarUpdateAction|LobaCalendarDeleteAction;
 
-export type LobaTaskAddAction = {
-  type: "task.add";
-  name: string;
-  dueDate: string | null;
-  assignedTo: string | null;
-  urgent: boolean;
-  durationKey: string;
-  effortLevel: string;
-};
+function cleanText(v:unknown,max:number){return typeof v==="string"?v.trim().replace(/\s+/g," ").slice(0,max):""}
+function validCivilDate(v:unknown):string|null|undefined{if(v===null||v==="")return null;if(typeof v!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v))return undefined;const[y,m,d]=v.split("-").map(Number),dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?v:undefined}
+function id(v:unknown){return cleanText(v,100)}
+function nullableId(v:unknown):string|null|undefined{if(v===null||v==="")return null;const x=id(v);return x||undefined}
+function expected(v:unknown){return v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:undefined}
+function normalizeTaskChanges(v:unknown){if(!v||typeof v!=="object")return null;const r=v as Record<string,unknown>,o:LobaTaskUpdateAction["changes"]={};if("name" in r){const x=cleanText(r.name,160);if(!x)return null;o.name=x}if("dueDate" in r){const x=validCivilDate(r.dueDate);if(x===undefined)return null;o.dueDate=x}if("assignedTo" in r){const x=nullableId(r.assignedTo);if(x===undefined)return null;o.assignedTo=x}if("urgent" in r){if(typeof r.urgent!=="boolean")return null;o.urgent=r.urgent}if("durationKey" in r){const x=cleanText(r.durationKey,20);if(!DURATION_OPTIONS.some(d=>d.key===x))return null;o.durationKey=x}if("effortLevel" in r){const x=cleanText(r.effortLevel,20);if(!EFFORT_OPTIONS.some(e=>e.key===x))return null;o.effortLevel=x}return Object.keys(o).length?o:null}
+function normalizeShoppingChanges(v:unknown){if(!v||typeof v!=="object")return null;const r=v as Record<string,unknown>,o:LobaShoppingUpdateAction["changes"]={};if("name" in r){const x=cleanText(r.name,160);if(!x)return null;o.name=x}if("quantity" in r)o.quantity=cleanText(r.quantity,80)||null;if("dueDate" in r){const x=validCivilDate(r.dueDate);if(x===undefined)return null;o.dueDate=x}if("assignedTo" in r){const x=nullableId(r.assignedTo);if(x===undefined)return null;o.assignedTo=x}if("urgent" in r){if(typeof r.urgent!=="boolean")return null;o.urgent=r.urgent}return Object.keys(o).length?o:null}
+function normalizeCalendarChanges(v:unknown){if(!v||typeof v!=="object")return null;const r=v as Record<string,unknown>,o:LobaCalendarUpdateAction["changes"]={};if("title" in r){const x=cleanText(r.title,160);if(!x)return null;o.title=x}if("eventDate" in r){const x=validCivilDate(r.eventDate);if(!x)return null;o.eventDate=x}return Object.keys(o).length?o:null}
 
-export type LobaCalendarAddAction = {
-  type: "calendar.add";
-  title: string;
-  eventDate: string;
-  visibility: "household" | "personal";
-  recurring: false;
-};
-
-export type LobaTaskUpdateAction = {
-  type: "task.update";
-  taskId: string;
-  assignedTo: string | null;
-  expectedAssignedTo: string | null;
-  taskName?: string;
-  previousAssignedToName?: string | null;
-  assignedToName?: string | null;
-};
-
-export type LobaHouseholdAction = LobaShoppingAddAction | LobaTaskAddAction | LobaCalendarAddAction | LobaTaskUpdateAction;
-
-function cleanText(value: unknown, max: number) {
-  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
-}
-
-function validCivilDate(value: unknown): string | null | undefined {
-  if (value === null || value === "") return null;
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
-  const [y,m,d] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(y,m-1,d));
-  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m-1 || date.getUTCDate() !== d) return undefined;
-  return value;
-}
-
-export function normalizeHouseholdAction(value: unknown): LobaHouseholdAction | null {
-  if (!value || typeof value !== "object") return null;
-  const row = value as Record<string, unknown>;
-
-  if (row.type === "shopping.add") {
-    const item = cleanText(row.item, 160);
-    if (!item) return null;
-    const quantity = cleanText(row.quantity, 80) || null;
-    return { type: "shopping.add", item, quantity };
-  }
-
-  if (row.type === "task.add") {
-    const name = cleanText(row.name, 160);
-    const dueDate = validCivilDate(row.dueDate);
-    const assignedTo = row.assignedTo === null || row.assignedTo === "" ? null : cleanText(row.assignedTo, 80);
-    const durationKey = cleanText(row.durationKey, 20);
-    const effortLevel = cleanText(row.effortLevel, 20);
-    if (!name || dueDate === undefined || assignedTo === "" || typeof row.urgent !== "boolean") return null;
-    if (!DURATION_OPTIONS.some((x) => x.key === durationKey)) return null;
-    if (!EFFORT_OPTIONS.some((x) => x.key === effortLevel)) return null;
-    return { type: "task.add", name, dueDate, assignedTo, urgent: row.urgent, durationKey, effortLevel };
-  }
-
-  if (row.type === "task.update") {
-    const taskId = cleanText(row.taskId, 100);
-    const assignedTo = row.assignedTo === null || row.assignedTo === "" ? null : cleanText(row.assignedTo, 100);
-    const expectedAssignedTo = row.expectedAssignedTo === null || row.expectedAssignedTo === "" ? null : cleanText(row.expectedAssignedTo, 100);
-    if (!taskId || assignedTo === "" || expectedAssignedTo === "") return null;
-    const taskName = cleanText(row.taskName, 160) || undefined;
-    const previousAssignedToName = row.previousAssignedToName === null ? null : (cleanText(row.previousAssignedToName, 80) || undefined);
-    const assignedToName = row.assignedToName === null ? null : (cleanText(row.assignedToName, 80) || undefined);
-    return { type: "task.update", taskId, assignedTo, expectedAssignedTo, taskName, previousAssignedToName, assignedToName };
-  }
-
-  if (row.type === "calendar.add") {
-    const title = cleanText(row.title, 160);
-    const eventDate = validCivilDate(row.eventDate);
-    const visibility = row.visibility === "household" || row.visibility === "personal" ? row.visibility : null;
-    if (!title || !eventDate || !visibility || row.recurring !== false) return null;
-    return { type: "calendar.add", title, eventDate, visibility, recurring: false };
-  }
-
-  return null;
-}
-
-export function taskActionPoints(action: LobaTaskAddAction) {
-  return computeTaskPoints(action.durationKey, action.effortLevel);
-}
-
-export function parseLobaHouseholdEnvelope(raw: string): { answer: string; proposedAction: LobaHouseholdAction | null } {
-  const fallback = { answer: raw.trim(), proposedAction: null as LobaHouseholdAction | null };
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const answer = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
-    if (!answer) return fallback;
-    return { answer, proposedAction: normalizeHouseholdAction(parsed.proposedAction) };
-  } catch {
-    return fallback;
-  }
-}
+export function normalizeHouseholdAction(value:unknown):LobaHouseholdAction|null{if(!value||typeof value!=="object")return null;const r=value as Record<string,unknown>;
+ if(r.type==="shopping.add"){const item=cleanText(r.item,160);if(!item)return null;return{type:"shopping.add",item,quantity:cleanText(r.quantity,80)||null}}
+ if(r.type==="task.add"){const name=cleanText(r.name,160),dueDate=validCivilDate(r.dueDate),assignedTo=nullableId(r.assignedTo),durationKey=cleanText(r.durationKey,20),effortLevel=cleanText(r.effortLevel,20);if(!name||dueDate===undefined||assignedTo===undefined||typeof r.urgent!=="boolean"||!DURATION_OPTIONS.some(x=>x.key===durationKey)||!EFFORT_OPTIONS.some(x=>x.key===effortLevel))return null;return{type:"task.add",name,dueDate,assignedTo,urgent:r.urgent,durationKey,effortLevel}}
+ if(r.type==="calendar.add"){const title=cleanText(r.title,160),eventDate=validCivilDate(r.eventDate),visibility=r.visibility==="household"||r.visibility==="personal"?r.visibility:null;if(!title||!eventDate||!visibility||r.recurring!==false)return null;return{type:"calendar.add",title,eventDate,visibility,recurring:false}}
+ if(r.type==="task.update"){const taskId=id(r.taskId),changes=normalizeTaskChanges(r.changes);if(!taskId||!changes)return null;return{type:"task.update",taskId,changes,expected:expected(r.expected),taskName:cleanText(r.taskName,160)||undefined,changeSummary:cleanText(r.changeSummary,500)||undefined}}
+ if(r.type==="task.delete"){const taskId=id(r.taskId);if(!taskId)return null;return{type:"task.delete",taskId,expected:expected(r.expected),taskName:cleanText(r.taskName,160)||undefined}}
+ if(r.type==="shopping.update"){const itemId=id(r.itemId),changes=normalizeShoppingChanges(r.changes);if(!itemId||!changes)return null;return{type:"shopping.update",itemId,changes,expected:expected(r.expected),itemName:cleanText(r.itemName,160)||undefined,changeSummary:cleanText(r.changeSummary,500)||undefined}}
+ if(r.type==="shopping.delete"){const itemId=id(r.itemId);if(!itemId)return null;return{type:"shopping.delete",itemId,expected:expected(r.expected),itemName:cleanText(r.itemName,160)||undefined}}
+ if(r.type==="calendar.update"){const eventId=id(r.eventId),changes=normalizeCalendarChanges(r.changes);if(!eventId||!changes)return null;const visibility=r.visibility==="household"||r.visibility==="personal"?r.visibility:undefined;return{type:"calendar.update",eventId,changes,expected:expected(r.expected),eventTitle:cleanText(r.eventTitle,160)||undefined,visibility,changeSummary:cleanText(r.changeSummary,500)||undefined}}
+ if(r.type==="calendar.delete"){const eventId=id(r.eventId);if(!eventId)return null;const visibility=r.visibility==="household"||r.visibility==="personal"?r.visibility:undefined;return{type:"calendar.delete",eventId,expected:expected(r.expected),eventTitle:cleanText(r.eventTitle,160)||undefined,visibility}}
+ return null}
+export function taskActionPoints(a:LobaTaskAddAction){return computeTaskPoints(a.durationKey,a.effortLevel)}
+export function parseLobaHouseholdEnvelope(raw:string){const fallback={answer:raw.trim(),proposedAction:null as LobaHouseholdAction|null};try{const p=JSON.parse(raw) as Record<string,unknown>,answer=typeof p.answer==="string"?p.answer.trim():"";return answer?{answer,proposedAction:normalizeHouseholdAction(p.proposedAction)}:fallback}catch{return fallback}}

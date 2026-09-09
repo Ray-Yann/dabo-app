@@ -28,9 +28,14 @@ test("LOBA Calendrier accepte seulement une création datée et à portée expli
  assert.equal(normalizeHouseholdAction({type:"calendar.add",title:"Dentiste",eventDate:"2026-02-30",visibility:"personal",recurring:false}),null);
 });
 
-test("LOBA Phase 3 borne la modification à l’attribution d’une tâche",()=>{
- const action=normalizeHouseholdAction({type:"task.update",taskId:"t1",assignedTo:"m2",expectedAssignedTo:null});
- assert.deepEqual(action,{type:"task.update",taskId:"t1",assignedTo:"m2",expectedAssignedTo:null,taskName:undefined,previousAssignedToName:undefined,assignedToName:undefined});
- assert.equal(normalizeHouseholdAction({type:"task.update",taskId:"",assignedTo:"m2",expectedAssignedTo:null}),null);
- assert.equal(normalizeHouseholdAction({type:"task.update",taskId:"t1",assignedTo:"m2",expectedAssignedTo:null,name:"Nouveau nom"})?.type,"task.update");
+test("LOBA Actions complètes borne les modifications et suppressions",()=>{
+ const task=normalizeHouseholdAction({type:"task.update",taskId:"t1",changes:{assignedTo:"m2",urgent:true,durationKey:"30min"}});
+ assert.equal(task?.type,"task.update");
+ assert.equal(normalizeHouseholdAction({type:"task.update",taskId:"t1",changes:{durationKey:"inventé"}}),null);
+ assert.equal(normalizeHouseholdAction({type:"task.delete",taskId:"t1"})?.type,"task.delete");
+ assert.equal(normalizeHouseholdAction({type:"shopping.update",itemId:"s1",changes:{quantity:"2",urgent:true}})?.type,"shopping.update");
+ assert.equal(normalizeHouseholdAction({type:"shopping.delete",itemId:"s1"})?.type,"shopping.delete");
+ assert.equal(normalizeHouseholdAction({type:"calendar.update",eventId:"e1",changes:{eventDate:"2026-09-12"}})?.type,"calendar.update");
+ assert.equal(normalizeHouseholdAction({type:"calendar.update",eventId:"e1",changes:{eventDate:"2026-02-30"}}),null);
+ assert.equal(normalizeHouseholdAction({type:"calendar.delete",eventId:"e1"})?.type,"calendar.delete");
 });

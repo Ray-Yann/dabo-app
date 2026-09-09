@@ -8,7 +8,7 @@ test("LOBA foyer reste ancrée au foyer actif et n’écrit jamais sans confirma
     household: { id: "h1", name: "Maison" },
     currentMember: { id: "m1", firstName: "Ray", language: "fr" },
     members: [{ id: "m1", firstName: "Ray" }],
-    tasks: [{ id: "t1", name: "Vaisselle", status: "pending", urgent: false, dueDate: null, assignedTo: "m1" }],
+    tasks: [{ id: "t1", name: "Vaisselle", status: "pending", urgent: false, dueDate: null, assignedTo: "m1", durationKey: "15min", effortLevel: "faible", routineId: null }],
     shopping: [],
     events: [],
     balance: [],
@@ -80,15 +80,17 @@ test("LOBA Calendrier exige une portée explicite et protège le personnel", () 
   assert.match(prompt, /aucune récurrence/i);
 });
 
-test("LOBA Phase 3 ne modifie que l’attribution et exige une cible non ambiguë", () => {
+test("LOBA Actions complètes couvre Courses, Tâches et Calendrier avec confirmation", () => {
   const prompt = buildHouseholdPrompt({
     household:{id:"h1",name:"Maison"}, currentMember:{id:"m1",firstName:"Ray",language:"fr"},
     members:[{id:"m1",firstName:"Ray"},{id:"m2",firstName:"Manga"}],
-    tasks:[{id:"t1",name:"Nettoyer ma chambre",status:"pending",urgent:false,dueDate:"2026-09-10",assignedTo:null}],
-    shopping:[],events:[],balance:[],generatedAt:"2026-09-09T00:00:00.000Z"
+    tasks:[{id:"t1",name:"Nettoyer ma chambre",status:"pending",urgent:false,dueDate:"2026-09-10",assignedTo:null,durationKey:"30min",effortLevel:"moyen",routineId:null}],
+    shopping:[{id:"s1",name:"Lingettes",quantity:null,urgent:false,dueDate:null,assignedTo:null}],
+    events:[{id:"e1",title:"Dîner",eventDate:"2026-09-12",recurring:false,visibility:"household"}],balance:[],generatedAt:"2026-09-09T00:00:00.000Z"
   });
-  assert.match(prompt,/task\.update/i);
-  assert.match(prompt,/expectedAssignedTo/i);
-  assert.match(prompt,/plusieurs tâches peuvent correspondre/i);
-  assert.match(prompt,/AUCUN autre champ/i);
+  for (const action of ["shopping.update","shopping.delete","task.update","task.delete","calendar.update","calendar.delete"]) assert.match(prompt,new RegExp(action.replace(".","\\."),"i"));
+  assert.match(prompt,/plusieurs éléments peuvent correspondre/i);
+  assert.match(prompt,/suppression LOBA interdite si routineId/i);
+  assert.match(prompt,/ne change jamais personal↔household/i);
+  assert.match(prompt,/confirmation explicite/i);
 });
