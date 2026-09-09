@@ -16,6 +16,7 @@ import {
   fetchContributionBalanceData,
 } from "@/lib/task-contributions";
 import { Avatar } from "@/components/Avatar";
+import Link from "next/link";
 
 type Period = "week" | "month" | "quarter";
 
@@ -396,6 +397,11 @@ export default function BalancePage() {
         title={t("balance_title")}
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
+
+      <div className="mx-5 mb-5 grid grid-cols-2 rounded-2xl bg-white2 p-1">
+        <span className="rounded-xl bg-paper px-3 py-2 text-center text-sm font-semibold text-ink shadow-sm">Organisation</span>
+        <Link href="/app/equilibre/budget" className="rounded-xl px-3 py-2 text-center text-sm font-medium text-muted">Budget</Link>
+      </div>
 
       <div className="mx-5 mb-5 grid grid-cols-3 border-b border-borderLight/70">
         {(["overview", "contributions", "redistribute"] as const).map((section) => (

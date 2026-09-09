@@ -28,7 +28,7 @@ function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean
         <div className="dabo-main-nav-grid max-w-lg mx-auto grid grid-cols-6">
           {TABS.map((t2) => {
             const Icon = t2.icon;
-            const active = pathname === t2.href;
+            const active = pathname === t2.href || (t2.href === "/app/equilibre" && pathname.startsWith("/app/equilibre/"));
             return (
               <button
                 key={t2.href}
