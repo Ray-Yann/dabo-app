@@ -42,7 +42,7 @@ export default function CoursesPage() {
   }
   async function toggle(item: ShoppingItem) {
     const status = item.status === "bought" ? "to_buy" : "bought";
-    await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
+    await supabase.rpc("dabo_set_shopping_item_status", { p_item_id: item.id, p_status: status });
     loadItems();
   }
   async function remove(id: string) {

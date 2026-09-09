@@ -15,6 +15,7 @@ import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { PromosView } from "@/components/PromosView";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { SmartNameInput } from "@/components/SmartNameInput";
+import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
@@ -83,6 +84,12 @@ export default function CoursesPage() {
   const [actionItemId, setActionItemId] = useState<string | null>(null);
   const headerAddButtonRef = useRef<HTMLButtonElement | null>(null);
   const [headerAddButtonVisible, setHeaderAddButtonVisible] = useState(true);
+  const [shoppingFinanceSession, setShoppingFinanceSession] = useState<ShoppingFinanceSession | null>(null);
+  const [shoppingFinanceAmount, setShoppingFinanceAmount] = useState("");
+  const [shoppingFinancePayer, setShoppingFinancePayer] = useState("");
+  const [shoppingFinanceBusy, setShoppingFinanceBusy] = useState(false);
+  const [shoppingFinanceError, setShoppingFinanceError] = useState("");
+  const [shoppingFinanceSaved, setShoppingFinanceSaved] = useState(false);
 
   useEffect(() => {
     const button = headerAddButtonRef.current;
@@ -96,6 +103,64 @@ export default function CoursesPage() {
     observer.observe(button);
     return () => observer.disconnect();
   }, []);
+
+  async function loadShoppingFinancePrompt() {
+    if (!household) return;
+    const { data, error } = await supabase
+      .from("shopping_sessions")
+      .select("id,household_id,shopper_member_id,first_bought_at,last_bought_at,item_count,state,total_amount,finance_transaction_id,prompted_at")
+      .eq("household_id", household.id)
+      .eq("state", "pending")
+      .order("last_bought_at", { ascending: false })
+      .limit(10);
+    if (error) return;
+    const eligible = ((data || []) as ShoppingFinanceSession[]).find((session) => shoppingSessionPromptEligible(session, new Date()));
+    setShoppingFinanceSession(eligible || null);
+    if (eligible && !shoppingFinancePayer && me) setShoppingFinancePayer(me.id);
+  }
+
+  async function recordShoppingFinance() {
+    if (!shoppingFinanceSession || !shoppingFinancePayer) return;
+    const normalized = shoppingFinanceAmount.replace(/\s/g, "").replace("€", "").replace(",", ".");
+    const value = Number(normalized);
+    if (!Number.isFinite(value) || value <= 0) {
+      setShoppingFinanceError(t("courses_finance_amount_error"));
+      return;
+    }
+    setShoppingFinanceBusy(true);
+    setShoppingFinanceError("");
+    const { error } = await supabase.rpc("dabo_record_shopping_session_expense", {
+      p_session_id: shoppingFinanceSession.id,
+      p_amount: Math.round(value * 100) / 100,
+      p_paid_by_member_id: shoppingFinancePayer,
+    });
+    setShoppingFinanceBusy(false);
+    if (error) {
+      console.error(error);
+      setShoppingFinanceError(t("courses_finance_save_error"));
+      return;
+    }
+    setShoppingFinanceSession(null);
+    setShoppingFinanceAmount("");
+    setShoppingFinanceSaved(true);
+    window.setTimeout(() => setShoppingFinanceSaved(false), 2600);
+  }
+
+  async function postponeShoppingFinance() {
+    if (!shoppingFinanceSession) return;
+    await supabase.from("shopping_sessions").update({ prompted_at: new Date().toISOString() }).eq("id", shoppingFinanceSession.id);
+    setShoppingFinanceSession(null);
+    setShoppingFinanceAmount("");
+    setShoppingFinanceError("");
+  }
+
+  async function dismissShoppingFinance() {
+    if (!shoppingFinanceSession) return;
+    await supabase.from("shopping_sessions").update({ state: "dismissed", prompted_at: new Date().toISOString() }).eq("id", shoppingFinanceSession.id);
+    setShoppingFinanceSession(null);
+    setShoppingFinanceAmount("");
+    setShoppingFinanceError("");
+  }
 
   async function loadItems() {
     if (!household) return;
@@ -113,6 +178,13 @@ export default function CoursesPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (household) loadItems();
   }, [household]);
+
+  useEffect(() => {
+    if (!household) return;
+    void loadShoppingFinancePrompt();
+    const timer = window.setInterval(() => void loadShoppingFinancePrompt(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [household?.id, me?.id]);
 
   async function addItem() {
     if (!addForm.name.trim() || !household) return;
@@ -171,7 +243,7 @@ export default function CoursesPage() {
       await new Promise((r) => setTimeout(r, 260));
     }
     const status = goingToBought ? "bought" : "to_buy";
-    const { error } = await supabase.from("shopping_items").update({ status, bought_at: status === "bought" ? new Date().toISOString() : null }).eq("id", item.id);
+    const { error } = await supabase.rpc("dabo_set_shopping_item_status", { p_item_id: item.id, p_status: status });
     setAnimatingId(null);
     if (error) return;
     if (status === "bought") {
@@ -182,6 +254,7 @@ export default function CoursesPage() {
       }
     }
     loadItems();
+    void loadShoppingFinancePrompt();
   }
   async function remove(id: string) {
     if (!confirm(t("confirm_delete_item"))) return;
@@ -397,6 +470,51 @@ export default function CoursesPage() {
       </div>
 
       <IntroTip id="courses" title={t("intro_courses_title")} text={t("intro_courses")} />
+
+      {shoppingFinanceSaved && (
+        <div className="mx-5 mb-4 rounded-2xl border border-borderLight bg-white2 px-4 py-3 text-sm font-medium text-ink">
+          {t("courses_finance_saved")}
+        </div>
+      )}
+
+      {shoppingFinanceSession && (
+        <section className="mx-5 mb-4 rounded-3xl border border-borderLight bg-paper p-4 shadow-sm">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t("courses_finance_eyebrow")}</div>
+          <h2 className="mt-1 font-serif text-xl text-ink">{t("courses_finance_title")}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            {t("courses_finance_intro").replace("{count}", String(shoppingFinanceSession.item_count))}
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="text-xs text-muted">
+              {t("courses_finance_amount_label")}
+              <input
+                inputMode="decimal"
+                value={shoppingFinanceAmount}
+                onChange={(e) => setShoppingFinanceAmount(e.target.value)}
+                placeholder="0,00"
+                className="mt-1 w-full rounded-xl border border-border bg-white2 px-3 py-2.5 text-sm text-ink outline-none focus:border-ink"
+              />
+            </label>
+            <label className="text-xs text-muted">
+              {t("courses_finance_paid_by")}
+              <select
+                value={shoppingFinancePayer}
+                onChange={(e) => setShoppingFinancePayer(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-white2 px-3 py-2.5 text-sm text-ink outline-none focus:border-ink"
+              >
+                {members.map((member) => <option key={member.id} value={member.id}>{member.first_name}{member.id === me?.id ? ` (${t("me")})` : ""}</option>)}
+              </select>
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-muted">{t("courses_finance_amount_hint")}</p>
+          {shoppingFinanceError && <p className="mt-2 text-xs font-medium text-red-700">{shoppingFinanceError}</p>}
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <button disabled={shoppingFinanceBusy} onClick={recordShoppingFinance} className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">{shoppingFinanceBusy ? t("scan_saving") : t("courses_finance_record")}</button>
+            <button disabled={shoppingFinanceBusy} onClick={postponeShoppingFinance} className="rounded-xl border border-borderLight px-4 py-2.5 text-sm font-medium text-ink disabled:opacity-50">{t("courses_finance_later")}</button>
+            <button disabled={shoppingFinanceBusy} onClick={dismissShoppingFinance} className="rounded-xl px-3 py-2.5 text-sm text-muted disabled:opacity-50">{t("courses_finance_skip")}</button>
+          </div>
+        </section>
+      )}
 
       {view === "courses" && shoppingSuggestion && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4">

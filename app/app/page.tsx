@@ -114,8 +114,8 @@ export default function TodayPage() {
     setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
   }
   async function toggleItem(id: string) {
-    await supabase.from("shopping_items").update({ status: "bought", bought_at: new Date().toISOString() }).eq("id", id);
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    const { error } = await supabase.rpc("dabo_set_shopping_item_status", { p_item_id: id, p_status: "bought" });
+    if (!error) setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
   const daboInsights = useMemo(() => {

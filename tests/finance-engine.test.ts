@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { shoppingSessionPromptEligible } from "@/lib/shopping-finance";
 import {
   categoryTotals,
   financePeriodLabel,
@@ -66,4 +67,27 @@ test("Finance navigue entre les périodes sans dépendre de la date du jour", ()
 test("Finance conserve une plage cohérente quand on navigue vers 2027", () => {
   const nextYear = shiftFinancePeriodAnchor("year", new Date(2026, 8, 9), 1);
   assert.deepEqual(financePeriodRange("year", nextYear), { start: "2027-01-01", endExclusive: "2028-01-01" });
+});
+
+
+test("Courses → Finance propose la session après 10 minutes et respecte Plus tard", () => {
+  const session = {
+    id: "s1", household_id: "h1", shopper_member_id: "m1",
+    first_bought_at: "2026-09-09T14:00:00Z", last_bought_at: "2026-09-09T14:05:00Z",
+    item_count: 4, state: "pending" as const, total_amount: null, finance_transaction_id: null, prompted_at: null,
+  };
+  assert.equal(shoppingSessionPromptEligible(session, new Date("2026-09-09T14:14:59Z")), false);
+  assert.equal(shoppingSessionPromptEligible(session, new Date("2026-09-09T14:15:00Z")), true);
+  assert.equal(shoppingSessionPromptEligible({ ...session, prompted_at: "2026-09-09T14:15:00Z" }, new Date("2026-09-09T14:30:00Z")), false);
+  assert.equal(shoppingSessionPromptEligible({ ...session, prompted_at: "2026-09-09T14:15:00Z" }, new Date("2026-09-09T15:15:00Z")), true);
+});
+
+test("Courses → Finance ne repropose jamais une session enregistrée ou ignorée", () => {
+  const base = {
+    id: "s1", household_id: "h1", shopper_member_id: "m1",
+    first_bought_at: "2026-09-09T14:00:00Z", last_bought_at: "2026-09-09T14:05:00Z",
+    item_count: 2, total_amount: null, finance_transaction_id: null, prompted_at: null,
+  };
+  assert.equal(shoppingSessionPromptEligible({ ...base, state: "dismissed" as const }, new Date("2026-09-09T16:00:00Z")), false);
+  assert.equal(shoppingSessionPromptEligible({ ...base, state: "recorded" as const, finance_transaction_id: "tx1" }, new Date("2026-09-09T16:00:00Z")), false);
 });
