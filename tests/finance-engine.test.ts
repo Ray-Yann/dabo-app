@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { shoppingSessionPromptEligible } from "@/lib/shopping-finance";
 import {
   categoryTotals,
+  financeBillsNeedingAttention,
   financePeriodLabel,
   financePeriodRange,
   percentageChange,
@@ -90,4 +91,23 @@ test("Courses → Finance ne repropose jamais une session enregistrée ou ignor�
   };
   assert.equal(shoppingSessionPromptEligible({ ...base, state: "dismissed" as const }, new Date("2026-09-09T16:00:00Z")), false);
   assert.equal(shoppingSessionPromptEligible({ ...base, state: "recorded" as const, finance_transaction_id: "tx1" }, new Date("2026-09-09T16:00:00Z")), false);
+});
+
+
+test("Aujourd’hui ne remonte que les factures en retard ou dues sous 3 jours", () => {
+  const bills = [
+    { label: "Internet", amount: 40, due_on: "2026-09-08", status: "pending" as const },
+    { label: "Électricité", amount: 55, due_on: "2026-09-12", status: "pending" as const },
+    { label: "Assurance", amount: 90, due_on: "2026-09-14", status: "pending" as const },
+    { label: "Eau", amount: 25, due_on: "2026-09-10", status: "paid" as const },
+  ];
+  assert.deepEqual(
+    financeBillsNeedingAttention(bills, "2026-09-10").map((bill) => bill.label),
+    ["Internet", "Électricité"],
+  );
+});
+
+test("Aujourd’hui reste calme quand aucune facture ne demande d’attention", () => {
+  const bills = [{ label: "Internet", amount: 40, due_on: "2026-09-20", status: "pending" as const }];
+  assert.deepEqual(financeBillsNeedingAttention(bills, "2026-09-10"), []);
 });

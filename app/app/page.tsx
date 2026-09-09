@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, ListChecks, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight } from "lucide-react";
+import { ShoppingBag, Info, Plus, ListChecks, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight, WalletCards } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { IconUpdateNotice } from "@/components/IconUpdateNotice";
@@ -20,6 +20,7 @@ import { ContributionBalanceData, countConfirmedContributionsSince, fetchContrib
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { FinanceBillAttentionLike, financeBillsNeedingAttention } from "@/lib/finance-engine";
 
 export default function TodayPage() {
   useEffect(() => { void trackAcquisitionEvent("app_open"); }, []);
@@ -33,6 +34,7 @@ export default function TodayPage() {
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
+  const [financeBills, setFinanceBills] = useState<FinanceBillAttentionLike[]>([]);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
 
@@ -68,13 +70,15 @@ export default function TodayPage() {
         .eq("household_id", household.id);
       setTotalItemsEver(count ?? 0);
 
-      const [{ data: events }, { data: routineData }] = await Promise.all([
+      const [{ data: events }, { data: routineData }, { data: billData }] = await Promise.all([
         supabase.from("calendar_events").select("*").eq("household_id", household.id).eq("visibility", "household"),
         supabase.from("routines").select("*").eq("household_id", household.id),
+        supabase.from("finance_bills").select("id,label,amount,currency,due_on,status,paid_transaction_id").eq("household_id", household.id).eq("status", "pending").order("due_on", { ascending: true }),
       ]);
       const householdEvents = (events as CalendarEvent[]) || [];
       setCalendarEvents(householdEvents);
       setRoutines((routineData as Routine[]) || []);
+      setFinanceBills((billData as FinanceBillAttentionLike[]) || []);
 
     })();
   }, [household, me]);
@@ -213,7 +217,22 @@ export default function TodayPage() {
       a.created_at.localeCompare(b.created_at)
     )[0] || null;
 
-  const hasEssentials = Boolean(essentialItem) || essentialTasks.length > 0;
+  const financeAttention = financeBillsNeedingAttention(financeBills, today, 3);
+  const hasEssentials = Boolean(essentialItem) || essentialTasks.length > 0 || financeAttention.length > 0;
+
+  function financeDueLabel(dueOn: string) {
+    const due = new Date(`${dueOn}T12:00:00`);
+    const current = new Date(`${today}T12:00:00`);
+    const days = Math.round((due.getTime() - current.getTime()) / 86_400_000);
+    if (days < 0) return t("today_finance_overdue");
+    if (days === 0) return t("today_finance_due_today");
+    return t("today_finance_due_soon").replace("{days}", String(days));
+  }
+
+  function financeAmount(amount: number | null, currency = "EUR") {
+    if (amount === null) return null;
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
+  }
 
   function insightDetails(insight: DaboInsight) {
     const task = insight.relatedEntityId
@@ -364,6 +383,31 @@ export default function TodayPage() {
           </div>
         ) : (
           <div className="bg-white2 rounded-2xl px-4 mb-3">
+            {financeAttention.map((bill, index) => {
+              const amount = financeAmount(bill.amount, bill.currency);
+              const hasFollowing = index < financeAttention.length - 1 || Boolean(essentialItem) || essentialTasks.length > 0;
+              return (
+                <button
+                  key={`finance-${bill.id || bill.label}-${bill.due_on}`}
+                  type="button"
+                  className={`w-full flex items-center gap-3 py-3.5 text-left ${hasFollowing ? "border-b border-borderLight" : ""}`}
+                  onClick={() => router.push("/app/equilibre/budget")}
+                >
+                  <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
+                    <WalletCards size={11} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] uppercase tracking-wide text-muted mb-0.5">{financeDueLabel(bill.due_on)}</div>
+                    <div className="text-sm text-ink flex items-center justify-between gap-3">
+                      <span className="truncate">{bill.label}</span>
+                      {amount && <span className="font-medium shrink-0">{amount}</span>}
+                    </div>
+                  </div>
+                  <ChevronRight size={14} className="text-muted shrink-0" />
+                </button>
+              );
+            })}
+
             {essentialItem && (
               <button
                 type="button"

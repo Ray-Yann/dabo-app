@@ -126,6 +126,26 @@ export function percentageChange(current: number, previous: number): number | nu
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
+export type FinanceBillAttentionLike = FinanceBillLike & {
+  label: string;
+  currency?: string;
+};
+
+export function financeBillsNeedingAttention(
+  bills: FinanceBillAttentionLike[],
+  today: string,
+  upcomingDays = 3,
+): FinanceBillAttentionLike[] {
+  if (!validDateKey(today) || !Number.isInteger(upcomingDays) || upcomingDays < 0) return [];
+  const [y, m, d] = today.split("-").map(Number);
+  const end = new Date(Date.UTC(y, m - 1, d + upcomingDays));
+  const endKey = `${end.getUTCFullYear()}-${String(end.getUTCMonth() + 1).padStart(2, "0")}-${String(end.getUTCDate()).padStart(2, "0")}`;
+  return bills
+    .filter((bill) => bill.status === "pending" && bill.due_on <= endKey)
+    .sort((a, b) => a.due_on.localeCompare(b.due_on) || a.label.localeCompare(b.label))
+    .slice(0, 2);
+}
+
 export function shoppingSessionReady(lastBoughtAt: string, now = new Date(), quietMinutes = 10): boolean {
   const last = new Date(lastBoughtAt).getTime();
   if (!Number.isFinite(last)) return false;
