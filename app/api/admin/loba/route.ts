@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireDaboAdmin } from "@/lib/admin-auth";
 import {
   buildLobaSystemPrompt,
+  detectLobaIntent,
   LOBA_DEFAULT_MODEL,
   sanitizeLobaMessages,
   type LobaAiContext,
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
 
   const history = sanitizeLobaMessages(Array.isArray(body.history) ? (body.history as LobaAiMessage[]) : []);
   const model = process.env.LOBA_AI_MODEL?.trim() || LOBA_DEFAULT_MODEL;
+  const intent = detectLobaIntent(question);
 
   try {
     const response = await fetch(GROQ_ENDPOINT, {
@@ -55,12 +57,12 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: buildLobaSystemPrompt(body.context) },
+          { role: "system", content: buildLobaSystemPrompt(body.context, intent) },
           ...history,
           { role: "user", content: question },
         ],
         temperature: 0.35,
-        max_completion_tokens: 650,
+        max_completion_tokens: intent === "simple" ? 380 : 650,
       }),
       signal: AbortSignal.timeout(25_000),
     });

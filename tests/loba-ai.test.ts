@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildLobaSystemPrompt, sanitizeLobaMessages } from "@/lib/loba-ai";
+import { buildLobaSystemPrompt, detectLobaIntent, sanitizeLobaMessages } from "@/lib/loba-ai";
 
 test("LOBA IA ancre les réponses sur les KPI et le radar produit",()=>{
  const prompt=buildLobaSystemPrompt({kpis:{users:21,households:25},insights:[],funnel:[],productRadar:[{title:"Factures & Budget",value:"Échéances et vision mensuelle"}]});
@@ -19,8 +19,24 @@ test("LOBA IA limite et nettoie l'historique envoyé au modèle",()=>{
 
 test("LOBA IA impose une réponse proportionnée et une discipline stricte sur les faits",()=>{
  const prompt=buildLobaSystemPrompt({kpis:{activeHouseholds30d:0},insights:[],funnel:[]});
- assert.match(prompt,/question simple = 2 à 5/);
+ assert.match(prompt,/2 à 4 courts paragraphes/);
  assert.match(prompt,/le cockpit affiche 0/);
  assert.match(prompt,/INTERPRÉTATION/);
  assert.match(prompt,/grands tableaux/);
+});
+
+
+test("LOBA IA V1.3 détecte l’intention avant de choisir la profondeur",()=>{
+ assert.equal(detectLobaIntent("Factures & Budget, ça servirait à quoi dans DABO ?"),"simple");
+ assert.equal(detectLobaIntent("Analyse nos KPI et dis-moi pourquoi l’activation baisse"),"analysis");
+ assert.equal(detectLobaIntent("Quelle stratégie de croissance recommandes-tu ?"),"strategy");
+ assert.equal(detectLobaIntent("Prépare un résumé pour un investisseur"),"investor");
+});
+
+test("LOBA IA V1.3 interdit les chiffres DABO non ancrés et garde la conversation simple naturelle",()=>{
+ const prompt=buildLobaSystemPrompt({kpis:{households:27},insights:[],funnel:[]},"simple");
+ assert.match(prompt,/unique source de vérité pour les chiffres concernant DABO/);
+ assert.match(prompt,/N'impose PAS les rubriques FAIT DABO/);
+ assert.match(prompt,/ni plan d'action, ni métriques, ni sondage, ni MVP/);
+ assert.match(prompt,/hypothèse à tester/);
 });
