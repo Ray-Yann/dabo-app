@@ -66,3 +66,16 @@ test("LOBA Tâches exige durée et effort et refuse d'inventer une récurrence",
   assert.match(prompt, /aucune récurrence/i);
   assert.match(prompt, /assignedTo/i);
 });
+
+test("LOBA Calendrier exige une portée explicite et protège le personnel", () => {
+  const prompt = buildHouseholdPrompt({
+    household: { id: "h1", name: "Maison" },
+    currentMember: { id: "m1", firstName: "Ray", language: "fr" },
+    members: [{ id: "m1", firstName: "Ray" }, { id: "m2", firstName: "Manga" }],
+    tasks: [], shopping: [], events: [], balance: [], generatedAt: "2026-09-09T00:00:00.000Z",
+  });
+  assert.match(prompt, /calendar\.add/i);
+  assert.match(prompt, /Personnel ou pour tout le foyer/i);
+  assert.match(prompt, /private_owner_id au membre connecté/i);
+  assert.match(prompt, /aucune récurrence/i);
+});

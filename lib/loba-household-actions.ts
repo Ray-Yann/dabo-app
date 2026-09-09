@@ -16,7 +16,15 @@ export type LobaTaskAddAction = {
   effortLevel: string;
 };
 
-export type LobaHouseholdAction = LobaShoppingAddAction | LobaTaskAddAction;
+export type LobaCalendarAddAction = {
+  type: "calendar.add";
+  title: string;
+  eventDate: string;
+  visibility: "household" | "personal";
+  recurring: false;
+};
+
+export type LobaHouseholdAction = LobaShoppingAddAction | LobaTaskAddAction | LobaCalendarAddAction;
 
 function cleanText(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
@@ -52,6 +60,14 @@ export function normalizeHouseholdAction(value: unknown): LobaHouseholdAction | 
     if (!DURATION_OPTIONS.some((x) => x.key === durationKey)) return null;
     if (!EFFORT_OPTIONS.some((x) => x.key === effortLevel)) return null;
     return { type: "task.add", name, dueDate, assignedTo, urgent: row.urgent, durationKey, effortLevel };
+  }
+
+  if (row.type === "calendar.add") {
+    const title = cleanText(row.title, 160);
+    const eventDate = validCivilDate(row.eventDate);
+    const visibility = row.visibility === "household" || row.visibility === "personal" ? row.visibility : null;
+    if (!title || !eventDate || !visibility || row.recurring !== false) return null;
+    return { type: "calendar.add", title, eventDate, visibility, recurring: false };
   }
 
   return null;

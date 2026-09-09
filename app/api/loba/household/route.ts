@@ -36,6 +36,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, action: "shopping.add", item: inserted, mode: "household-confirmed-action" });
     }
 
+    if (action.type === "calendar.add") {
+      const { data: inserted, error } = await db.from("calendar_events").insert({
+        household_id: householdId,
+        created_by: membership.id,
+        title: action.title,
+        event_date: action.eventDate,
+        recurring: false,
+        reminder_days_before: 7,
+        visibility: action.visibility,
+        private_owner_id: action.visibility === "personal" ? membership.id : null,
+      }).select("id,title,event_date,recurring,visibility,private_owner_id,created_by").single();
+      if (error || !inserted) return NextResponse.json({ error: "DABO n'a pas pu ajouter cet événement." }, { status: 500 });
+      return NextResponse.json({ ok: true, action: "calendar.add", event: inserted, mode: "household-confirmed-action" });
+    }
+
     const memberIds = new Set((await db.from("members").select("id").eq("household_id", householdId).is("left_at", null)).data?.map((m) => m.id) || []);
     if (action.assignedTo && !memberIds.has(action.assignedTo)) return NextResponse.json({ error: "Le membre choisi n'appartient plus à ce foyer." }, { status: 400 });
     const { data: inserted, error } = await db.from("tasks").insert({

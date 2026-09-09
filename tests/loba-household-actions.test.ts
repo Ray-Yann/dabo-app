@@ -20,3 +20,10 @@ test("LOBA sépare réponse et proposition sans exécuter",()=>{
  const out=parseLobaHouseholdEnvelope(JSON.stringify({answer:"Je peux le préparer.",proposedAction:{type:"shopping.add",item:"Pain",quantity:null}}));
  assert.equal(out.answer,"Je peux le préparer."); assert.equal(out.proposedAction?.type,"shopping.add");
 });
+
+test("LOBA Calendrier accepte seulement une création datée et à portée explicite",()=>{
+ assert.deepEqual(normalizeHouseholdAction({type:"calendar.add",title:" Dentiste — 14h ",eventDate:"2026-09-11",visibility:"personal",recurring:false}),{type:"calendar.add",title:"Dentiste — 14h",eventDate:"2026-09-11",visibility:"personal",recurring:false});
+ assert.equal(normalizeHouseholdAction({type:"calendar.add",title:"Dentiste",eventDate:"2026-09-11",visibility:"other",recurring:false}),null);
+ assert.equal(normalizeHouseholdAction({type:"calendar.add",title:"Dentiste",eventDate:"2026-09-11",visibility:"personal",recurring:true}),null);
+ assert.equal(normalizeHouseholdAction({type:"calendar.add",title:"Dentiste",eventDate:"2026-02-30",visibility:"personal",recurring:false}),null);
+});
