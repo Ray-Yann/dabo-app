@@ -22,8 +22,9 @@ type Transaction = {
 };
 type Bill = {
   id: string; amount: number | null; due_on: string; category: string; label: string;
-  status: "pending" | "paid" | "cancelled"; paid_transaction_id: string | null; currency: string;
+  status: "pending" | "paid" | "cancelled"; paid_transaction_id: string | null; currency: string; series_id: string | null;
 };
+type BillRecurrence = "once" | "monthly" | "yearly";
 type Budget = { id: string; category: string; monthly_reference: number; active: boolean; currency: string };
 type FormKind = "expense" | "bill" | "reference" | null;
 
@@ -67,12 +68,13 @@ export default function BudgetPage() {
   const [error,setError]=useState<string|null>(null);
   const [label,setLabel]=useState(""); const [amount,setAmount]=useState(""); const [category,setCategory]=useState("autre");
   const [date,setDate]=useState(todayKey()); const [payer,setPayer]=useState("");
+  const [billRecurrence,setBillRecurrence]=useState<BillRecurrence>("once");
 
   const load = useCallback(async()=>{
     if(!household) return;
     const [tx,bill,budget]=await Promise.all([
       supabase.from("finance_transactions").select("id,amount,occurred_on,category,label,status,paid_by_member_id,currency").eq("household_id",household.id).order("occurred_on",{ascending:false}),
-      supabase.from("finance_bills").select("id,amount,due_on,category,label,status,paid_transaction_id,currency").eq("household_id",household.id).order("due_on",{ascending:true}),
+      supabase.from("finance_bills").select("id,amount,due_on,category,label,status,paid_transaction_id,currency,series_id").eq("household_id",household.id).order("due_on",{ascending:true}),
       supabase.from("finance_budgets").select("id,category,monthly_reference,active,currency").eq("household_id",household.id).eq("active",true).order("category"),
     ]);
     if(tx.error||bill.error||budget.error) throw tx.error||bill.error||budget.error;
@@ -94,7 +96,7 @@ export default function BudgetPage() {
   const visibleTx=transactions.filter(t=>t.status==="posted"&&t.occurred_on>=range.start&&t.occurred_on<range.endExclusive).slice(0,8);
   const visibleBills=bills.filter(b=>b.status==="pending"&&b.due_on>=range.start&&b.due_on<range.endExclusive).slice(0,8);
 
-  function reset(next:FormKind=null){setForm(next);setLabel("");setAmount("");setCategory("autre");setDate(todayKey());setPayer(me?.id||"");setError(null);}
+  function reset(next:FormKind=null){setForm(next);setLabel("");setAmount("");setCategory("autre");setDate(todayKey());setPayer(me?.id||"");setBillRecurrence("once");setError(null);}
   function parsedAmount(){ return parseMoneyInput(amount); }
 
   async function save(){
@@ -106,7 +108,11 @@ export default function BudgetPage() {
       if(form==="expense"){
         const {error:e}=await supabase.from("finance_transactions").insert({household_id:household.id,created_by_member_id:me.id,paid_by_member_id:payer||me.id,amount:value,currency:"EUR",category,label:label.trim(),occurred_on:date,source:"manual",status:"posted",visibility:"household"}); if(e)throw e;
       } else if(form==="bill"){
-        const {error:e}=await supabase.from("finance_bills").insert({household_id:household.id,created_by_member_id:me.id,label:label.trim(),category,amount:value,currency:"EUR",due_on:date,status:"pending",visibility:"household"}); if(e)throw e;
+        if(billRecurrence==="once"){
+          const {error:e}=await supabase.from("finance_bills").insert({household_id:household.id,created_by_member_id:me.id,label:label.trim(),category,amount:value,currency:"EUR",due_on:date,status:"pending",visibility:"household"}); if(e)throw e;
+        } else {
+          const {error:e}=await supabase.rpc("create_recurring_finance_bill",{p_household_id:household.id,p_created_by_member_id:me.id,p_label:label.trim(),p_category:category,p_amount:value,p_first_due_on:date,p_frequency:billRecurrence}); if(e)throw e;
+        }
       } else if(form==="reference"){
         const existing=budgets.find((item)=>item.category===category);
         if(existing){
@@ -158,6 +164,7 @@ export default function BudgetPage() {
         <div className="grid grid-cols-2 gap-3"><input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} onBlur={()=>{const value=parseMoneyInput(amount);if(value!==null)setAmount(money(value));}} placeholder="0,00" aria-label="Montant en euros" className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm outline-none"/><select value={category} onChange={e=>setCategory(e.target.value)} className="w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}</select></div>
         <p className="-mt-1 text-xs text-muted">Saisis simplement 25 ou 25,50. DABO affiche automatiquement le montant en €.</p>
         {form!=="reference"&&<div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-xs text-muted">{form==="bill"?"Échéance":"Date"}<input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1 w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm text-ink"/></label>{form==="expense"&&<label className="text-xs text-muted">Payé par<select value={payer} onChange={e=>setPayer(e.target.value)} className="mt-1 w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm text-ink">{members.map(m=><option key={m.id} value={m.id}>{m.first_name}{m.id===me.id?" (moi)":""}</option>)}</select></label>}</div>}
+        {form==="bill"&&<div className="rounded-2xl border border-borderLight bg-white2 p-3"><p className="text-xs font-medium text-ink">Répétition</p><div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">{([['once','Une seule fois'],['monthly','Tous les mois'],['yearly','Tous les ans']] as const).map(([value,text])=><button type="button" key={value} onClick={()=>setBillRecurrence(value)} className={`rounded-xl border px-3 py-2 text-xs font-semibold ${billRecurrence===value?'border-ink bg-ink text-paper':'border-borderLight bg-paper text-ink'}`}>{text}</button>)}</div>{billRecurrence!=="once"&&<p className="mt-2 text-xs leading-relaxed text-muted">DABO créera les prochaines échéances automatiquement à partir de cette date. Pour un jour absent d’un mois, le dernier jour du mois sera utilisé.</p>}</div>}
         <button disabled={busy} onClick={save} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50">{busy?"Enregistrement…":"Enregistrer"}</button>
       </div>
     </section>}
@@ -173,7 +180,7 @@ export default function BudgetPage() {
       {visibleTx.map(tx=><Row key={tx.id} title={tx.label} subtitle={`${CATEGORY_LABELS[tx.category]} · ${new Date(tx.occurred_on+"T12:00:00").toLocaleDateString("fr-BE")}`} value={money(Number(tx.amount))}/>) }
     </Section>
     <Section title="Factures à venir" icon={<ReceiptText size={18}/>} empty="Aucune facture à payer sur cette période.">
-      {visibleBills.map(b=><div key={b.id} className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{b.label}</p><p className="text-xs text-muted">Échéance {new Date(b.due_on+"T12:00:00").toLocaleDateString("fr-BE")}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(Number(b.amount||0))}</p><button disabled={busy} onClick={()=>{setPayer(me.id);setPayingBill(b);}} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink"><Check size={13}/> Marquer payée</button></div></div>)}
+      {visibleBills.map(b=><div key={b.id} className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{b.label}</p><p className="text-xs text-muted">Échéance {new Date(b.due_on+"T12:00:00").toLocaleDateString("fr-BE")}{b.series_id?" · Récurrente":""}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(Number(b.amount||0))}</p><button disabled={busy} onClick={()=>{setPayer(me.id);setPayingBill(b);}} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink"><Check size={13}/> Marquer payée</button></div></div>)}
     </Section>
     <Section title="Repères mensuels" icon={<ArrowLeft className="rotate-180" size={18}/>} empty="Aucun repère défini. Ils restent facultatifs.">
       {budgets.map(b=>{const used=monthCats[b.category]||0;const pct=Math.min(100,Math.round((used/Number(b.monthly_reference))*100));return <div key={b.id} className="border-t border-borderLight/70 py-3 first:border-0"><div className="flex justify-between gap-3 text-sm"><span className="font-medium">{CATEGORY_LABELS[b.category]}</span><span>{money(used)} / {money(Number(b.monthly_reference))}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-white2"><div className="h-full rounded-full bg-ink" style={{width:`${pct}%`}}/></div></div>})}
