@@ -22,3 +22,12 @@ test("Home V1.2 compte les courses du foyer et non seulement celles du membre co
   assert.match(page, /activeHouseholdShoppingCount/);
   assert.match(page, /\.eq\("status", "to_buy"\)/);
 });
+
+
+test("Home V1.2 affiche le montant total à payer avec sa devise au lieu du nombre de factures", () => {
+  assert.match(page, /pendingBudgetTotal = financeBills\.reduce/);
+  assert.match(page, /pendingBudgetDisplay = new Intl\.NumberFormat/);
+  assert.match(page, /currency: pendingBudgetCurrency/);
+  assert.match(page, /key: "budget".*value: pendingBudgetDisplay/);
+  assert.doesNotMatch(page, /key: "budget".*value: financeBills\.length/);
+});

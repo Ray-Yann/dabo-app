@@ -11,7 +11,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
-import { useT } from "@/lib/language-context";
+import { useLanguage, useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
 import { completeHouseholdTask } from "@/lib/task-completion";
@@ -29,6 +29,7 @@ export default function TodayPage() {
   useEffect(() => { void trackAcquisitionEvent("app_open"); }, []);
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
+  const lang = useLanguage();
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTasksForBalance, setAllTasksForBalance] = useState<Task[]>([]);
@@ -208,11 +209,29 @@ export default function TodayPage() {
     return days >= 0 && days <= 7;
   }).length;
 
+  const pendingBudgetTotal = financeBills.reduce((sum, bill) => sum + (bill.amount ?? 0), 0);
+  const pendingBudgetCurrency = financeBills.find((bill) => bill.currency)?.currency || "EUR";
+  const moneyLocaleByLang = {
+    fr: "fr-BE",
+    nl: "nl-BE",
+    en: "en-GB",
+    de: "de-DE",
+    es: "es-ES",
+    it: "it-IT",
+    pt: "pt-PT",
+  } as const;
+  const pendingBudgetDisplay = new Intl.NumberFormat(moneyLocaleByLang[lang], {
+    style: "currency",
+    currency: pendingBudgetCurrency,
+    minimumFractionDigits: Number.isInteger(pendingBudgetTotal) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(pendingBudgetTotal);
+
   const quickViewItems = [
     { key: "tasks", label: t("tasks_title"), value: tasks.length, icon: ListTodo, href: "/app/taches" },
     { key: "shopping", label: t("courses_title"), value: activeHouseholdShoppingCount, icon: ShoppingBag, href: "/app/courses" },
     { key: "calendar", label: t("calendar_title"), value: upcomingHouseholdEventsCount, icon: CalendarDays, href: "/app/calendrier" },
-    { key: "budget", label: t("today_household_quick_budget"), value: financeBills.length, icon: WalletCards, href: "/app/equilibre/budget" },
+    { key: "budget", label: t("today_household_quick_budget"), value: pendingBudgetDisplay, icon: WalletCards, href: "/app/equilibre/budget" },
   ];
 
   function insightDetails(insight: DaboInsight) {
