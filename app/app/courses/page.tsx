@@ -17,8 +17,11 @@ import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "
 import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 
-type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string };
-const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "" };
+type HouseholdStore = { id: string; name: string };
+type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
+const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "", store: "", customStore: "" };
+const DEFAULT_STORES = ["Carrefour", "Colruyt", "Lidl", "Aldi", "Delhaize", "Action", "Albert Heijn", "Intermarché"];
+const OTHER_STORE = "__other__";
 
 function ItemFormFields({
   form,
@@ -26,12 +29,14 @@ function ItemFormFields({
   members,
   t,
   nameSuggestions,
+  stores,
 }: {
   form: ItemForm;
   setForm: (f: ItemForm) => void;
   members: { id: string; first_name: string }[];
   t: (key: string) => string;
   nameSuggestions: string[];
+  stores: string[];
 }) {
   return (
     <>
@@ -39,6 +44,17 @@ function ItemFormFields({
       <div className="rounded-xl bg-paper/60 p-3 space-y-2">
         <div className="text-[11px] font-medium text-muted">{t("courses_optional_details")}</div>
         <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+        <div>
+          <label className="text-xs text-muted block mb-1">{t("courses_store_optional")}</label>
+          <select value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value, customStore: e.target.value === OTHER_STORE ? form.customStore : "" })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+            <option value="">{t("courses_store_none")}</option>
+            {stores.map((store) => <option key={store.toLocaleLowerCase()} value={store}>{store}</option>)}
+            <option value={OTHER_STORE}>{t("courses_store_other")}</option>
+          </select>
+          {form.store === OTHER_STORE && (
+            <input autoFocus placeholder={t("courses_store_custom_placeholder")} value={form.customStore} onChange={(e) => setForm({ ...form, customStore: e.target.value })} className="mt-2 w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+          )}
+        </div>
         <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
           <option value="">{t("unassigned")}</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
@@ -62,6 +78,7 @@ export default function CoursesPage() {
   const [view, setView] = useState<"courses" | "promos">("courses");
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
+  const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -164,14 +181,16 @@ export default function CoursesPage() {
 
   async function loadItems() {
     if (!household) return;
-    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }] = await Promise.all([
+    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }, { data: storeData }] = await Promise.all([
       supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
       supabase.from("tasks").select("name").eq("household_id", household.id).limit(200),
+      supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
     ]);
     setItems((itemData as ShoppingItem[]) || []);
     setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
     setTaskNameSuggestions((taskNameData || []).map((row: { name: string }) => row.name));
+    setHouseholdStores((storeData as HouseholdStore[]) || []);
   }
 
   useEffect(() => {
@@ -186,8 +205,31 @@ export default function CoursesPage() {
     return () => window.clearInterval(timer);
   }, [household?.id, me?.id]);
 
+  function availableStores() {
+    const byKey = new Map<string, string>();
+    [...DEFAULT_STORES, ...householdStores.map((store) => store.name)].forEach((name) => {
+      const clean = name.trim();
+      if (clean) byKey.set(clean.toLocaleLowerCase(), clean);
+    });
+    return [...byKey.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+
+  function resolvedStore(form: ItemForm) {
+    return (form.store === OTHER_STORE ? form.customStore : form.store).trim();
+  }
+
+  async function rememberStore(name: string) {
+    if (!household || !name) return;
+    const alreadyKnown = householdStores.some((store) => store.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (alreadyKnown) return;
+    await supabase.from("household_stores").insert({ household_id: household.id, name });
+  }
+
   async function addItem() {
     if (!addForm.name.trim() || !household) return;
+    const storeName = resolvedStore(addForm);
+    if (addForm.store === OTHER_STORE && !storeName) return;
+    if (storeName) await rememberStore(storeName);
     const { error: shoppingInsertError } = await supabase.from("shopping_items").insert({
       household_id: household.id,
       name: addForm.name.trim(),
@@ -195,6 +237,7 @@ export default function CoursesPage() {
       urgent: addForm.urgent,
       assigned_to: addForm.assignedTo || null,
       due_date: addForm.dueDate || null,
+      store_name: storeName || null,
     });
     if (!shoppingInsertError) void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "shopping" });
     if (addForm.urgent && me) {
@@ -216,18 +259,24 @@ export default function CoursesPage() {
       urgent: item.urgent,
       assignedTo: item.assigned_to || "",
       dueDate: item.due_date || "",
+      store: item.store_name || "",
+      customStore: "",
     });
   }
 
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
     const wasUrgent = items.find((i) => i.id === id)?.urgent || false;
+    const storeName = resolvedStore(editForm);
+    if (editForm.store === OTHER_STORE && !storeName) return;
+    if (storeName) await rememberStore(storeName);
     await supabase.from("shopping_items").update({
       name: editForm.name.trim(),
       quantity: editForm.quantity || null,
       urgent: editForm.urgent,
       assigned_to: editForm.assignedTo || null,
       due_date: editForm.dueDate || null,
+      store_name: storeName || null,
     }).eq("id", id);
     if (editForm.urgent && !wasUrgent && household && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: editForm.name.trim() });
@@ -416,6 +465,18 @@ export default function CoursesPage() {
   if (loading || !household) return <LoadingState />;
 
   const toBuy = [...items.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const toBuyGroups = (() => {
+    const groups = new Map<string, ShoppingItem[]>();
+    for (const item of toBuy) {
+      const label = item.store_name?.trim() || t("courses_store_none_group");
+      groups.set(label, [...(groups.get(label) || []), item]);
+    }
+    return [...groups.entries()].sort(([a], [b]) => {
+      if (a === t("courses_store_none_group")) return 1;
+      if (b === t("courses_store_none_group")) return -1;
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
+    });
+  })();
   const hasBoughtItems = items.some((i) => i.status === "bought");
   const allBought = items
     .filter((i) => i.status === "bought")
@@ -606,7 +667,7 @@ export default function CoursesPage() {
             <div className="text-sm font-semibold text-ink">{t("courses_add_question")}</div>
             <div className="text-xs text-muted mt-0.5">{t("courses_add_hint")}</div>
           </div>
-          <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} nameSuggestions={[...items.map((item) => item.name), ...taskNameSuggestions]} />
+          <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} nameSuggestions={[...items.map((item) => item.name), ...taskNameSuggestions]} stores={availableStores()} />
           <div className="flex gap-2">
             <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
             <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
@@ -618,11 +679,14 @@ export default function CoursesPage() {
         <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_to_buy")}</div>
         {toBuy.length === 0 && !showAdd && <EmptyState message={`${t("courses_empty_title")} ${t("courses_empty")}`} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
-          {toBuy.map((item) => (
+          {toBuyGroups.map(([storeLabel, storeItems]) => (
+            <div key={storeLabel} className="mb-4">
+              <div className="sticky top-0 z-10 -mx-1 bg-paper/95 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{storeLabel}</div>
+              {storeItems.map((item) => (
             <div key={item.id} className="border-b border-borderLight py-3">
               {editingId === item.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} t={t} nameSuggestions={[...items.map((item) => item.name), ...taskNameSuggestions]} />
+                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} t={t} nameSuggestions={[...items.map((item) => item.name), ...taskNameSuggestions]} stores={availableStores()} />
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(item.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
                     <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">{t("cancel")}</button>
@@ -636,6 +700,7 @@ export default function CoursesPage() {
                       <span>{item.name}</span>
                       {item.quantity && <span className="text-muted">· {item.quantity}</span>}
                       {item.urgent && <span className="rounded-full bg-mustardBg px-2 py-0.5 text-[10px] font-semibold text-mustard">{t("urgent_label")}</span>}
+                      {item.store_name && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] font-medium text-muted">{item.store_name}</span>}
                     </div>
                     {(item.assigned_to || item.due_date) && (
                       <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
@@ -686,6 +751,8 @@ export default function CoursesPage() {
                   </div>
                 </div>
               )}
+            </div>
+              ))}
             </div>
           ))}
         </div>

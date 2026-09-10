@@ -38,6 +38,7 @@ export type ShoppingItem = {
   dabo_suggestion_product_key?: string | null;
   bought_by_member_id?: string | null;
   shopping_session_id?: string | null;
+  store_name?: string | null;
 };
 
 export type Task = {
