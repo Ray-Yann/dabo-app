@@ -18,6 +18,7 @@ import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 
 type HouseholdStore = { id: string; name: string };
+type GlobalStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "", store: "", customStore: "" };
 const DEFAULT_STORES = ["Carrefour", "Colruyt", "Lidl", "Aldi", "Delhaize", "Action", "Albert Heijn", "Intermarché"];
@@ -79,6 +80,7 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
+  const [globalStores, setGlobalStores] = useState<GlobalStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -181,16 +183,18 @@ export default function CoursesPage() {
 
   async function loadItems() {
     if (!household) return;
-    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }, { data: storeData }] = await Promise.all([
+    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }, { data: storeData }, { data: globalStoreData }] = await Promise.all([
       supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
       supabase.from("tasks").select("name").eq("household_id", household.id).limit(200),
       supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
+      supabase.from("global_stores").select("id,name").order("name"),
     ]);
     setItems((itemData as ShoppingItem[]) || []);
     setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
     setTaskNameSuggestions((taskNameData || []).map((row: { name: string }) => row.name));
     setHouseholdStores((storeData as HouseholdStore[]) || []);
+    setGlobalStores((globalStoreData as GlobalStore[]) || []);
   }
 
   useEffect(() => {
@@ -207,7 +211,7 @@ export default function CoursesPage() {
 
   function availableStores() {
     const byKey = new Map<string, string>();
-    [...DEFAULT_STORES, ...householdStores.map((store) => store.name)].forEach((name) => {
+    [...DEFAULT_STORES, ...globalStores.map((store) => store.name), ...householdStores.map((store) => store.name)].forEach((name) => {
       const clean = name.trim();
       if (clean) byKey.set(clean.toLocaleLowerCase(), clean);
     });
@@ -222,7 +226,10 @@ export default function CoursesPage() {
     if (!household || !name) return;
     const alreadyKnown = householdStores.some((store) => store.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
     if (alreadyKnown) return;
-    await supabase.from("household_stores").insert({ household_id: household.id, name });
+    await Promise.all([
+      supabase.from("household_stores").insert({ household_id: household.id, name }),
+      supabase.from("global_stores").insert({ name }),
+    ]);
   }
 
   async function addItem() {
