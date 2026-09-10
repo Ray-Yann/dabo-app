@@ -13,6 +13,7 @@ import { MEMBER_COLORS } from "@/lib/utils";
 import { useLanguage, useT } from "@/lib/language-context";
 import { countryOptions, detectIsoCountryFromDevice } from "@/lib/countries";
 import { Lang } from "@/lib/i18n";
+import { LANGUAGE_OPTIONS, isAvailableLang } from "@/lib/languages";
 import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
 
 type SettingsConfirmation =
@@ -483,12 +484,6 @@ export default function SettingsPage() {
 
   if (loading || !household || !me) return <LoadingState />;
 
-  const LANGUAGES: { code: Lang; label: string }[] = [
-    { code: "fr", label: "Français" },
-    { code: "nl", label: "Nederlands" },
-    { code: "en", label: "English" },
-  ];
-
   const householdTypeLabel = household.household_type === "couple"
     ? t("household_couple")
     : household.household_type === "coloc"
@@ -622,19 +617,22 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
-            <div className="text-xs text-muted mb-2">{t("settings_language")}</div>
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => chooseLanguage(l.code)}
-                  className={`px-3 py-1.5 rounded-full text-xs border ${me.language === l.code ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
-                  aria-pressed={me.language === l.code}
-                >
-                  {l.label}
-                </button>
+            <label htmlFor="dabo-language" className="text-xs text-muted mb-2 block">{t("settings_language")}</label>
+            <select
+              id="dabo-language"
+              value={me.language}
+              onChange={(event) => {
+                if (isAvailableLang(event.target.value)) void chooseLanguage(event.target.value);
+              }}
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink mb-2"
+            >
+              {LANGUAGE_OPTIONS.map((language) => (
+                <option key={language.code} value={language.code} disabled={!language.available}>
+                  {language.nativeLabel}{language.available ? "" : ` — ${t("settings_language_coming_soon")}`}
+                </option>
               ))}
-            </div>
+            </select>
+            <div className="text-[11px] leading-4 text-muted mb-4">{t("settings_language_hint")}</div>
           </div>
         </section>
 

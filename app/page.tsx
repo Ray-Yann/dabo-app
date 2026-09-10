@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { genInviteCode } from "@/lib/utils";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
+import type { Lang } from "@/lib/i18n";
+import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 
 type Phase = "loading" | "auth" | "setup";
@@ -26,7 +28,7 @@ export default function OnboardingPage() {
   const [firstName, setFirstName] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [householdType, setHouseholdType] = useState<"couple" | "coloc" | "famille">("couple");
-  const [memberLang, setMemberLang] = useState<"fr" | "nl" | "en">("fr");
+  const [memberLang, setMemberLang] = useState<Lang>("fr");
 
   // Cet écran (avant connexion) ne doit jamais s'afficher en mode sombre —
   // cette préférence appartient à un profil qui n'existe pas encore ici.
@@ -38,11 +40,8 @@ export default function OnboardingPage() {
   }, []);
 
   useEffect(() => {
-    const browserLang = navigator.language.toLowerCase();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (browserLang.startsWith("nl")) setMemberLang("nl");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    else if (browserLang.startsWith("en")) setMemberLang("en");
+    setMemberLang(detectAvailableLanguageFromDevice());
   }, []);
   const [inviteCode, setInviteCode] = useState("");
 
@@ -377,18 +376,16 @@ export default function OnboardingPage() {
                 <option value="coloc">Colocation</option>
                 <option value="famille">Famille</option>
               </select>
-              <div className="flex gap-2">
-                {(["fr", "nl", "en"] as const).map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => setMemberLang(l)}
-                    className={`flex-1 py-2 rounded-xl text-xs border ${memberLang === l ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
-                  >
-                    {l === "fr" ? "Français" : l === "nl" ? "Nederlands" : "English"}
-                  </button>
+              <select
+                aria-label="Langue de DABO"
+                value={memberLang}
+                onChange={(event) => { if (isAvailableLang(event.target.value)) setMemberLang(event.target.value); }}
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
+              >
+                {AVAILABLE_LANGUAGE_OPTIONS.map((language) => (
+                  <option key={language.code} value={language.code}>{language.nativeLabel}</option>
                 ))}
-              </div>
+              </select>
             </div>
             {error && <p className="text-sm text-red-700 mt-3">{error}</p>}
             <button
@@ -420,18 +417,16 @@ export default function OnboardingPage() {
                 onChange={(e) => setFirstName(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
-              <div className="flex gap-2">
-                {(["fr", "nl", "en"] as const).map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => setMemberLang(l)}
-                    className={`flex-1 py-2 rounded-xl text-xs border ${memberLang === l ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
-                  >
-                    {l === "fr" ? "Français" : l === "nl" ? "Nederlands" : "English"}
-                  </button>
+              <select
+                aria-label="Langue de DABO"
+                value={memberLang}
+                onChange={(event) => { if (isAvailableLang(event.target.value)) setMemberLang(event.target.value); }}
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
+              >
+                {AVAILABLE_LANGUAGE_OPTIONS.map((language) => (
+                  <option key={language.code} value={language.code}>{language.nativeLabel}</option>
                 ))}
-              </div>
+              </select>
             </div>
             {error && <p className="text-sm text-red-700 mt-3">{error}</p>}
             <button
