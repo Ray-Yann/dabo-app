@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, ReceiptText, WalletCards } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { Header } from "@/components/Header";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
@@ -65,6 +65,7 @@ export default function BudgetPage() {
   const [period,setPeriod]=useState<FinancePeriod>("month");
   const [periodAnchor,setPeriodAnchor]=useState(()=>new Date());
   const [form,setForm]=useState<FormKind>(null);
+  const [editingExpense,setEditingExpense]=useState<Transaction|null>(null);
   const [payingBill,setPayingBill]=useState<Bill|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
@@ -99,7 +100,18 @@ export default function BudgetPage() {
   const visibleTx=transactions.filter(t=>t.status==="posted"&&t.occurred_on>=range.start&&t.occurred_on<range.endExclusive).slice(0,8);
   const visibleBills=bills.filter(b=>b.status==="pending"&&b.due_on>=range.start&&b.due_on<range.endExclusive).slice(0,8);
 
-  function reset(next:FormKind=null){setForm(next);setLabel("");setAmount("");setCategory("autre");setDate(todayKey());setPayer(me?.id||"");setBillRecurrence("once");setError(null);}
+  function reset(next:FormKind=null){setForm(next);setEditingExpense(null);setLabel("");setAmount("");setCategory("autre");setDate(todayKey());setPayer(me?.id||"");setBillRecurrence("once");setError(null);}
+  function startExpenseEdit(tx:Transaction){
+    setEditingExpense(tx);
+    setForm("expense");
+    setLabel(tx.label);
+    setAmount(money(Number(tx.amount)));
+    setCategory(tx.category);
+    setDate(tx.occurred_on);
+    setPayer(tx.paid_by_member_id||me?.id||"");
+    setBillRecurrence("once");
+    setError(null);
+  }
   function parsedAmount(){ return parseMoneyInput(amount); }
 
   async function save(){
@@ -109,7 +121,11 @@ export default function BudgetPage() {
     setBusy(true);setError(null);
     try{
       if(form==="expense"){
-        const {error:e}=await supabase.from("finance_transactions").insert({household_id:household.id,created_by_member_id:me.id,paid_by_member_id:payer||me.id,amount:value,currency:"EUR",category,label:label.trim(),occurred_on:date,source:"manual",status:"posted",visibility:"household"}); if(e)throw e;
+        if(editingExpense){
+          const {error:e}=await supabase.from("finance_transactions").update({paid_by_member_id:payer||me.id,amount:value,category,label:label.trim(),occurred_on:date}).eq("id",editingExpense.id).eq("household_id",household.id); if(e)throw e;
+        } else {
+          const {error:e}=await supabase.from("finance_transactions").insert({household_id:household.id,created_by_member_id:me.id,paid_by_member_id:payer||me.id,amount:value,currency:"EUR",category,label:label.trim(),occurred_on:date,source:"manual",status:"posted",visibility:"household"}); if(e)throw e;
+        }
       } else if(form==="bill"){
         if(billRecurrence==="once"){
           const {error:e}=await supabase.from("finance_bills").insert({household_id:household.id,created_by_member_id:me.id,label:label.trim(),category,amount:value,currency:"EUR",due_on:date,status:"pending",visibility:"household"}); if(e)throw e;
@@ -166,14 +182,14 @@ export default function BudgetPage() {
     </div>
 
     {form&&<section className="mx-5 mt-4 rounded-3xl border border-borderLight bg-paper p-5">
-      <div className="flex items-center justify-between"><h3 className="font-serif text-lg">{form==="expense"?"Ajouter une dépense":form==="bill"?"Ajouter une facture":"Ajouter un repère mensuel"}</h3><button onClick={()=>reset()} className="text-sm text-muted">Annuler</button></div>
+      <div className="flex items-center justify-between"><h3 className="font-serif text-lg">{form==="expense"?(editingExpense?"Modifier la dépense":"Ajouter une dépense"):form==="bill"?"Ajouter une facture":"Ajouter un repère mensuel"}</h3><button onClick={()=>reset()} className="text-sm text-muted">Annuler</button></div>
       <div className="mt-4 space-y-3">
         {form!=="reference"&&<input value={label} onChange={e=>setLabel(e.target.value)} placeholder={form==="bill"?"Ex. Internet":"Ex. Courses Delhaize"} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm outline-none"/>}
         <div className="grid grid-cols-2 gap-3"><input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} onBlur={()=>{const value=parseMoneyInput(amount);if(value!==null)setAmount(money(value));}} placeholder="0,00" aria-label="Montant en euros" className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm outline-none"/><select value={category} onChange={e=>setCategory(e.target.value)} className="w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}</select></div>
         <p className="-mt-1 text-xs text-muted">Saisis simplement 25 ou 25,50. DABO affiche automatiquement le montant en €.</p>
         {form!=="reference"&&<div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-xs text-muted">{form==="bill"?"Échéance":"Date"}<input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1 w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm text-ink"/></label>{form==="expense"&&<label className="text-xs text-muted">Payé par<select value={payer} onChange={e=>setPayer(e.target.value)} className="mt-1 w-full rounded-2xl border border-borderLight bg-paper px-3 py-3 text-sm text-ink">{members.map(m=><option key={m.id} value={m.id}>{m.first_name}{m.id===me.id?" (moi)":""}</option>)}</select></label>}</div>}
         {form==="bill"&&<div className="rounded-2xl border border-borderLight bg-white2 p-3"><p className="text-xs font-medium text-ink">Répétition</p><div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">{([['once','Une seule fois'],['monthly','Tous les mois'],['yearly','Tous les ans']] as const).map(([value,text])=><button type="button" key={value} onClick={()=>setBillRecurrence(value)} className={`rounded-xl border px-3 py-2 text-xs font-semibold ${billRecurrence===value?'border-ink bg-ink text-paper':'border-borderLight bg-paper text-ink'}`}>{text}</button>)}</div>{billRecurrence!=="once"&&<p className="mt-2 text-xs leading-relaxed text-muted">DABO créera les prochaines échéances automatiquement à partir de cette date. Pour un jour absent d’un mois, le dernier jour du mois sera utilisé.</p>}</div>}
-        <button disabled={busy} onClick={save} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50">{busy?"Enregistrement…":"Enregistrer"}</button>
+        <button disabled={busy} onClick={save} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50">{busy?"Enregistrement…":editingExpense?"Enregistrer les modifications":"Enregistrer"}</button>
       </div>
     </section>}
 
@@ -185,7 +201,7 @@ export default function BudgetPage() {
     </section>}
 
     <Section title="Dépenses" icon={<WalletCards size={18}/>} empty="Aucune dépense sur cette période.">
-      {visibleTx.map(tx=><Row key={tx.id} title={tx.label} subtitle={`${CATEGORY_LABELS[tx.category]} · ${new Date(tx.occurred_on+"T12:00:00").toLocaleDateString("fr-BE")}`} value={money(Number(tx.amount))}/>) }
+      {visibleTx.map(tx=><Row key={tx.id} title={tx.label} subtitle={`${CATEGORY_LABELS[tx.category]} · ${new Date(tx.occurred_on+"T12:00:00").toLocaleDateString("fr-BE")}`} value={money(Number(tx.amount))} onEdit={()=>startExpenseEdit(tx)}/>) }
     </Section>
     <Section title="Factures à venir" icon={<ReceiptText size={18}/>} empty="Aucune facture à payer sur cette période.">
       {visibleBills.map(b=><div key={b.id} className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{b.label}</p><p className="text-xs text-muted">Échéance {new Date(b.due_on+"T12:00:00").toLocaleDateString("fr-BE")}{b.series_id?" · Récurrente":""}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(Number(b.amount||0))}</p><button disabled={busy} onClick={()=>{setPayer(me.id);setPayingBill(b);}} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink"><Check size={13}/> Marquer payée</button></div></div>)}
@@ -200,4 +216,4 @@ export default function BudgetPage() {
 function Metric({label,value,note}:{label:string;value:string;note:string}){return <div className="rounded-2xl bg-white2 p-4"><p className="text-xs text-muted">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums">{value}</p><p className="mt-1 text-[11px] leading-snug text-muted">{note}</p></div>}
 function ActionButton({onClick,label}:{onClick:()=>void;label:string}){return <button onClick={onClick} className="flex items-center justify-center gap-1 rounded-2xl border border-borderLight bg-paper px-2 py-3 text-xs font-semibold shadow-sm"><Plus size={15}/>{label}</button>}
 function Section({title,icon,empty,children}:{title:string;icon:React.ReactNode;empty:string;children:React.ReactNode}){const has=Array.isArray(children)?children.length>0:!!children;return <section className="mx-5 mt-5 rounded-3xl border border-borderLight bg-paper p-5"><div className="mb-2 flex items-center gap-2"><span className="text-muted">{icon}</span><h3 className="font-serif text-lg">{title}</h3></div>{has?children:<p className="py-4 text-sm text-muted">{empty}</p>}</section>}
-function Row({title,subtitle,value}:{title:string;subtitle:string;value:string}){return <div className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="text-xs text-muted">{subtitle}</p></div><p className="text-sm font-semibold tabular-nums">{value}</p></div>}
+function Row({title,subtitle,value,onEdit}:{title:string;subtitle:string;value:string;onEdit?:()=>void}){return <div className="flex items-center gap-2 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="text-xs text-muted">{subtitle}</p></div><p className="text-sm font-semibold tabular-nums">{value}</p>{onEdit&&<button type="button" onClick={onEdit} aria-label={`Modifier ${title}`} title="Modifier" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-white2 hover:text-ink"><Pencil size={14}/></button>}</div>}
