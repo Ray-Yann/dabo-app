@@ -421,6 +421,19 @@ export default function TasksPage() {
     if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
     return a.due_date ? -1 : b.due_date ? 1 : 0;
   });
+  const pendingGroups = [
+    ...members.map((member) => ({
+      key: member.id,
+      label: member.first_name,
+      tasks: pending.filter((task) => task.assigned_to === member.id),
+    })),
+    {
+      key: "unassigned",
+      label: t("unassigned"),
+      tasks: pending.filter((task) => !task.assigned_to || !members.some((member) => member.id === task.assigned_to)),
+    },
+  ].filter((group) => group.tasks.length > 0);
+
   const allDone = tasks
     .filter((task) => task.status === "done" && task.completed_at && !taskContributions[task.id]?.hidden_from_task_history)
     .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
@@ -597,8 +610,12 @@ export default function TasksPage() {
 
       <div className="px-5">
         {pending.length === 0 && !showAdd && <EmptyState message={`${t("tasks_empty_title")} ${t("tasks_empty")}`} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
-        <div className="space-y-1 mb-6">
-          {pending.map((task) => (
+        <div className="space-y-4 mb-6">
+          {pendingGroups.map((group) => (
+            <section key={group.key}>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">{group.label}</div>
+              <div className="space-y-1">
+                {group.tasks.map((task) => (
             <div key={task.id} className="border-b border-borderLight py-3">
               {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
@@ -661,6 +678,9 @@ export default function TasksPage() {
                 </div>
               )}
             </div>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
 
