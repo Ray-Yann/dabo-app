@@ -15,6 +15,22 @@ export function createAdminClient() {
 // ensuite pour les requêtes en base de données (piège documenté par Supabase :
 // un client secret key perd le bypass RLS dès qu'un jeton utilisateur entre
 // en jeu, même sur un client séparé de la même bibliothèque).
+
+// Client serveur au nom de l’utilisateur connecté. Il utilise la clé publique
+// et propage son JWT : les requêtes restent donc soumises aux politiques RLS.
+// À utiliser pour les données sensibles d’un foyer quand le bypass RLS n’est
+// ni nécessaire ni souhaitable (notamment Finance).
+export function createUserClient(token: string) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    }
+  );
+}
+
 export async function verifyUserToken(token: string): Promise<{ id: string } | null> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
