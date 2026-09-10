@@ -22,6 +22,22 @@ type SettingsConfirmation =
 
 const AVATAR_EMOJIS = ["🐶", "🐱", "🦊", "🐼", "🦁", "🐸", "🌿", "🌻", "🌙", "⭐", "🌊", "🔥"];
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+const HOUSEHOLD_COUNTRIES = [
+  { code: "BE", labelKey: "country_be" },
+  { code: "FR", labelKey: "country_fr" },
+  { code: "NL", labelKey: "country_nl" },
+  { code: "GB", labelKey: "country_gb" },
+] as const;
+
+function detectCountryFromDevice() {
+  if (typeof navigator === "undefined") return "BE";
+  const locales = [navigator.language, ...(navigator.languages || [])];
+  for (const locale of locales) {
+    const region = locale?.match(/[-_]([A-Za-z]{2})$/)?.[1]?.toUpperCase();
+    if (region && HOUSEHOLD_COUNTRIES.some((country) => country.code === region)) return region;
+  }
+  return "BE";
+}
 
 export default function SettingsPage() {
   const { loading, household, me, members, supabase, refresh } = useHousehold();
@@ -40,6 +56,7 @@ export default function SettingsPage() {
   const [editingHouseholdName, setEditingHouseholdName] = useState(false);
   const [editingHouseholdType, setEditingHouseholdType] = useState(false);
   const [householdType, setHouseholdType] = useState(household?.household_type || "couple");
+  const [householdCountry, setHouseholdCountry] = useState(household?.country_code || "BE");
   const [memberActionsId, setMemberActionsId] = useState<string | null>(null);
   const [householdDetailsOpen, setHouseholdDetailsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -71,6 +88,7 @@ export default function SettingsPage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHouseholdName(household.name);
       setHouseholdType(household.household_type);
+      setHouseholdCountry(household.country_code || detectCountryFromDevice());
     }
   }, [household?.id]);
 
@@ -317,6 +335,17 @@ export default function SettingsPage() {
     }
     refresh();
   }
+  async function saveHouseholdCountry() {
+    if (!household) return;
+    const { error } = await supabase.from("households").update({ country_code: householdCountry }).eq("id", household.id);
+    if (error) {
+      showFeedback("error", t("settings_error_save"));
+      return;
+    }
+    showFeedback("success", t("settings_country_saved"));
+    refresh();
+  }
+
   async function saveHouseholdType() {
     if (!household) return;
     const { error } = await supabase.from("households").update({ household_type: householdType }).eq("id", household.id);
@@ -676,7 +705,8 @@ export default function SettingsPage() {
                         <div className="text-xs text-muted">{t("settings_household_type")}</div>
                         <div className="text-sm text-ink font-medium mt-0.5">{householdTypeLabel}</div>
                       </div>
-                      <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
+                      <button onClick={() => { setHouseholdType(household.household_type);
+      setHouseholdCountry(household.country_code || detectCountryFromDevice()); setEditingHouseholdType(true); }} className="flex items-center gap-1.5 text-xs text-muted shrink-0">
                         <Pencil size={13} /> {t("settings_edit")}
                       </button>
                     </div>
@@ -690,10 +720,22 @@ export default function SettingsPage() {
                       </select>
                       <div className="flex gap-2">
                         <button onClick={saveHouseholdType} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">{t("save")}</button>
-                        <button onClick={() => { setHouseholdType(household.household_type); setEditingHouseholdType(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
+                        <button onClick={() => { setHouseholdType(household.household_type);
+      setHouseholdCountry(household.country_code || detectCountryFromDevice()); setEditingHouseholdType(false); }} className="px-3 py-2 text-sm text-muted">{t("cancel")}</button>
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div className="py-3 border-t border-border">
+                  <div className="text-xs font-medium text-ink mb-1.5">{t("settings_household_country")}</div>
+                  <p className="text-xs text-muted mb-2">{t("settings_household_country_hint")}</p>
+                  <div className="flex gap-2">
+                    <select value={householdCountry} onChange={(e) => setHouseholdCountry(e.target.value)} className="flex-1 border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+                      {HOUSEHOLD_COUNTRIES.map((country) => <option key={country.code} value={country.code}>{t(country.labelKey)}</option>)}
+                    </select>
+                    <button onClick={saveHouseholdCountry} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium">{t("save")}</button>
+                  </div>
                 </div>
               </div>
             )}

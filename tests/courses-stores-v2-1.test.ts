@@ -8,7 +8,7 @@ const migration = fs.readFileSync("supabase-migrations/2026-09-10-courses-v2-1-g
 test("Courses V2.1: authenticated households can read the shared store catalog", () => {
   assert.match(migration, /create table if not exists public\.global_stores/);
   assert.match(migration, /for select to authenticated[\s\S]*using \(true\)/);
-  assert.match(page, /from\("global_stores"\)\.select\("id,name"\)/);
+  assert.match(page, /from\("global_stores"\)\.select\("id,name(?:,country_code)?"\)/);
 });
 
 test("Courses V2.1: a newly learned store enriches both household and global catalogs", () => {

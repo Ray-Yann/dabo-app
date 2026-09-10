@@ -18,10 +18,15 @@ import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 
 type HouseholdStore = { id: string; name: string };
-type GlobalStore = { id: string; name: string };
+type GlobalStore = { id: string; name: string; country_code: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "", store: "", customStore: "" };
-const DEFAULT_STORES = ["Carrefour", "Colruyt", "Lidl", "Aldi", "Delhaize", "Action", "Albert Heijn", "Intermarché"];
+const DEFAULT_STORES_BY_COUNTRY: Record<string, string[]> = {
+  BE: ["Carrefour", "Colruyt", "Lidl", "Aldi", "Delhaize", "Action", "Albert Heijn", "Intermarché"],
+  FR: ["Carrefour", "E.Leclerc", "Intermarché", "Lidl", "Aldi", "Auchan", "Monoprix", "Action"],
+  NL: ["Albert Heijn", "Jumbo", "Lidl", "Aldi", "PLUS", "Dirk", "Action"],
+  GB: ["Tesco", "Sainsbury's", "Asda", "Morrisons", "Aldi", "Lidl", "Waitrose", "Iceland"],
+};
 const OTHER_STORE = "__other__";
 
 function ItemFormFields({
@@ -188,7 +193,7 @@ export default function CoursesPage() {
       supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
       supabase.from("tasks").select("name").eq("household_id", household.id).limit(200),
       supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
-      supabase.from("global_stores").select("id,name").order("name"),
+      supabase.from("global_stores").select("id,name,country_code").eq("country_code", household.country_code || "BE").order("name"),
     ]);
     setItems((itemData as ShoppingItem[]) || []);
     setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
@@ -211,7 +216,7 @@ export default function CoursesPage() {
 
   function availableStores() {
     const byKey = new Map<string, string>();
-    [...DEFAULT_STORES, ...globalStores.map((store) => store.name), ...householdStores.map((store) => store.name)].forEach((name) => {
+    [...(DEFAULT_STORES_BY_COUNTRY[household?.country_code || "BE"] || []), ...globalStores.map((store) => store.name), ...householdStores.map((store) => store.name)].forEach((name) => {
       const clean = name.trim();
       if (clean) byKey.set(clean.toLocaleLowerCase(), clean);
     });
@@ -228,7 +233,7 @@ export default function CoursesPage() {
     if (alreadyKnown) return;
     await Promise.all([
       supabase.from("household_stores").insert({ household_id: household.id, name }),
-      supabase.from("global_stores").insert({ name }),
+      supabase.from("global_stores").insert({ name, country_code: household.country_code || "BE" }),
     ]);
   }
 
