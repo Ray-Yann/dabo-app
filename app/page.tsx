@@ -6,14 +6,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { genInviteCode } from "@/lib/utils";
-import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff } from "lucide-react";
+import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2 } from "lucide-react";
 import type { Lang } from "@/lib/i18n";
 import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 
 type Phase = "loading" | "auth" | "setup";
 type AuthMode = "signup" | "login" | "forgot";
-type SetupMode = "choice" | "create" | "join";
+type SetupMode = "choice" | "create" | "join" | "created";
+type CreatedHousehold = { id: string; name: string; invite_code: string };
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -36,6 +37,12 @@ export default function OnboardingPage() {
   useEffect(() => {
     document.documentElement.classList.remove("dark");
     captureReferralFromUrl();
+    const incomingInvite = new URLSearchParams(window.location.search).get("invite")?.trim().toUpperCase();
+    if (incomingInvite) {
+      setInviteCode(incomingInvite);
+      setInviteFromLink(true);
+      setSetupMode("join");
+    }
     void trackAcquisitionEvent("landing_view");
   }, []);
 
@@ -44,6 +51,9 @@ export default function OnboardingPage() {
     setMemberLang(detectAvailableLanguageFromDevice());
   }, []);
   const [inviteCode, setInviteCode] = useState("");
+  const [inviteFromLink, setInviteFromLink] = useState(false);
+  const [createdHousehold, setCreatedHousehold] = useState<CreatedHousehold | null>(null);
+  const [inviteShared, setInviteShared] = useState(false);
 
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -90,12 +100,20 @@ export default function OnboardingPage() {
       }
       const { data: members } = await supabase
         .from("members")
-        .select("id")
+        .select("id,first_name")
         .eq("user_id", data.session.user.id)
+        .is("left_at", null)
         .limit(1);
-      if (members && members.length > 0) {
+      const incomingInvite = new URLSearchParams(window.location.search).get("invite")?.trim().toUpperCase();
+      if (members && members.length > 0 && !incomingInvite) {
         router.replace("/app");
         return;
+      }
+      if (members?.[0]?.first_name) setFirstName(members[0].first_name);
+      if (incomingInvite) {
+        setInviteCode(incomingInvite);
+        setInviteFromLink(true);
+        setSetupMode("join");
       }
       setPhase("setup");
     })();
@@ -125,13 +143,15 @@ export default function OnboardingPage() {
     if (data.session) {
       const { data: members } = await supabase
         .from("members")
-        .select("id")
+        .select("id,first_name")
         .eq("user_id", data.session.user.id)
+        .is("left_at", null)
         .limit(1);
-      if (members && members.length > 0) {
+      if (members && members.length > 0 && !inviteFromLink) {
         router.replace("/app");
         return;
       }
+      if (members?.[0]?.first_name) setFirstName(members[0].first_name);
     }
     setPhase("setup");
     setBusy(false);
@@ -171,7 +191,9 @@ export default function OnboardingPage() {
       return;
     }
     await trackAcquisitionEvent("household_created", { householdId: household.id });
-    router.replace("/app");
+    setCreatedHousehold({ id: household.id, name: household.name, invite_code: household.invite_code });
+    setSetupMode("created");
+    setBusy(false);
   }
 
   async function handleJoinHousehold() {
@@ -193,6 +215,18 @@ export default function OnboardingPage() {
       setBusy(false);
       return;
     }
+    const { data: existingMembership } = await supabase
+      .from("members")
+      .select("id")
+      .eq("household_id", household.id)
+      .eq("user_id", sessionData.session.user.id)
+      .is("left_at", null)
+      .maybeSingle();
+    if (existingMembership) {
+      router.replace("/app");
+      return;
+    }
+
     const { count } = await supabase
       .from("members")
       .select("*", { count: "exact", head: true })
@@ -221,6 +255,23 @@ export default function OnboardingPage() {
     router.replace("/app");
   }
 
+  async function shareCreatedHousehold() {
+    if (!createdHousehold) return;
+    const inviteUrl = `${window.location.origin}/?invite=${encodeURIComponent(createdHousehold.invite_code)}`;
+    const text = `Rejoins ${createdHousehold.name} sur DABO.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "DABO", text, url: inviteUrl });
+      } else {
+        await navigator.clipboard.writeText(`${text} ${inviteUrl}`);
+      }
+      setInviteShared(true);
+      setTimeout(() => setInviteShared(false), 1800);
+    } catch {
+      // Partage annulé : le code reste visible comme solution de secours.
+    }
+  }
+
   if (phase === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#E7E3D8]">
@@ -238,9 +289,9 @@ export default function OnboardingPage() {
 
         {phase === "auth" && authMode !== "forgot" && (
           <>
-            <h1 className="font-serif text-2xl text-ink mb-1">Bienvenue sur Dabo</h1>
-            <p className="text-sm text-muted mb-1">L&apos;équilibre du foyer, enfin visible.</p>
-            <p className="text-xs text-muted mb-6">Crée ton compte pour retrouver ton foyer, où que tu sois — tes proches t&apos;y attendent déjà, ou t&apos;y rejoindront bientôt.</p>
+            <h1 className="font-serif text-2xl text-ink mb-1">{inviteFromLink ? "Tu es invité·e sur DABO" : "Bienvenue sur Dabo"}</h1>
+            <p className="text-sm text-muted mb-1">{inviteFromLink ? "Connecte-toi ou crée ton compte pour rejoindre le foyer." : "L’équilibre du foyer, enfin visible."}</p>
+            <p className="text-xs text-muted mb-6">{inviteFromLink ? `Invitation ${inviteCode} prête à être utilisée.` : "Crée ton compte pour retrouver ton foyer, où que tu sois — tes proches t’y attendent déjà, ou t’y rejoindront bientôt."}</p>
 
             <div className="space-y-3 text-left">
               <input
@@ -401,13 +452,33 @@ export default function OnboardingPage() {
           </>
         )}
 
+        {phase === "setup" && setupMode === "created" && createdHousehold && (
+          <>
+            <div className="w-12 h-12 rounded-full bg-mustardBg flex items-center justify-center mx-auto mb-4">
+              <CheckSquare size={22} className="text-ink" />
+            </div>
+            <h1 className="font-serif text-2xl text-ink mb-1">Ton foyer est prêt 🎉</h1>
+            <p className="text-sm text-muted mb-5">Invite maintenant les personnes avec qui tu veux organiser le quotidien.</p>
+            <div className="rounded-xl border border-border bg-white2 px-4 py-3 mb-3">
+              <div className="text-xs text-muted mb-1">Code d’invitation</div>
+              <div className="font-mono font-medium tracking-wider text-ink">{createdHousehold.invite_code}</div>
+            </div>
+            <button onClick={() => void shareCreatedHousehold()} className="w-full bg-ink text-paper rounded-xl py-3 font-medium flex items-center justify-center gap-2">
+              <Share2 size={17} /> {inviteShared ? "Invitation prête ✓" : "Partager l’invitation"}
+            </button>
+            <button className="text-sm text-muted mt-4" onClick={() => router.replace("/app")}>Plus tard</button>
+          </>
+        )}
+
         {phase === "setup" && setupMode === "join" && (
           <>
-            <h1 className="font-serif text-xl text-ink mb-4">Rejoindre un foyer</h1>
+            <h1 className="font-serif text-xl text-ink mb-1">{inviteFromLink ? "Ton invitation est prête" : "Rejoindre un foyer"}</h1>
+            {inviteFromLink && <p className="text-sm text-muted mb-4">Il ne reste qu’à confirmer ton prénom pour rejoindre le foyer.</p>}
             <div className="space-y-3 text-left">
               <input
                 placeholder="Code du foyer (ex. ABC-482)"
                 value={inviteCode}
+                readOnly={inviteFromLink}
                 onChange={(e) => setInviteCode(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />

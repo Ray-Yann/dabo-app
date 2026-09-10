@@ -362,12 +362,15 @@ export default function TodayPage() {
         {isBrandNew ? (
           <div className="text-center py-6">
             <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
-            <div className="flex gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 justify-center">
               <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
                 <Plus size={15} /> {t("courses_title")}
               </button>
               <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
                 <Plus size={15} /> {t("tasks_title")}
+              </button>
+              <button onClick={() => router.push("/app/calendrier")} className="flex items-center gap-1.5 border border-border bg-paper text-ink rounded-xl px-4 py-2.5 text-sm font-medium">
+                <Plus size={15} /> {t("calendar_title")}
               </button>
             </div>
           </div>

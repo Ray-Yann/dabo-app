@@ -373,9 +373,10 @@ export default function SettingsPage() {
     const text = t("settings_invite_share_message")
       .replace("{household}", household.name)
       .replace("{code}", household.invite_code);
+    const inviteUrl = `${window.location.origin}/?invite=${encodeURIComponent(household.invite_code)}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "DABO", text });
+        await navigator.share({ title: "DABO", text, url: inviteUrl });
       } catch {
         // Partage annulé — rien à faire.
       }
@@ -383,7 +384,7 @@ export default function SettingsPage() {
     }
     try {
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(`${text} ${inviteUrl}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
