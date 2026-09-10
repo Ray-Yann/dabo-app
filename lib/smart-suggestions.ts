@@ -34,12 +34,32 @@ const DOMAIN_TERMS: Record<Lang, Record<SuggestionDomain, string[]>> = {
       "Do the laundry", "Tidy the living room", "Water the plants", "Air out the house",
     ],
   },
+  de: {
+    courses: ["Milch", "Brot", "Eier", "Wasser", "Reis", "Gemüse", "Obst", "Spülmittel", "Waschmittel", "Zahnpasta", "Toilettenpapier", "Seife", "Shampoo", "Kaffee", "Zucker", "Verlängerungskabel"],
+    tasks: ["Küche putzen", "Badezimmer putzen", "Müll rausbringen", "Geschirr spülen", "Staubsaugen", "Wäsche waschen", "Wohnzimmer aufräumen", "Pflanzen gießen", "Haus lüften"],
+  },
+  es: {
+    courses: ["Leche", "Pan", "Huevos", "Agua", "Arroz", "Verduras", "Fruta", "Lavavajillas", "Detergente", "Pasta de dientes", "Papel higiénico", "Jabón", "Champú", "Café", "Azúcar", "Alargador"],
+    tasks: ["Limpiar la cocina", "Limpiar el baño", "Sacar la basura", "Lavar los platos", "Pasar la aspiradora", "Hacer la colada", "Ordenar el salón", "Regar las plantas", "Ventilar la casa"],
+  },
+  it: {
+    courses: ["Latte", "Pane", "Uova", "Acqua", "Riso", "Verdure", "Frutta", "Detersivo per piatti", "Detersivo per bucato", "Dentifricio", "Carta igienica", "Sapone", "Shampoo", "Caffè", "Zucchero", "Prolunga"],
+    tasks: ["Pulire la cucina", "Pulire il bagno", "Portare fuori la spazzatura", "Lavare i piatti", "Passare l’aspirapolvere", "Fare il bucato", "Riordinare il soggiorno", "Annaffiare le piante", "Arieggiare la casa"],
+  },
+  pt: {
+    courses: ["Leite", "Pão", "Ovos", "Água", "Arroz", "Legumes", "Fruta", "Detergente da loiça", "Detergente da roupa", "Pasta de dentes", "Papel higiénico", "Sabão", "Champô", "Café", "Açúcar", "Extensão elétrica"],
+    tasks: ["Limpar a cozinha", "Limpar a casa de banho", "Levar o lixo", "Lavar a loiça", "Aspirar", "Lavar a roupa", "Arrumar a sala", "Regar as plantas", "Arejar a casa"],
+  },
 };
 
 const LEXICON_URLS: Record<Lang, string> = {
   fr: "https://cdn.jsdelivr.net/npm/an-array-of-french-words@2.0.0/index.json",
   nl: "https://cdn.jsdelivr.net/npm/an-array-of-dutch-words/index.json",
   en: "https://cdn.jsdelivr.net/npm/an-array-of-english-words@2.0.0/index.json",
+  de: "https://cdn.jsdelivr.net/npm/an-array-of-german-words@1.2.0/words.json",
+  es: "https://cdn.jsdelivr.net/npm/an-array-of-spanish-words@2.0.0/index.json",
+  it: "https://cdn.jsdelivr.net/npm/an-array-of-italian-words@1.2.0/words.json",
+  pt: "https://cdn.jsdelivr.net/npm/an-array-of-portuguese-words@1.2.0/words.json",
 };
 
 const lexiconCache = new Map<Lang, string[]>();

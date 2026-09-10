@@ -18,15 +18,15 @@ export const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
   { code: "fr", label: "Français", nativeLabel: "Français", available: true },
   { code: "nl", label: "Néerlandais", nativeLabel: "Nederlands", available: true },
   { code: "en", label: "Anglais", nativeLabel: "English", available: true },
-  { code: "de", label: "Allemand", nativeLabel: "Deutsch", available: false },
-  { code: "es", label: "Espagnol", nativeLabel: "Español", available: false },
-  { code: "it", label: "Italien", nativeLabel: "Italiano", available: false },
-  { code: "pt", label: "Portugais", nativeLabel: "Português", available: false },
+  { code: "de", label: "Allemand", nativeLabel: "Deutsch", available: true },
+  { code: "es", label: "Espagnol", nativeLabel: "Español", available: true },
+  { code: "it", label: "Italien", nativeLabel: "Italiano", available: true },
+  { code: "pt", label: "Portugais", nativeLabel: "Português", available: true },
 ] as const;
 
 export const AVAILABLE_LANGUAGE_OPTIONS = LANGUAGE_OPTIONS.filter(
   (language): language is LanguageOption & { code: Lang; available: true } =>
-    language.available && ["fr", "nl", "en"].includes(language.code)
+    language.available && ["fr", "nl", "en", "de", "es", "it", "pt"].includes(language.code)
 );
 
 export function isAvailableLang(value: string): value is Lang {

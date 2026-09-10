@@ -18,7 +18,7 @@ export type Member = {
   avatar_color: string | null;
   avatar_url?: string | null;
   avatar_emoji?: string | null;
-  language: "fr" | "nl" | "en";
+  language: "fr" | "nl" | "en" | "de" | "es" | "it" | "pt";
   dark_mode: boolean;
   created_at: string;
   left_at?: string | null;

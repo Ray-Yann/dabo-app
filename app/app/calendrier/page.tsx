@@ -134,7 +134,7 @@ export default function CalendarPage() {
 
   if (loading || !household) return <LoadingState />;
 
-  const locale = me?.language === "nl" ? "nl-BE" : me?.language === "en" ? "en-GB" : "fr-BE";
+  const locale = ({ fr: "fr-BE", nl: "nl-BE", en: "en-GB", de: "de-BE", es: "es-ES", it: "it-IT", pt: "pt-PT" } as const)[me?.language || "fr"] || "fr-BE";
 
   function formatEventDate(date: Date) {
     return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(date);
