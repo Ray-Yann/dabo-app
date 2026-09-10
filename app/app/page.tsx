@@ -375,7 +375,7 @@ export default function TodayPage() {
           <DaboEmptyState title={t("today_nothing_pressing_title")} message={t("today_nothing_pressing_text")} />
         ) : (
           <div className="space-y-2">
-            {attentionItems.map((attention) => {
+            {attentionItems.map((attention, index) => {
               const detail = attentionDetails(attention);
               return (
                 <AttentionCard
@@ -387,6 +387,7 @@ export default function TodayPage() {
                   meta={detail.meta}
                   icon={detail.icon}
                   onAction={detail.onAction}
+                  primary={index === 0}
                 />
               );
             })}
