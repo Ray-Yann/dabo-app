@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, ListChecks, Sparkles, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight, WalletCards } from "lucide-react";
+import { ShoppingBag, Info, Plus, ListChecks, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight, WalletCards } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { IconUpdateNotice } from "@/components/IconUpdateNotice";
@@ -20,7 +20,11 @@ import { ContributionBalanceData, countConfirmedContributionsSince, fetchContrib
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
-import { FinanceBillAttentionLike, financeBillsNeedingAttention } from "@/lib/finance-engine";
+import { FinanceBillAttentionLike } from "@/lib/finance-engine";
+import { AttentionCandidate, daboInsightAttentionCandidates, financeBillAttentionCandidates, selectHouseholdAttention, shoppingItemAttentionCandidates, taskAttentionCandidates } from "@/lib/attention-engine";
+import { AttentionCard } from "@/components/dabo/AttentionCard";
+import { EmptyState as DaboEmptyState } from "@/components/dabo/EmptyState";
+import { SectionHeader } from "@/components/dabo/SectionHeader";
 
 export default function TodayPage() {
   useEffect(() => { void trackAcquisitionEvent("app_open"); }, []);
@@ -169,70 +173,28 @@ export default function TodayPage() {
       .slice(0, 3);
   }, [household, members, allTasksForBalance, calendarEvents, routines]);
 
+  const attentionItems = useMemo(() => {
+    if (!household || !me) return [];
+    const today = todayCivilDate();
+    const candidates = [
+      ...taskAttentionCandidates(tasks, household.id, today),
+      ...shoppingItemAttentionCandidates(items, household.id, today),
+      ...financeBillAttentionCandidates(financeBills, household.id, today),
+      ...daboInsightAttentionCandidates(daboInsights, household.id),
+    ];
+    return selectHouseholdAttention({
+      candidates,
+      householdId: household.id,
+      viewerMemberId: me.id,
+      now: `${today}T12:00:00.000Z`,
+    });
+  }, [household, me, tasks, items, financeBills, daboInsights]);
+
   if (loading || !household || !me) return <LoadingState />;
 
   const nothingToDo = tasks.length === 0 && items.length === 0;
   const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
   const today = todayCivilDate();
-
-  // Aujourd’hui only surfaces what genuinely deserves attention now.
-  // It never fills empty slots with future work.
-  const representedTaskIds = new Set(
-    daboInsights
-      .filter((insight) => insight.relatedEntityId && (insight.type === "overdue_task" || insight.type === "assignment"))
-      .map((insight) => insight.relatedEntityId as string)
-  );
-
-  const taskPriority = (task: Task) => {
-    if (task.due_date && task.due_date < today) return 0;
-    if (task.urgent) return 1;
-    if (task.due_date === today) return 2;
-    return 3;
-  };
-
-  const essentialTasks = [...tasks]
-    .filter((task) =>
-      !representedTaskIds.has(task.id) &&
-      ((task.due_date !== null && task.due_date <= today) || task.urgent)
-    )
-    .sort((a, b) =>
-      taskPriority(a) - taskPriority(b) ||
-      (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31") ||
-      a.created_at.localeCompare(b.created_at)
-    )
-    .slice(0, 3);
-
-  const itemPriority = (item: ShoppingItem) => {
-    if (item.due_date && item.due_date < today) return 0;
-    if (item.urgent) return 1;
-    if (item.due_date === today) return 2;
-    return 3;
-  };
-
-  const essentialItem = [...items]
-    .filter((item) => (item.due_date !== null && item.due_date <= today) || item.urgent)
-    .sort((a, b) =>
-      itemPriority(a) - itemPriority(b) ||
-      (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31") ||
-      a.created_at.localeCompare(b.created_at)
-    )[0] || null;
-
-  const financeAttention = financeBillsNeedingAttention(financeBills, today, 3);
-  const hasEssentials = Boolean(essentialItem) || essentialTasks.length > 0 || financeAttention.length > 0;
-
-  function financeDueLabel(dueOn: string) {
-    const due = new Date(`${dueOn}T12:00:00`);
-    const current = new Date(`${today}T12:00:00`);
-    const days = Math.round((due.getTime() - current.getTime()) / 86_400_000);
-    if (days < 0) return t("today_finance_overdue");
-    if (days === 0) return t("today_finance_due_today");
-    return t("today_finance_due_soon").replace("{days}", String(days));
-  }
-
-  function financeAmount(amount: number | null, currency = "EUR") {
-    if (amount === null) return null;
-    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
-  }
 
   function insightDetails(insight: DaboInsight) {
     const task = insight.relatedEntityId
@@ -288,6 +250,60 @@ export default function TodayPage() {
     };
   }
 
+  function attentionLevelLabel(level: AttentionCandidate["level"]) {
+    if (level === "action_now") return t("attention_level_action_now");
+    if (level === "anticipate") return t("attention_level_anticipate");
+    if (level === "suggestion") return t("attention_level_suggestion");
+    return t("attention_level_information");
+  }
+
+  function attentionDetails(attention: AttentionCandidate) {
+    if (attention.id.startsWith("insight:")) {
+      const insight = daboInsights.find((candidate) => `insight:${candidate.id}` === attention.id);
+      if (insight) {
+        const detail = insightDetails(insight);
+        return {
+          icon: detail.icon,
+          title: detail.title,
+          description: detail.message,
+          meta: detail.reason,
+          onAction: () => router.push(detail.href),
+        };
+      }
+    }
+
+    if (attention.source === "finance") {
+      const days = Number(attention.metadata?.daysFromToday ?? 0);
+      const due = days < 0
+        ? t("today_finance_overdue")
+        : days === 0
+          ? t("today_finance_due_today")
+          : t("today_finance_due_soon").replace("{days}", String(days));
+      const amount = typeof attention.metadata?.amount === "number"
+        ? new Intl.NumberFormat(undefined, { style: "currency", currency: String(attention.metadata?.currency || "EUR") }).format(Number(attention.metadata.amount))
+        : null;
+      return { icon: WalletCards, title: attention.title, description: due, meta: amount || undefined, onAction: () => router.push("/app/equilibre/budget") };
+    }
+
+    if (attention.source === "shopping") {
+      const item = attention.relatedEntityId ? items.find((candidate) => candidate.id === attention.relatedEntityId) : undefined;
+      const description = attention.reason === "overdue"
+        ? t("today_attention_shopping_overdue")
+        : attention.reason === "urgent"
+          ? t("today_attention_shopping_urgent")
+          : t("today_attention_shopping_due_today");
+      return { icon: ShoppingBag, title: attention.title, description, meta: t("courses_title"), onAction: item ? () => void toggleItem(item.id) : () => router.push("/app/courses") };
+    }
+
+    const task = attention.relatedEntityId ? tasks.find((candidate) => candidate.id === attention.relatedEntityId) : undefined;
+    const description = attention.reason === "overdue"
+      ? t("today_attention_task_overdue")
+      : attention.reason === "urgent"
+        ? t("today_attention_task_urgent")
+        : t("today_attention_task_due_today");
+    return { icon: Clock3, title: attention.title, description, meta: t("tasks_title"), onAction: task ? () => void toggleTask(task) : () => router.push("/app/taches") };
+  }
+
   return (
     <div>
       <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
@@ -303,48 +319,56 @@ export default function TodayPage() {
         />
       )}
 
-      <section className="mx-5 mb-5">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-mustardBg flex items-center justify-center">
-              <Sparkles size={14} className="text-mustard" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-ink">{t("dabo_insights_label")}</div>
-              <div className="text-[10px] text-muted">{t("loba_user_subtitle")}</div>
+      <section className="px-5 pb-2">
+        <SectionHeader title={t("today_essentials")} />
+
+        {isBrandNew ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
+            <div className="flex gap-2 justify-center">
+              <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
+                <Plus size={15} /> {t("courses_title")}
+              </button>
+              <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
+                <Plus size={15} /> {t("tasks_title")}
+              </button>
             </div>
           </div>
-          {daboInsights.length === 0 ? (
-            <div className="w-full bg-white2 rounded-2xl p-4 text-sm text-muted">{t("loba_user_calm")}</div>
-          ) : (
+        ) : attentionItems.length === 0 ? (
+          <DaboEmptyState title={t("today_nothing_pressing_title")} message={t("today_nothing_pressing_text")} />
+        ) : (
           <div className="space-y-2">
-            {daboInsights.map((insight) => {
-              const detail = insightDetails(insight);
-              const InsightIcon = detail.icon;
+            {attentionItems.map((attention) => {
+              const detail = attentionDetails(attention);
               return (
-                <button
-                  key={insight.id}
-                  type="button"
-                  onClick={() => router.push(detail.href)}
-                  className="w-full text-left bg-white2 rounded-2xl p-4 flex gap-3 items-start"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-mustardBg flex items-center justify-center shrink-0">
-                    <InsightIcon size={17} className="text-mustard" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-ink mb-1">{detail.title}</div>
-                    <div className="text-sm text-ink leading-snug">{detail.message}</div>
-                    <div className="text-[11px] mt-2 leading-snug">
-                      <span className="font-semibold text-mustard mr-1.5">{t("dabo_why")}</span>
-                      <span className="text-muted">{detail.reason}</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-muted shrink-0 mt-1" />
-                </button>
+                <AttentionCard
+                  key={attention.id}
+                  level={attention.level}
+                  levelLabel={attentionLevelLabel(attention.level)}
+                  title={detail.title}
+                  description={detail.description}
+                  meta={detail.meta}
+                  icon={detail.icon}
+                  onAction={detail.onAction}
+                />
               );
             })}
           </div>
-          )}
-        </section>
+        )}
+
+        {!isBrandNew && (
+          <div className="flex items-center justify-between gap-3 pt-3">
+            <button type="button" onClick={() => router.push("/app/courses")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
+              <ShoppingBag size={12} /> {t("today_view_courses")} <ChevronRight size={12} />
+            </button>
+            <button type="button" onClick={() => router.push("/app/taches")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
+              <ListChecks size={12} /> {t("today_view_tasks")} <ChevronRight size={12} />
+            </button>
+          </div>
+        )}
+      </section>
+
+
 
       <LobaHouseholdChat householdName={household.name} />
 
@@ -361,103 +385,6 @@ export default function TodayPage() {
         </div>
       )}
 
-      <section className="px-5">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("today_essentials")}</div>
-
-        {isBrandNew ? (
-          <div className="text-center py-6">
-            <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
-            <div className="flex gap-2 justify-center">
-              <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
-                <Plus size={15} /> {t("courses_title")}
-              </button>
-              <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
-                <Plus size={15} /> {t("tasks_title")}
-              </button>
-            </div>
-          </div>
-        ) : !hasEssentials ? (
-          <div className="bg-white2 rounded-2xl p-4 mb-3">
-            <div className="text-sm font-semibold text-ink">{t("today_nothing_pressing_title")}</div>
-            <div className="text-xs text-muted mt-1">{t("today_nothing_pressing_text")}</div>
-          </div>
-        ) : (
-          <div className="bg-white2 rounded-2xl px-4 mb-3">
-            {financeAttention.map((bill, index) => {
-              const amount = financeAmount(bill.amount, bill.currency);
-              const hasFollowing = index < financeAttention.length - 1 || Boolean(essentialItem) || essentialTasks.length > 0;
-              return (
-                <button
-                  key={`finance-${bill.id || bill.label}-${bill.due_on}`}
-                  type="button"
-                  className={`w-full flex items-center gap-3 py-3.5 text-left ${hasFollowing ? "border-b border-borderLight" : ""}`}
-                  onClick={() => router.push("/app/equilibre/budget")}
-                >
-                  <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
-                    <WalletCards size={11} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase tracking-wide text-muted mb-0.5">{financeDueLabel(bill.due_on)}</div>
-                    <div className="text-sm text-ink flex items-center justify-between gap-3">
-                      <span className="truncate">{bill.label}</span>
-                      {amount && <span className="font-medium shrink-0">{amount}</span>}
-                    </div>
-                  </div>
-                  <ChevronRight size={14} className="text-muted shrink-0" />
-                </button>
-              );
-            })}
-
-            {essentialItem && (
-              <button
-                type="button"
-                className={`w-full flex items-center gap-3 py-3.5 text-left ${essentialTasks.length > 0 ? "border-b border-borderLight" : ""}`}
-                onClick={() => void toggleItem(essentialItem.id)}
-              >
-                <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center text-muted shrink-0">
-                  <ShoppingBag size={11} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase tracking-wide text-muted mb-0.5">{t("courses_title")}</div>
-                  <div className="text-sm text-ink flex items-center gap-1.5">
-                    {essentialItem.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
-                    <span className="truncate">{essentialItem.name}</span>
-                  </div>
-                </div>
-              </button>
-            )}
-
-            {essentialTasks.map((task, index) => (
-              <button
-                key={task.id}
-                type="button"
-                className={`w-full flex items-center gap-3 py-3.5 text-left ${index < essentialTasks.length - 1 ? "border-b border-borderLight" : ""}`}
-                onClick={() => void toggleTask(task)}
-              >
-                <div className="w-5 h-5 rounded-full border-2 border-border shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase tracking-wide text-muted mb-0.5">{t("tasks_title")}</div>
-                  <div className="text-sm text-ink flex items-center gap-1.5">
-                    {task.urgent && <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" title={t("urgent_label")} />}
-                    <span className="truncate">{task.name}</span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!isBrandNew && (
-          <div className="flex items-center justify-between gap-3 pb-2">
-            <button type="button" onClick={() => router.push("/app/courses")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
-              <ShoppingBag size={12} /> {t("today_view_courses")} <ChevronRight size={12} />
-            </button>
-            <button type="button" onClick={() => router.push("/app/taches")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
-              <ListChecks size={12} /> {t("today_view_tasks")} <ChevronRight size={12} />
-            </button>
-          </div>
-        )}
-      </section>
 
       {completionTarget && (
         <TaskCompletionDialog
