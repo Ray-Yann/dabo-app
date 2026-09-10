@@ -86,6 +86,7 @@ export default function CoursesPage() {
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [globalStores, setGlobalStores] = useState<GlobalStore[]>([]);
+  const [worldStores, setWorldStores] = useState<string[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -208,6 +209,16 @@ export default function CoursesPage() {
   }, [household]);
 
   useEffect(() => {
+    if (!household?.country_code) return;
+    let cancelled = false;
+    fetch(`/api/store-suggestions?country=${encodeURIComponent(household.country_code)}`)
+      .then((response) => response.ok ? response.json() : { stores: [] })
+      .then((payload: { stores?: string[] }) => { if (!cancelled) setWorldStores(payload.stores || []); })
+      .catch(() => { if (!cancelled) setWorldStores([]); });
+    return () => { cancelled = true; };
+  }, [household?.country_code]);
+
+  useEffect(() => {
     if (!household) return;
     void loadShoppingFinancePrompt();
     const timer = window.setInterval(() => void loadShoppingFinancePrompt(), 60_000);
@@ -216,7 +227,7 @@ export default function CoursesPage() {
 
   function availableStores() {
     const byKey = new Map<string, string>();
-    [...(DEFAULT_STORES_BY_COUNTRY[household?.country_code || "BE"] || []), ...globalStores.map((store) => store.name), ...householdStores.map((store) => store.name)].forEach((name) => {
+    [...(DEFAULT_STORES_BY_COUNTRY[household?.country_code || "BE"] || []), ...worldStores, ...globalStores.map((store) => store.name), ...householdStores.map((store) => store.name)].forEach((name) => {
       const clean = name.trim();
       if (clean) byKey.set(clean.toLocaleLowerCase(), clean);
     });
