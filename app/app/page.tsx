@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards } from "lucide-react";
+import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
@@ -35,6 +35,7 @@ export default function TodayPage() {
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
+  const [activeHouseholdShoppingCount, setActiveHouseholdShoppingCount] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [financeBills, setFinanceBills] = useState<FinanceBillAttentionLike[]>([]);
@@ -67,11 +68,19 @@ export default function TodayPage() {
         .or(`assigned_to.eq.${me.id},assigned_to.is.null`);
       setItems((myItems as ShoppingItem[]) || []);
 
-      const { count } = await supabase
-        .from("shopping_items")
-        .select("*", { count: "exact", head: true })
-        .eq("household_id", household.id);
+      const [{ count }, { count: activeShoppingCount }] = await Promise.all([
+        supabase
+          .from("shopping_items")
+          .select("*", { count: "exact", head: true })
+          .eq("household_id", household.id),
+        supabase
+          .from("shopping_items")
+          .select("*", { count: "exact", head: true })
+          .eq("household_id", household.id)
+          .eq("status", "to_buy"),
+      ]);
       setTotalItemsEver(count ?? 0);
+      setActiveHouseholdShoppingCount(activeShoppingCount ?? 0);
 
       const [{ data: events }, { data: routineData }, { data: billData }] = await Promise.all([
         supabase.from("calendar_events").select("*").eq("household_id", household.id).eq("visibility", "household"),
@@ -194,6 +203,17 @@ export default function TodayPage() {
   const nothingToDo = tasks.length === 0 && items.length === 0;
   const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
   const today = todayCivilDate();
+  const upcomingHouseholdEventsCount = calendarEvents.filter((event) => {
+    const days = daysUntil(nextOccurrence(event.event_date, event.recurring));
+    return days >= 0 && days <= 7;
+  }).length;
+
+  const quickViewItems = [
+    { key: "tasks", label: t("tasks_title"), value: tasks.length, icon: ListTodo, href: "/app/taches" },
+    { key: "shopping", label: t("courses_title"), value: activeHouseholdShoppingCount, icon: ShoppingBag, href: "/app/courses" },
+    { key: "calendar", label: t("calendar_title"), value: upcomingHouseholdEventsCount, icon: CalendarDays, href: "/app/calendrier" },
+    { key: "budget", label: t("today_household_quick_budget"), value: financeBills.length, icon: WalletCards, href: "/app/equilibre/budget" },
+  ];
 
   function insightDetails(insight: DaboInsight) {
     const task = insight.relatedEntityId
@@ -356,7 +376,30 @@ export default function TodayPage() {
 
       </section>
 
-
+      <section className="px-5 pb-5" data-testid="household-quick-view">
+        <SectionHeader title={t("today_household_quick_view")} />
+        <div className="grid grid-cols-2 gap-2">
+          {quickViewItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => router.push(item.href)}
+                className="flex items-center gap-3 rounded-2xl bg-white2 px-3 py-3 text-left transition active:scale-[0.99]"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-paper">
+                  <Icon size={16} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-lg font-semibold leading-none text-ink">{item.value}</span>
+                  <span className="mt-1 block truncate text-xs text-muted">{item.label}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <LobaHouseholdChat householdName={household.name} />
 
