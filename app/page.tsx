@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
@@ -283,8 +284,8 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#E7E3D8] px-6 py-12">
       <div className="w-full max-w-sm bg-paper rounded-3xl p-8 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-ink flex items-center justify-center mx-auto mb-6">
-          <CheckSquare size={28} color="#F0EFE6" strokeWidth={2} />
+        <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-6 shadow-sm">
+          <Image src="/icon.svg" alt="DABO" width={64} height={64} priority />
         </div>
 
         {phase === "auth" && authMode !== "forgot" && (
