@@ -206,53 +206,21 @@ export default function OnboardingPage() {
       setBusy(false);
       return;
     }
-    const { data: household, error: hErr } = await supabase
-      .from("households")
-      .select("id")
-      .eq("invite_code", inviteCode.trim().toUpperCase())
-      .maybeSingle();
-    if (hErr || !household) {
-      setError("Code introuvable. Vérifie et réessaie.");
-      setBusy(false);
-      return;
-    }
-    const { data: existingMembership } = await supabase
-      .from("members")
-      .select("id")
-      .eq("household_id", household.id)
-      .eq("user_id", sessionData.session.user.id)
-      .is("left_at", null)
-      .maybeSingle();
-    if (existingMembership) {
-      router.replace("/app");
-      return;
-    }
-
-    const { count } = await supabase
-      .from("members")
-      .select("*", { count: "exact", head: true })
-      .eq("household_id", household.id)
-      .is("left_at", null)
-      .not("user_id", "is", null);
-
-    const { error: mErr } = await supabase.from("members").insert({
-      household_id: household.id,
-      user_id: sessionData.session.user.id,
-      first_name: firstName,
-      // Si personne n'a encore rejoint ce foyer (cas des foyers migrés
-      // depuis Glide, créés directement en base sans passer par "Créer un
-      // foyer"), la première personne à le rejoindre en devient créatrice —
-      // sinon aucun foyer migré n'aurait jamais de créateur.
-      role: (count || 0) === 0 ? "creator" : "member",
-      language: memberLang,
-      rotation_order: count || 0,
+    // Le rôle est attribué côté base avec SECURITY DEFINER : avant d'être membre,
+    // les RLS empêchent volontairement l'invité de compter les autres membres.
+    // Le faire côté client pouvait donc lui attribuer à tort le rôle creator.
+    const { data: joinResult, error: joinErr } = await supabase.rpc("join_household_by_invite", {
+      p_invite_code: inviteCode.trim().toUpperCase(),
+      p_first_name: firstName.trim(),
+      p_language: memberLang,
     });
-    if (mErr) {
-      setError(mErr.message);
+    if (joinErr || !joinResult?.[0]?.household_id) {
+      const message = joinErr?.message || "";
+      setError(message.includes("INVITE_NOT_FOUND") ? "Code introuvable. Vérifie et réessaie." : "Impossible de rejoindre ce foyer pour le moment.");
       setBusy(false);
       return;
     }
-    await trackAcquisitionEvent("household_joined", { householdId: household.id });
+    await trackAcquisitionEvent("household_joined", { householdId: joinResult[0].household_id });
     router.replace("/app");
   }
 

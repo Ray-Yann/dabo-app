@@ -18,9 +18,12 @@ test("Onboarding V2 reconnaît automatiquement une invitation ouverte", () => {
 });
 
 test("Onboarding V2 laisse un utilisateur multi-foyers accepter une invitation", () => {
+  // Un membre existant n’est redirigé vers /app que sans invitation entrante.
   assert.match(onboarding, /members\.length > 0 && !incomingInvite/);
-  assert.match(onboarding, /existingMembership/);
-  assert.match(onboarding, /\.eq\("household_id", household\.id\)/);
+  // Avec une invitation, la jointure passe désormais par le RPC sécurisé V2.2.
+  assert.match(onboarding, /supabase\.rpc\("join_household_by_invite"/);
+  assert.match(onboarding, /p_invite_code: inviteCode\.trim\(\)\.toUpperCase\(\)/);
+  assert.match(onboarding, /router\.replace\("\/app"\)/);
 });
 
 test("Onboarding V2 propose l'invitation juste après la création sans la forcer", () => {
