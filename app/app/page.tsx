@@ -6,10 +6,9 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, ListChecks, Clock3, CalendarDays, Scale, UserRoundPlus, ChevronRight, WalletCards } from "lucide-react";
+import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import { IconUpdateNotice } from "@/components/IconUpdateNotice";
 import { InviteNudge } from "@/components/InviteNudge";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
@@ -309,7 +308,6 @@ export default function TodayPage() {
       <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
       <IntroTip id="today" text={t("intro_today")} />
       <InstallPrompt />
-      <IconUpdateNotice />
       {household && (
         <InviteNudge
           householdId={household.id}
@@ -356,16 +354,6 @@ export default function TodayPage() {
           </div>
         )}
 
-        {!isBrandNew && (
-          <div className="flex items-center justify-between gap-3 pt-3">
-            <button type="button" onClick={() => router.push("/app/courses")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
-              <ShoppingBag size={12} /> {t("today_view_courses")} <ChevronRight size={12} />
-            </button>
-            <button type="button" onClick={() => router.push("/app/taches")} className="text-xs text-muted hover:text-ink flex items-center gap-1">
-              <ListChecks size={12} /> {t("today_view_tasks")} <ChevronRight size={12} />
-            </button>
-          </div>
-        )}
       </section>
 
 

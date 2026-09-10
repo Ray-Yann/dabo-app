@@ -25,19 +25,19 @@ export function AttentionCard({ level, levelLabel, title, description, meta, act
   const Icon = CustomIcon ?? ui.icon;
   const content = (
     <>
-      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white2/80 ${ui.accent}`}>
-        <Icon size={18} strokeWidth={2} aria-hidden="true" />
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white2/80 ${ui.accent}`}>
+        <Icon size={16} strokeWidth={2} aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className={`mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${ui.accent}`}>{levelLabel ?? ui.label}</div>
-        <div className="text-sm font-semibold leading-snug text-ink">{title}</div>
-        {description && <p className="mt-1 text-xs leading-relaxed text-muted">{description}</p>}
-        {meta && <p className="mt-2 text-[11px] font-medium text-muted">{meta}</p>}
-        {actionLabel && <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-ink">{actionLabel}<ArrowRight size={14} aria-hidden="true" /></div>}
+        <div className={`mb-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${ui.accent}`}>{levelLabel ?? ui.label}</div>
+        <div className="text-[13px] font-semibold leading-snug text-ink">{title}</div>
+        {description && <p className="mt-0.5 text-[11px] leading-snug text-muted">{description}</p>}
+        {meta && <p className="mt-1 text-[11px] font-medium text-muted">{meta}</p>}
+        {actionLabel && <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ink">{actionLabel}<ArrowRight size={14} aria-hidden="true" /></div>}
       </div>
     </>
   );
 
-  const classes = `w-full rounded-2xl border p-4 text-left shadow-[0_1px_0_rgba(34,48,31,0.03)] transition ${ui.surface} ${onAction ? "cursor-pointer active:scale-[0.995]" : ""}`;
-  return onAction ? <button type="button" onClick={onAction} className={classes}>{<div className="flex items-start gap-3">{content}</div>}</button> : <article className={classes}><div className="flex items-start gap-3">{content}</div></article>;
+  const classes = `w-full rounded-2xl border px-3 py-3 text-left shadow-[0_1px_0_rgba(34,48,31,0.03)] transition ${ui.surface} ${onAction ? "cursor-pointer active:scale-[0.995]" : ""}`;
+  return onAction ? <button type="button" onClick={onAction} className={classes}>{<div className="flex items-start gap-2.5">{content}</div>}</button> : <article className={classes}><div className="flex items-start gap-2.5">{content}</div></article>;
 }
