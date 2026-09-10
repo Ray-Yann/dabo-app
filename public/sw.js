@@ -13,11 +13,21 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       icon: "/dabo-equilibre-v3-192.png",
       badge: "/dabo-equilibre-v3-192.png",
+      data: { url: data.url || "/app" },
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow("/app"));
+  const target = event.notification.data?.url || "/app";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      const absoluteTarget = new URL(target, self.location.origin).href;
+      for (const client of windowClients) {
+        if (client.url === absoluteTarget && "focus" in client) return client.focus();
+      }
+      return clients.openWindow(target);
+    })
+  );
 });
