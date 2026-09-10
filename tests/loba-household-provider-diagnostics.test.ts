@@ -10,7 +10,8 @@ test("LOBA foyer journalise les erreurs fournisseur sans exposer la clé ni le c
   assert.match(route, /statusText:response\.statusText/);
   assert.match(route, /error:groqErrorSummary\(providerRaw\)/);
   assert.match(route, /Bearer \[redacted\]/);
-  assert.match(route, /console\.error\("\[household\/loba\] Groq provider error",\{status:response\.status,statusText:response\.statusText,model,error:groqErrorSummary\(providerRaw\)\}\)/);
+  assert.match(route, /console\.error\("\[household\/loba\] Groq provider error",\{status:response\.status,statusText:response\.statusText,model,domain,promptChars:prompt\.length,error:groqErrorSummary\(providerRaw\)\}\)/);
+  assert.doesNotMatch(route, /console\.error\([^\n]*(question|routedContext|apiKey)/);
   assert.match(route, /console\.error\("\[household\/loba\] AI request failed",safeRequestError\(error\)\)/);
 });
 
