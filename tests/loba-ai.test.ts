@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildLobaSystemPrompt, detectLobaIntent, sanitizeLobaMessages } from "@/lib/loba-ai";
 
-test("LOBA IA ancre les réponses sur les KPI et le radar produit",()=>{
- const prompt=buildLobaSystemPrompt({kpis:{users:21,households:25},insights:[],funnel:[],productRadar:[{title:"Factures & Budget",value:"Échéances et vision mensuelle"}]});
+test("LOBA IA ancre les réponses sur les KPI, capacités et pistes produit",()=>{
+ const prompt=buildLobaSystemPrompt({kpis:{users:21,households:25},insights:[],funnel:[],productCapabilities:[{title:"Finances",value:"Dépenses et factures"}],productRadar:[{title:"Documents du foyer",value:"Garanties et contrats"}]});
  assert.match(prompt,/21/);
- assert.match(prompt,/Factures & Budget/);
+ assert.match(prompt,/Finances/);
+ assert.match(prompt,/Documents du foyer/);
  assert.match(prompt,/Ne fabrique jamais de KPI/);
 });
 
@@ -27,7 +28,7 @@ test("LOBA IA impose une réponse proportionnée et une discipline stricte sur l
 
 
 test("LOBA IA V1.3 détecte l’intention avant de choisir la profondeur",()=>{
- assert.equal(detectLobaIntent("Factures & Budget, ça servirait à quoi dans DABO ?"),"simple");
+ assert.equal(detectLobaIntent("Documents du foyer, ça servirait à quoi dans DABO ?"),"simple");
  assert.equal(detectLobaIntent("Analyse nos KPI et dis-moi pourquoi l’activation baisse"),"analysis");
  assert.equal(detectLobaIntent("Quelle stratégie de croissance recommandes-tu ?"),"strategy");
  assert.equal(detectLobaIntent("Prépare un résumé pour un investisseur"),"investor");

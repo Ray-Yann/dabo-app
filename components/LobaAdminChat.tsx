@@ -8,9 +8,9 @@ import { LobaMarkdown } from "@/components/LobaMarkdown";
 type Insight={title:string;observation:string;action:string;metric:string};
 type ProductRadarItem={id?:string;title:string;stage?:string;value?:string};
 type ChatMessage={role:"user"|"loba";text:string;engine?:"ai"|"local"};
-type Props={kpis:Record<string,number>;insights:Insight[];funnel:{step:string;value:number}[];context?:LobaContext;productRadar?:ProductRadarItem[]};
+type Props={kpis:Record<string,number>;insights:Insight[];funnel:{step:string;value:number}[];context?:LobaContext;productCapabilities?:ProductRadarItem[];productRadar?:ProductRadarItem[]};
 
-export function LobaAdminChat({kpis,insights,funnel,context,productRadar=[]}:Props){
+export function LobaAdminChat({kpis,insights,funnel,context,productCapabilities=[],productRadar=[]}:Props){
  const suggestions=useMemo(()=>["Comment va DABO ?","Qu’est-ce qui m’inquiète ?","Quelle est ma priorité cette semaine ?","Prépare un résumé pour un investisseur"],[]);
  const [question,setQuestion]=useState("");
  const [loading,setLoading]=useState(false);
@@ -24,7 +24,7 @@ export function LobaAdminChat({kpis,insights,funnel,context,productRadar=[]}:Pro
    const supabase=createClient();const {data:s}=await supabase.auth.getSession();
    if(!s.session)throw new Error("Session expirée");
    const history=previous.filter(m=>m.text).slice(-8).map(m=>({role:m.role==="loba"?"assistant":"user",content:m.text}));
-   const r=await fetch("/api/admin/loba",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${s.session.access_token}`},body:JSON.stringify({question:clean,history,context:{kpis,insights,funnel,growth:context?.growth,retention:context?.retention,acquisition:context?.acquisition,productRadar}})});
+   const r=await fetch("/api/admin/loba",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${s.session.access_token}`},body:JSON.stringify({question:clean,history,context:{kpis,insights,funnel,growth:context?.growth,retention:context?.retention,acquisition:context?.acquisition,productCapabilities,productRadar}})});
    const j=await r.json();
    if(r.ok&&j.answer){setMessages(m=>[...m,{role:"loba",text:j.answer,engine:"ai"}]);return;}
    const local=answerLobaAdmin(clean,kpis,insights,funnel,context);

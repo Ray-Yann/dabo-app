@@ -11,6 +11,7 @@ export type LobaAiContext = {
   growth?: unknown;
   retention?: unknown;
   acquisition?: unknown;
+  productCapabilities?: LobaProductRadarItem[];
   productRadar?: LobaProductRadarItem[];
 };
 
@@ -61,9 +62,10 @@ Funnel mesuré: ${compact(context.funnel)}
 Croissance: ${compact(context.growth)}
 Rétention: ${compact(context.retention)}
 Acquisition: ${compact(context.acquisition)}
-Radar produit: ${compact(context.productRadar)}
+Capacités produit déjà disponibles: ${compact(context.productCapabilities)}
+Pistes produit définies à explorer: ${compact(context.productRadar)}
 
-Le moteur analytique DABO calcule les chiffres; toi, LOBA, tu apportes la compréhension du langage, le raisonnement et la conversation. Si la question porte sur une idée du Radar produit, explique d'abord l'idée et sa valeur utilisateur sans prétendre qu'elle existe déjà.`;
+Le moteur analytique DABO calcule les chiffres; toi, LOBA, tu apportes la compréhension du langage, le raisonnement et la conversation. Les capacités produit déjà disponibles décrivent ce que DABO sait faire aujourd’hui : ne les recommande jamais comme de nouvelles fonctionnalités. Les pistes produit définies à explorer sont des orientations préexistantes, pas des idées découvertes par toi ni des priorités démontrées par les données. Si tu proposes une piste différente, indique clairement le signal DABO qui la motive ; sans signal suffisant, présente-la seulement comme une hypothèse.`;
 }
 
 export function sanitizeLobaMessages(messages: LobaAiMessage[]) {
