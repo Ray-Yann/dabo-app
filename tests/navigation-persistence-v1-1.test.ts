@@ -12,8 +12,9 @@ test("Navigation Persistence V1.1 stabilise le client Supabase partagé", () => 
 
 test("Navigation Persistence V1.1 protège un ordre local contre une lecture tardive et attend sa sauvegarde", () => {
   assert.match(nav, /const localEditRef = useRef\(false\)/);
-  assert.match(nav, /&& !localEditRef\.current\) setPinned\(tabs\)/);
-  assert.match(nav, /localEditRef\.current = true;\s*setPinned\(next\)/);
-  assert.match(nav, /async function finishEditing\(\)[\s\S]*await saveQueueRef\.current/);
+  assert.match(nav, /&& !localEditRef\.current\)\s*\{[\s\S]*setPinned\(tabs\)/);
+  assert.match(nav, /localEditRef\.current = true;[\s\S]*setPinned\(next\)/);
+  assert.match(nav, /async function waitForPreferenceSave\(\)[\s\S]*await saveQueueRef\.current/);
+  assert.match(nav, /async function finishEditing\(\)[\s\S]*await waitForPreferenceSave\(\)/);
   assert.match(nav, /onClick=\{\(\)=>void finishEditing\(\)\}/);
 });

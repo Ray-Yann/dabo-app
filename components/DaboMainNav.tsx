@@ -25,6 +25,11 @@ export function DaboMainNav() {
   const [editing, setEditing] = useState(false);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const localEditRef = useRef(false);
+  const confirmedPinnedRef = useRef<TabKey[]>(DEFAULT_TABS);
+  const lastSaveFailedRef = useRef(false);
+  const pendingSavesRef = useRef(0);
+  const [savingPreference, setSavingPreference] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const catalog = useMemo(() => ({
     tasks: { href: "/app/taches", icon: ListChecks, label: t("tab_tasks") },
@@ -44,7 +49,10 @@ export function DaboMainNav() {
         if (cancelled) return;
         if (error) { console.error("DABO navigation preference load failed", error); return; }
         const tabs = (data?.pinned_tabs || []).filter((key: string): key is TabKey => isTabKey(key));
-        if (tabs.length === 4 && new Set(tabs).size === 4 && !localEditRef.current) setPinned(tabs);
+        if (tabs.length === 4 && new Set(tabs).size === 4 && !localEditRef.current) {
+          confirmedPinnedRef.current = tabs;
+          setPinned(tabs);
+        }
       });
 
     return () => { cancelled = true; };
@@ -53,21 +61,48 @@ export function DaboMainNav() {
   function save(next: TabKey[]) {
     if (!me?.user_id || next.length !== 4 || new Set(next).size !== 4) return;
 
-    // Mise à jour immédiate de l'interface. Les écritures Supabase sont ensuite
-    // sérialisées pour qu'un réordonnancement rapide ne puisse pas sauvegarder
-    // une ancienne position après la plus récente.
+    // L'interface reste immédiate, mais DABO ne considère plus la préférence
+    // comme enregistrée tant que Supabase n'a pas confirmé l'écriture ET la
+    // relecture de la ligne. Les écritures rapides restent sérialisées.
     localEditRef.current = true;
+    lastSaveFailedRef.current = false;
+    setSaveError("");
     setPinned(next);
     const userId = me.user_id;
+    pendingSavesRef.current += 1;
+    setSavingPreference(true);
+
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
       .then(async () => {
-        const { error } = await supabase.from("user_navigation_preferences").upsert({
-          user_id: userId,
-          pinned_tabs: next,
-          updated_at: new Date().toISOString(),
-        });
-        if (error) console.error("DABO navigation preference save failed", error);
+        const { data, error } = await supabase
+          .from("user_navigation_preferences")
+          .upsert({
+            user_id: userId,
+            pinned_tabs: next,
+            updated_at: new Date().toISOString(),
+          })
+          .select("pinned_tabs")
+          .single();
+
+        if (error) throw error;
+        const confirmed = (data?.pinned_tabs || []).filter((key: string): key is TabKey => isTabKey(key));
+        if (confirmed.length !== 4 || new Set(confirmed).size !== 4 || confirmed.some((key: TabKey, index: number) => key !== next[index])) {
+          throw new Error("DABO navigation preference confirmation mismatch");
+        }
+
+        confirmedPinnedRef.current = confirmed;
+        lastSaveFailedRef.current = false;
+        setSaveError("");
+      })
+      .catch((error) => {
+        lastSaveFailedRef.current = true;
+        setSaveError(t("settings_error_save"));
+        console.error("DABO navigation preference save failed", error);
+      })
+      .finally(() => {
+        pendingSavesRef.current = Math.max(0, pendingSavesRef.current - 1);
+        if (pendingSavesRef.current === 0) setSavingPreference(false);
       });
   }
 
@@ -90,9 +125,24 @@ export function DaboMainNav() {
   ];
   const hidden = TAB_KEYS.filter(key => !pinned.includes(key));
 
-  async function finishEditing() {
+  async function waitForPreferenceSave() {
     await saveQueueRef.current.catch(() => undefined);
+    return !lastSaveFailedRef.current;
+  }
+
+  async function finishEditing() {
+    const saved = await waitForPreferenceSave();
+    if (!saved) return;
     setEditing(false);
+  }
+
+  async function closeMore() {
+    if (editing) {
+      const saved = await waitForPreferenceSave();
+      if (!saved) return;
+      setEditing(false);
+    }
+    setMoreOpen(false);
   }
 
   const go = (href: string) => { setMoreOpen(false); setEditing(false); router.push(href); };
@@ -106,9 +156,9 @@ export function DaboMainNav() {
       </div>
     </nav>
 
-    {moreOpen && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25" onClick={()=>setMoreOpen(false)}><section className="w-full max-w-lg rounded-t-[28px] bg-paper px-5 pb-7 pt-4 shadow-2xl" onClick={e=>e.stopPropagation()} aria-modal="true" role="dialog"><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-wide text-muted">DABO</p><h2 className="font-serif text-xl">{editing?t("nav_customize_title"):t("tab_more")}</h2></div><button onClick={()=>setMoreOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white2" aria-label={t("nav_close")}><X size={18}/></button></div>
+    {moreOpen && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25" onClick={()=>void closeMore()}><section className="w-full max-w-lg rounded-t-[28px] bg-paper px-5 pb-7 pt-4 shadow-2xl" onClick={e=>e.stopPropagation()} aria-modal="true" role="dialog"><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-wide text-muted">DABO</p><h2 className="font-serif text-xl">{editing?t("nav_customize_title"):t("tab_more")}</h2></div><button onClick={()=>void closeMore()} className="flex h-10 w-10 items-center justify-center rounded-full bg-white2" aria-label={t("nav_close")}><X size={18}/></button></div>
       {!editing ? <><div className="mt-5 grid grid-cols-2 gap-2">{hidden.map(key=>{const item=catalog[key];const Icon=item.icon;return <button key={key} onClick={()=>go(item.href)} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Icon size={19}/><span className="text-sm font-semibold">{item.label}</span></button>})}<button onClick={()=>go("/app/reglages")} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Settings size={19}/><span className="text-sm font-semibold">{t("tab_settings")}</span></button></div><button onClick={()=>setEditing(true)} className="mt-4 w-full rounded-2xl border border-borderLight px-4 py-3 text-sm font-semibold">{t("nav_customize_action")}</button></>
-      : <div className="mt-5 space-y-3"><p className="text-sm leading-relaxed text-muted">{t("nav_customize_help")}</p><div className="rounded-2xl border border-borderLight bg-white2 p-3"><div className="flex items-center gap-3 rounded-xl bg-paper px-3 py-3"><Home size={18}/><span className="flex-1 text-sm font-semibold">{t("tab_today")}</span><span className="text-xs text-muted">{t("nav_locked")}</span></div>{pinned.map((key,index)=>{const item=catalog[key];const Icon=item.icon;return <div key={key} className="mt-2 flex items-center gap-2 rounded-xl bg-paper px-2 py-2"><GripVertical size={16} className="text-muted"/><Icon size={18}/><select value={key} onChange={e=>replace(index,e.target.value as TabKey)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none">{TAB_KEYS.map(candidate=><option key={candidate} value={candidate} disabled={candidate!==key&&pinned.includes(candidate)}>{catalog[candidate].label}</option>)}</select><button disabled={index===0} onClick={()=>swap(index,-1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↑</button><button disabled={index===pinned.length-1} onClick={()=>swap(index,1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↓</button></div>})}</div><button onClick={()=>void finishEditing()} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper">{t("nav_done")}</button></div>}
+      : <div className="mt-5 space-y-3"><p className="text-sm leading-relaxed text-muted">{t("nav_customize_help")}</p><div className="rounded-2xl border border-borderLight bg-white2 p-3"><div className="flex items-center gap-3 rounded-xl bg-paper px-3 py-3"><Home size={18}/><span className="flex-1 text-sm font-semibold">{t("tab_today")}</span><span className="text-xs text-muted">{t("nav_locked")}</span></div>{pinned.map((key,index)=>{const item=catalog[key];const Icon=item.icon;return <div key={key} className="mt-2 flex items-center gap-2 rounded-xl bg-paper px-2 py-2"><GripVertical size={16} className="text-muted"/><Icon size={18}/><select value={key} onChange={e=>replace(index,e.target.value as TabKey)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none">{TAB_KEYS.map(candidate=><option key={candidate} value={candidate} disabled={candidate!==key&&pinned.includes(candidate)}>{catalog[candidate].label}</option>)}</select><button disabled={index===0} onClick={()=>swap(index,-1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↑</button><button disabled={index===pinned.length-1} onClick={()=>swap(index,1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↓</button></div>})}</div>{saveError && <p className="text-xs text-red-700" role="alert">{saveError}</p>}<button onClick={()=>void finishEditing()} disabled={savingPreference} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-60">{savingPreference?t("scan_saving"):t("nav_done")}</button></div>}
       </section></div>}
   </>;
 }
