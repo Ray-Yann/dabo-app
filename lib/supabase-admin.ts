@@ -55,7 +55,7 @@ export async function verifyUserToken(token: string): Promise<{ id: string } | n
 export async function transferCreatorAndArchive(admin: SupabaseClient, memberId: string) {
   const { data: member, error: memberError } = await admin
     .from("members")
-    .select("id, household_id, role, avatar_color, left_at")
+    .select("id, household_id, role, avatar_color, avatar_path, left_at")
     .eq("id", memberId)
     .maybeSingle();
 
@@ -104,11 +104,19 @@ export async function transferCreatorAndArchive(admin: SupabaseClient, memberId:
     .eq("last_assigned_member", memberId);
   if (rotationError) throw rotationError;
 
+  // Une photo privée ne doit pas devenir un fichier orphelin après le départ
+  // du profil de ce foyer. Les initiales/couleurs historiques restent suffisantes.
+  if (member.avatar_path) {
+    await admin.storage.from("member-avatars").remove([member.avatar_path]);
+  }
+
   const { error: archiveError } = await admin
     .from("members")
     .update({
       left_at: new Date().toISOString(),
       archived_avatar_color: member.avatar_color,
+      avatar_path: null,
+      avatar_url: null,
       user_id: null,
       role: "member",
     })

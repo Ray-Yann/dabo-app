@@ -8,6 +8,7 @@ type AvatarMember = {
   first_name: string;
   avatar_color?: string | null;
   avatar_url?: string | null;
+  avatar_path?: string | null;
   avatar_emoji?: string | null;
   created_at?: string;
 };
@@ -66,7 +67,11 @@ export function Avatar({
   const color = memberColor(members, member.id);
   const sharedStyle = { width: size, height: size };
 
-  if (member.avatar_url) {
+  const avatarSrc = member.avatar_path
+    ? `/api/member-avatar/${encodeURIComponent(member.id)}`
+    : member.avatar_url;
+
+  if (avatarSrc) {
     return (
       <div
         className="rounded-full overflow-hidden shrink-0"
@@ -75,7 +80,7 @@ export function Avatar({
         aria-label={member.first_name}
       >
         <Image
-          src={member.avatar_url}
+          src={avatarSrc}
           alt=""
           width={size}
           height={size}

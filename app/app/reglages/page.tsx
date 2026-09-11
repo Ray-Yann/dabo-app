@@ -24,6 +24,12 @@ type SettingsConfirmation =
 
 const AVATAR_EMOJIS = ["🐶", "🐱", "🦊", "🐼", "🦁", "🐸", "🌿", "🌻", "🌙", "⭐", "🌊", "🔥"];
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
 export default function SettingsPage() {
   const { loading, household, me, members, supabase, refresh } = useHousehold();
   const router = useRouter();
@@ -102,40 +108,32 @@ export default function SettingsPage() {
     refresh();
   }
 
-  function avatarStoragePath(url: string | null | undefined) {
-    if (!url) return null;
-    const marker = "/storage/v1/object/public/member-avatars/";
-    const markerIndex = url.indexOf(marker);
-    if (markerIndex === -1) return null;
-    return decodeURIComponent(url.slice(markerIndex + marker.length));
-  }
-
-  async function removePreviousAvatar(url: string | null | undefined) {
-    const path = avatarStoragePath(url);
+  async function removePreviousAvatar(path: string | null | undefined) {
     if (path) await supabase.storage.from("member-avatars").remove([path]);
   }
 
   async function chooseAvatarEmoji(emoji: string | null) {
     if (!me || savingAvatar) return;
     setSavingAvatar(true);
-    const previousUrl = me.avatar_url;
+    const previousPath = me.avatar_path;
     const { error } = await supabase
       .from("members")
-      .update({ avatar_emoji: emoji, avatar_url: null })
+      .update({ avatar_emoji: emoji, avatar_url: null, avatar_path: null })
       .eq("id", me.id);
     if (error) {
       showFeedback("error", t("settings_avatar_error_save"));
       setSavingAvatar(false);
       return;
     }
-    await removePreviousAvatar(previousUrl);
+    await removePreviousAvatar(previousPath);
     await refresh();
     setSavingAvatar(false);
   }
 
   async function uploadAvatar(file: File | undefined) {
     if (!me || !file || savingAvatar) return;
-    if (!file.type.startsWith("image/")) {
+    const extension = AVATAR_MIME_EXTENSIONS[file.type];
+    if (!extension) {
       showFeedback("error", t("settings_avatar_error_type"));
       return;
     }
@@ -153,8 +151,9 @@ export default function SettingsPage() {
       return;
     }
 
-    const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const path = `${userId}/${me.id}-${Date.now()}.${extension}`;
+    // Un dossier par compte puis par profil de foyer : une personne peut donc
+    // conserver un avatar différent dans chacun de ses foyers sans collision.
+    const path = `${userId}/${me.id}/${Date.now()}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from("member-avatars")
       .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
@@ -165,11 +164,10 @@ export default function SettingsPage() {
       return;
     }
 
-    const { data: publicData } = supabase.storage.from("member-avatars").getPublicUrl(path);
-    const previousUrl = me.avatar_url;
+    const previousPath = me.avatar_path;
     const { error: updateError } = await supabase
       .from("members")
-      .update({ avatar_url: publicData.publicUrl, avatar_emoji: null })
+      .update({ avatar_path: path, avatar_url: null, avatar_emoji: null })
       .eq("id", me.id);
 
     if (updateError) {
@@ -179,7 +177,7 @@ export default function SettingsPage() {
       return;
     }
 
-    await removePreviousAvatar(previousUrl);
+    await removePreviousAvatar(previousPath);
     await refresh();
     showFeedback("success", t("settings_avatar_saved"));
     setSavingAvatar(false);
@@ -567,9 +565,9 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => chooseAvatarEmoji(emoji)}
                     disabled={savingAvatar}
-                    className={`h-11 rounded-xl border text-xl flex items-center justify-center transition-colors disabled:opacity-50 ${me.avatar_emoji === emoji && !me.avatar_url ? "border-gold bg-gold/10" : "border-border"}`}
+                    className={`h-11 rounded-xl border text-xl flex items-center justify-center transition-colors disabled:opacity-50 ${me.avatar_emoji === emoji && !me.avatar_path && !me.avatar_url ? "border-gold bg-gold/10" : "border-border"}`}
                     aria-label={`${t("settings_avatar_choose")} ${emoji}`}
-                    aria-pressed={me.avatar_emoji === emoji && !me.avatar_url}
+                    aria-pressed={me.avatar_emoji === emoji && !me.avatar_path && !me.avatar_url}
                   >
                     {emoji}
                   </button>
@@ -590,7 +588,7 @@ export default function SettingsPage() {
                     }}
                   />
                 </label>
-                {(me.avatar_url || me.avatar_emoji) && (
+                {(me.avatar_path || me.avatar_url || me.avatar_emoji) && (
                   <button
                     type="button"
                     onClick={() => chooseAvatarEmoji(null)}

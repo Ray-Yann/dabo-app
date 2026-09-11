@@ -81,7 +81,8 @@ export function HouseholdSwitcher() {
       language: me.language,
       dark_mode: me.dark_mode,
       avatar_color: me.avatar_color,
-      avatar_url: me.avatar_url || null,
+      avatar_url: null,
+      avatar_path: null,
       avatar_emoji: me.avatar_emoji || null,
       rotation_order: 0,
     });
@@ -139,7 +140,8 @@ export function HouseholdSwitcher() {
       language: me.language,
       dark_mode: me.dark_mode,
       avatar_color: me.avatar_color,
-      avatar_url: me.avatar_url || null,
+      avatar_url: null,
+      avatar_path: null,
       avatar_emoji: me.avatar_emoji || null,
       rotation_order: count || 0,
     });
