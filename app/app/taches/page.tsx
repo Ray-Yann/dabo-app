@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
-import { todayCivilDate } from "@/lib/utils";
+import { memberColor, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { completeHouseholdTask, insertNextRecurringOccurrence, uncompleteHouseholdTask } from "@/lib/task-completion";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search, MoreHorizontal } from "lucide-react";
@@ -623,14 +623,14 @@ export default function TasksPage() {
         {pending.length === 0 && !showAdd && <EmptyState message={`${t("tasks_empty_title")} ${t("tasks_empty")}`} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-4 mb-6">
           {pendingGroups.map((group) => (
-            <section key={group.key}>
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            <section key={group.key} className="dabo-member-task-group" style={group.key !== "unassigned" ? { "--dabo-member-accent": memberColor(members, group.key) } as CSSProperties : undefined}>
+              <div className="dabo-member-group-heading mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
                 {group.key !== "unassigned" && <Avatar member={members.find((member) => member.id === group.key) || null} members={members} size={20} />}
                 <span>{group.label}</span>
               </div>
               <div className="space-y-1">
                 {group.tasks.map((task) => (
-            <div key={task.id} className="border-b border-borderLight py-3">
+            <div key={task.id} className="dabo-task-row border-b border-borderLight py-3">
               {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
                   <TaskFormFields form={editForm} setForm={setEditForm} members={members} editingRecurring={Boolean(task.routine_id)} t={t} nameSuggestions={[...tasks.map((item) => item.name), ...shoppingNameSuggestions]} />

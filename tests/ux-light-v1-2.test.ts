@@ -36,5 +36,5 @@ test("UX Light V1.2 allège l'aide Calendrier et explicite l'année d'une procha
 });
 
 test("UX Light V1.2 réserve un libellé légèrement plus compact à Calendrier dans la navigation", () => {
-  assert.ok(nav.includes('item.key==="calendar"?"text-[9px]":"text-[9.5px]"'));
+  assert.ok(nav.includes('item.key==="calendar"?"dabo-main-nav-label-calendar text-[8.5px]":"text-[9.5px]"'));
 });

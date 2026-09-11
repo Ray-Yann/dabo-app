@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
 import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
-import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal } from "lucide-react";
+import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal, Store } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
@@ -681,7 +681,7 @@ export default function CoursesPage() {
         <div className="space-y-1 mb-6">
           {toBuyGroups.map(([storeLabel, storeItems]) => (
             <div key={storeLabel} className="mb-4">
-              <div className="sticky top-0 z-10 -mx-1 bg-paper/95 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{storeLabel}</div>
+              <div className="dabo-store-heading sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-paper/95 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted"><span className="dabo-store-heading-icon"><Store size={13} /></span><span>{storeLabel}</span></div>
               {storeItems.map((item) => (
             <div key={item.id} className="border-b border-borderLight py-3">
               {editingId === item.id ? (

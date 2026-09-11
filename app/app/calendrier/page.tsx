@@ -325,8 +325,8 @@ export default function CalendarPage() {
                   return (
                     <div key={e.id}>
                     <div
-                      className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
-                        isToday ? "border-mustard/30 bg-mustardBg" : "border-borderLight bg-white2"
+                      className={`dabo-calendar-event flex items-center gap-3 rounded-2xl border p-3.5 ${
+                        isToday ? "dabo-calendar-event-today border-mustard/30 bg-mustardBg" : e.visibility === "personal" ? "dabo-calendar-event-personal border-borderLight bg-white2" : "dabo-calendar-event-shared border-borderLight bg-white2"
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-paper text-mustard" : "bg-mustardBg text-mustard"}`}>
