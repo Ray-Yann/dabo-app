@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
   const since30 = isoAgo(30);
   const since60 = isoAgo(60);
 
-  // Les données essentielles du back-office sont chargées ensemble.
-  // Un futur KPI optionnel ne doit jamais pouvoir faire tomber tout l'Admin.
+  // Les sources du cockpit sont indépendantes : une source temporairement lente ou indisponible
+  // ne doit plus faire tomber toutes les pages Admin. Chaque erreur est nommée dans les logs,
+  // puis le dashboard continue avec un jeu vide pour cette source et signale explicitement
+  // que les données affichées sont partielles.
   const [households, members, tasks, shopping, events, contributions, auth] = await Promise.all([
     db.from("households").select("id,name,created_at").order("created_at", { ascending: false }),
     db.from("members").select("id,user_id,household_id,first_name,role,created_at,left_at"),
@@ -56,22 +58,24 @@ export async function GET(req: NextRequest) {
     db.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
-  const coreErrors = [
-    households.error,
-    members.error,
-    tasks.error,
-    shopping.error,
-    events.error,
-    contributions.error,
-    auth.error,
-  ].filter(Boolean);
+  const sourceErrors = {
+    households: households.error,
+    members: members.error,
+    tasks: tasks.error,
+    shopping: shopping.error,
+    calendar: events.error,
+    contributions: contributions.error,
+    authUsers: auth.error,
+  };
+  const sourceAvailability = Object.fromEntries(
+    Object.entries(sourceErrors).map(([source, error]) => [source, !error]),
+  ) as Record<keyof typeof sourceErrors, boolean>;
+  const degradedSources = Object.entries(sourceErrors)
+    .filter(([, error]) => Boolean(error))
+    .map(([source]) => source);
 
-  if (coreErrors.length) {
-    console.error("[admin/dashboard] Core data error", coreErrors);
-    return NextResponse.json(
-      { error: "Impossible de charger les données administrateur" },
-      { status: 500 },
-    );
+  for (const [source, error] of Object.entries(sourceErrors)) {
+    if (error) console.error(`[admin/dashboard] Source unavailable: ${source}`, error);
   }
 
   // KPI « Faire connaître DABO » : isolé volontairement.
@@ -109,15 +113,15 @@ export async function GET(req: NextRequest) {
     console.error("[admin/dashboard] Acquisition funnel failed", error);
   }
 
-  const H = households.data || [];
-  const M = members.data || [];
-  const T = tasks.data || [];
-  const S = shopping.data || [];
-  const E = events.data || [];
-  const C = contributions.data || [];
+  const H = sourceAvailability.households ? households.data || [] : [];
+  const M = sourceAvailability.members ? members.data || [] : [];
+  const T = sourceAvailability.tasks ? tasks.data || [] : [];
+  const S = sourceAvailability.shopping ? shopping.data || [] : [];
+  const E = sourceAvailability.calendar ? events.data || [] : [];
+  const C = sourceAvailability.contributions ? contributions.data || [] : [];
   const SH = shareRows;
   const A = acquisitionRows;
-  const authUsers = auth.data?.users || [];
+  const authUsers = sourceAvailability.authUsers ? auth.data?.users || [] : [];
 
   const active = M.filter((member) => !member.left_at && member.user_id);
   const multi = new Map<string, number>();
@@ -345,7 +349,7 @@ export async function GET(req: NextRequest) {
     taskHouseholds30.has(household.id) && shoppingHouseholds30.has(household.id) && calendarHouseholds30.has(household.id),
   ).length;
 
-  if (newUsersDelta !== null && newUsersDelta >= 20 && current30.newUsers >= 5) {
+  if (sourceAvailability.authUsers && newUsersDelta !== null && newUsersDelta >= 20 && current30.newUsers >= 5) {
     intelligence.push({
       id: "growth-up",
       severity: "positive",
@@ -355,7 +359,7 @@ export async function GET(req: NextRequest) {
       action: "Comparer les sources d'acquisition et demander aux nouveaux utilisateurs comment ils ont découvert DABO.",
       metric: "Nouveaux utilisateurs · 30 j",
     });
-  } else if (newUsersDelta !== null && newUsersDelta <= -20 && previous30.newUsers >= 5) {
+  } else if (sourceAvailability.authUsers && newUsersDelta !== null && newUsersDelta <= -20 && previous30.newUsers >= 5) {
     intelligence.push({
       id: "growth-down",
       severity: "attention",
@@ -367,7 +371,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (authUsers.length >= 10 && accountToHouseholdRate < 80) {
+  if (sourceAvailability.authUsers && sourceAvailability.members && authUsers.length >= 10 && accountToHouseholdRate < 80) {
     intelligence.push({
       id: "account-activation",
       severity: "attention",
@@ -379,7 +383,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (activeRate < 60 && H.length >= 10) {
+  if (sourceAvailability.households && sourceAvailability.tasks && sourceAvailability.shopping && sourceAvailability.calendar && sourceAvailability.contributions && activeRate < 60 && H.length >= 10) {
     intelligence.push({
       id: "household-activation",
       severity: "attention",
@@ -391,7 +395,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (current30.shares === 0) {
+  if (sharingAvailable && current30.shares === 0) {
     intelligence.push({
       id: "sharing-zero",
       severity: "opportunity",
@@ -401,7 +405,7 @@ export async function GET(req: NextRequest) {
       action: "Déclencher une invitation à partager après un moment de réussite : tâche terminée, liste de courses finalisée ou première semaine active.",
       metric: "Partages déclenchés · 30 j",
     });
-  } else if (shareRate < 10 && authUsers.length >= 10) {
+  } else if (sharingAvailable && sourceAvailability.authUsers && shareRate < 10 && authUsers.length >= 10) {
     intelligence.push({
       id: "sharing-low",
       severity: "opportunity",
@@ -411,7 +415,7 @@ export async function GET(req: NextRequest) {
       action: "Tester un message de recommandation plus humain et le proposer uniquement aux utilisateurs actifs au bon moment.",
       metric: "Ambassadeurs · 30 j",
     });
-  } else if (sharesDelta !== null && sharesDelta >= 25 && current30.shares >= 5) {
+  } else if (sharingAvailable && sharesDelta !== null && sharesDelta >= 25 && current30.shares >= 5) {
     intelligence.push({
       id: "sharing-up",
       severity: "positive",
@@ -423,7 +427,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (tasksDelta !== null && tasksDelta >= 25 && current30.tasksCompleted >= 10) {
+  if (sourceAvailability.tasks && tasksDelta !== null && tasksDelta >= 25 && current30.tasksCompleted >= 10) {
     intelligence.push({
       id: "tasks-up",
       severity: "positive",
@@ -450,6 +454,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     admin: currentAdmin.email,
+    dataQuality: {
+      complete: degradedSources.length === 0,
+      degradedSources,
+      sources: sourceAvailability,
+    },
     loba: {
       name: "LOBA",
       tagline: "L’assistant DABO",
