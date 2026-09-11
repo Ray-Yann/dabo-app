@@ -12,7 +12,6 @@ import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
-import { PromosView } from "@/components/PromosView";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
@@ -81,7 +80,7 @@ function ItemFormFields({
 export default function CoursesPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
-  const [view, setView] = useState<"courses" | "promos">("courses");
+  const [view, setView] = useState<"to_buy" | "suggestions" | "history">("to_buy");
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
@@ -600,7 +599,7 @@ export default function CoursesPage() {
         </section>
       )}
 
-      {view === "courses" && shoppingSuggestion && (
+      {view === "suggestions" && shoppingSuggestion && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-mustardBg flex items-center justify-center shrink-0">
@@ -665,25 +664,20 @@ export default function CoursesPage() {
         </div>
       )}
 
-      <div className="flex gap-2 px-5 mb-2">
-        <button
-          onClick={() => setView("courses")}
-          className={`flex-1 py-2 rounded-xl text-xs border ${view === "courses" ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
-        >
-          {t("courses_title")}
-        </button>
-        <button
-          onClick={() => setView("promos")}
-          className={`flex-1 py-2 rounded-xl text-xs border ${view === "promos" ? "bg-ink text-paper border-ink" : "border-border text-muted"}`}
-        >
-          {t("promos_title")}
-        </button>
+      <div className="px-5 mb-5">
+        <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
+        <select value={view} onChange={(e) => setView(e.target.value as "to_buy" | "suggestions" | "history")} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
+          <option value="to_buy">{t("ux_courses_to_buy")}</option>
+          <option value="suggestions">{t("ux_courses_suggestions")}</option>
+          <option value="history">{t("ux_history")}</option>
+        </select>
       </div>
 
-      {view === "promos" ? (
-        <PromosView household={household} me={me} members={members} supabase={supabase} />
-      ) : (
-        <>
+      {view === "suggestions" && !shoppingSuggestion && (
+        <div className="mx-5 rounded-3xl border border-borderLight bg-white2 p-6 text-center text-sm text-muted">{t("courses_empty")}</div>
+      )}
+
+      {view === "to_buy" && (<>
       {showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-3">
           <div>
@@ -780,7 +774,12 @@ export default function CoursesPage() {
           ))}
         </div>
 
-        {hasBoughtItems && (
+        </div>
+      </>)}
+
+      {view === "history" && (
+        <div className="px-5">
+        {hasBoughtItems ? (
           <>
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted">{showAllBought ? t("tasks_history") : t("courses_bought")}</div>
@@ -817,9 +816,10 @@ export default function CoursesPage() {
               {showAllBought && bought.length === 0 && <div className="text-sm text-muted py-4">{t("courses_history_no_result")}</div>}
             </div>
           </>
+        ) : (
+          <EmptyState message={t("courses_history_no_result")} actionLabel={t("courses_add_first")} onAction={() => { setView("to_buy"); setEditingId(null); setShowAdd(true); }} />
         )}
-      </div>
-      </>
+        </div>
       )}
 
       {actionItemId && (() => {
@@ -871,7 +871,7 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {view === "courses" && !showAdd && !headerAddButtonVisible && (
+      {view === "to_buy" && !showAdd && !headerAddButtonVisible && (
         <button
           type="button"
           onClick={() => { setEditingId(null); setShowAdd(true); }}

@@ -100,6 +100,7 @@ export default function TasksPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [view, setView] = useState<"to_do" | "routines" | "done">("to_do");
   const [shoppingNameSuggestions, setShoppingNameSuggestions] = useState<string[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -586,7 +587,16 @@ export default function TasksPage() {
         </button>
       </div>
 
-      <IntroTip id="tasks-v2" title={t("intro_tasks_title")} text={t("intro_tasks")} />
+      <div className="px-5 mb-5">
+        <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
+        <select value={view} onChange={(e) => setView(e.target.value as "to_do" | "routines" | "done")} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
+          <option value="to_do">{t("ux_tasks_to_do")}</option>
+          <option value="routines">{t("ux_tasks_routines")}</option>
+          <option value="done">{t("ux_tasks_done")}</option>
+        </select>
+      </div>
+
+      {view === "to_do" && <IntroTip id="tasks-v2" title={t("intro_tasks_title")} text={t("intro_tasks")} />}
 
       {addedConfirmation && (
         <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>
@@ -598,7 +608,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {showAdd && (
+      {view === "to_do" && showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
           <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} nameSuggestions={[...tasks.map((task) => task.name), ...shoppingNameSuggestions]} />
           <div className="flex gap-2">
@@ -608,7 +618,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      <div className="px-5">
+      {view === "to_do" && (<div className="px-5">
         {pending.length === 0 && !showAdd && <EmptyState message={`${t("tasks_empty_title")} ${t("tasks_empty")}`} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-4 mb-6">
           {pendingGroups.map((group) => (
@@ -684,7 +694,28 @@ export default function TasksPage() {
           ))}
         </div>
 
-        {hasDoneTasks && (
+      </div>)}
+
+      {view === "routines" && (
+        <div className="px-5 space-y-2">
+          {routines.filter((routine) => routine.active).length === 0 ? (
+            <EmptyState message={t("tasks_empty")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowAdd(true); }} />
+          ) : routines.filter((routine) => routine.active).map((routine) => (
+            <div key={routine.id} className="rounded-2xl border border-borderLight bg-white2 p-4">
+              <div className="flex items-center gap-3">
+                <Repeat size={17} className="text-mustard" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-ink">{routine.name}</div>
+                  <div className="mt-1 text-xs text-muted">{t(`recurrence_${routine.frequency}`)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {view === "done" && (<div className="px-5">
+        {hasDoneTasks ? (
           <>
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted">{showAllDone ? t("tasks_history") : t("tasks_done_recent")}</div>
@@ -739,9 +770,12 @@ export default function TasksPage() {
               </div>
             )}
           </>
+        ) : (
+          <EmptyState message={t("tasks_history_no_results")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowAdd(true); }} />
         )}
+      </div>)}
 
-        {showFloatingAdd && !showAdd && (
+        {view === "to_do" && showFloatingAdd && !showAdd && (
           <button
             onClick={() => { setEditingId(null); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
             className="sm:hidden fixed right-5 bottom-24 z-30 bg-ink text-paper rounded-full px-5 py-3 text-sm font-medium shadow-lg"
@@ -749,7 +783,6 @@ export default function TasksPage() {
             {t("add")}
           </button>
         )}
-      </div>
     </div>
   );
 }

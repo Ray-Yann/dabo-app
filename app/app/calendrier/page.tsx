@@ -12,13 +12,13 @@ import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil, LockKeyhole } from "lucide-react";
 
-type CalendarView = "household" | "personal";
+type CalendarView = "upcoming" | "month" | "personal";
 
 export default function CalendarPage() {
   const { loading, household, me, supabase } = useHousehold();
   const t = useT();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [view, setView] = useState<CalendarView>("household");
+  const [view, setView] = useState<CalendarView>("upcoming");
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -58,7 +58,7 @@ export default function CalendarPage() {
       event_date: eventDate,
       recurring,
       reminder_days_before: reminderDays,
-      visibility: view,
+      visibility: view === "personal" ? "personal" : "household",
       private_owner_id: view === "personal" ? me.id : null,
     });
     if (error) {
@@ -175,6 +175,15 @@ export default function CalendarPage() {
     { key: "later", label: t("calendar_section_later"), events: laterEvents },
   ].filter((section) => section.events.length > 0);
 
+  const monthDate = new Date();
+  const monthYear = monthDate.getFullYear();
+  const monthIndex = monthDate.getMonth();
+  const firstWeekday = (new Date(monthYear, monthIndex, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
+  const monthCells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(monthDate);
+  const eventDays = new Set(upcoming.filter((event) => event.next.getFullYear() === monthYear && event.next.getMonth() === monthIndex).map((event) => event.next.getDate()));
+
   return (
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
@@ -183,33 +192,42 @@ export default function CalendarPage() {
           {t("add")}
         </button>
       </div>
-      <div className="mx-5 mb-4 grid grid-cols-2 rounded-2xl border border-borderLight bg-white2 p-1">
-        <button
-          type="button"
-          onClick={() => changeView("household")}
-          className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${view === "household" ? "bg-paper text-ink" : "text-muted"}`}
-        >
-          {t("calendar_tab_household")}
-        </button>
-        <button
-          type="button"
-          onClick={() => changeView("personal")}
-          className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${view === "personal" ? "bg-paper text-ink" : "text-muted"}`}
-        >
-          {t("calendar_tab_personal")}
-        </button>
+      <div className="px-5 mb-5">
+        <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
+        <select value={view} onChange={(e) => changeView(e.target.value as CalendarView)} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
+          <option value="upcoming">{t("ux_calendar_upcoming")}</option>
+          <option value="month">{t("ux_calendar_month")}</option>
+          <option value="personal">{t("calendar_tab_personal")}</option>
+        </select>
       </div>
 
-      <IntroTip
+      {view !== "month" && <IntroTip
         id={`calendar-${view}-v1`}
         title={t(view === "personal" ? "intro_calendar_personal_title" : "intro_calendar_title")}
         text={t(view === "personal" ? "intro_calendar_personal" : "intro_calendar")}
-      />
+      />}
 
       {errorMessage && (
         <div className="mx-5 mb-4 rounded-xl border border-mustard/30 bg-mustardBg px-3 py-2.5 text-sm text-ink" role="alert">
           {errorMessage}
         </div>
+      )}
+
+      {view === "month" && (
+        <section className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-4">
+          <div className="mb-4 text-lg font-semibold capitalize text-ink">{monthLabel}</div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted">
+            {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => <div key={`${day}-${index}`} className="py-1">{day}</div>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {monthCells.map((day, index) => (
+              <div key={index} className={`relative flex aspect-square items-center justify-center rounded-xl text-sm ${day === monthDate.getDate() ? "bg-ink text-paper font-semibold" : "text-ink"}`}>
+                {day ?? ""}
+                {day && eventDays.has(day) && <span className={`absolute bottom-1 h-1 w-1 rounded-full ${day === monthDate.getDate() ? "bg-paper" : "bg-mustard"}`} />}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {showAdd && (
@@ -288,7 +306,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <div className="px-5">
+      {view !== "month" && (<div className="px-5">
         {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-6 pb-6">
           {sections.map((section) => (
@@ -386,7 +404,7 @@ export default function CalendarPage() {
             </section>
           ))}
         </div>
-      </div>
+      </div>)}
 
       {deleteTarget && (
         <div
