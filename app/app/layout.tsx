@@ -9,7 +9,7 @@ import { DaboMainNav } from "@/components/DaboMainNav";
 function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean }) {
   return (
     <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
-      <div className="dabo-app-content flex-1 max-w-lg mx-auto w-full">{children}</div>
+      <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
       <DaboMainNav />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
+import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
@@ -623,7 +624,10 @@ export default function TasksPage() {
         <div className="space-y-4 mb-6">
           {pendingGroups.map((group) => (
             <section key={group.key}>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">{group.label}</div>
+              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                {group.key !== "unassigned" && <Avatar member={members.find((member) => member.id === group.key) || null} members={members} size={20} />}
+                <span>{group.label}</span>
+              </div>
               <div className="space-y-1">
                 {group.tasks.map((task) => (
             <div key={task.id} className="border-b border-borderLight py-3">

@@ -227,3 +227,85 @@ input, select, textarea {
     font-size: 8.5px !important;
   }
 }
+
+
+/* DABO Visual Identity V1 — une identité plus chaleureuse sans alourdir UX Light.
+   Les rôles existants restent la source de vérité ; cette couche ajoute seulement
+   profondeur, rythme et micro-réactions. */
+.dabo-app-frame {
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--color-mustardBg) 52%, transparent) 0, transparent 30rem),
+    radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--color-white2) 72%, transparent) 0, transparent 28rem),
+    var(--color-paper);
+}
+
+.dabo-user-app button:not(:disabled),
+.dabo-user-app a {
+  transition: transform 150ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease, opacity 180ms ease;
+}
+
+.dabo-user-app button:not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.dabo-user-app input,
+.dabo-user-app select,
+.dabo-user-app textarea {
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.dabo-user-app input:focus,
+.dabo-user-app select:focus,
+.dabo-user-app textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.dabo-empty-state {
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+.dabo-empty-state-icon {
+  transform: rotate(-3deg);
+}
+
+.dabo-main-nav {
+  background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dabo-main-nav-pill {
+  transition: transform 160ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+@media (hover: hover) {
+  .dabo-main-nav-button:hover .dabo-main-nav-pill {
+    transform: translateY(-1px);
+  }
+}
+
+/* Sur grand écran DABO n'est plus une simple colonne mobile perdue au centre.
+   La largeur reste volontairement contenue : on gagne de la présence sans
+   transformer les listes en lignes interminables. */
+@media (min-width: 768px) {
+  .dabo-app-content {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .dabo-main-nav-grid {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-user-app *,
+  .dabo-user-app *::before,
+  .dabo-user-app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
