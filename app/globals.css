@@ -395,3 +395,129 @@ input, select, textarea {
     font-size: 8px !important;
   }
 }
+
+
+/* DABO Brand Language V1 — signature propriétaire.
+   Trois gestes seulement, répétés avec retenue : l'orbite organique du logo,
+   le point solaire moutarde et une courbe vivante sur les surfaces clés. */
+.dabo-brand-header {
+  isolation: isolate;
+}
+
+.dabo-brand-orbit {
+  position: absolute;
+  right: 14px;
+  top: 17px;
+  width: 86px;
+  height: 64px;
+  opacity: .9;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dabo-brand-leaf {
+  position: absolute;
+  display: block;
+  border: 1.5px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  border-radius: 100% 0 100% 0;
+  transform-origin: center;
+}
+
+.dabo-brand-leaf-a {
+  width: 54px;
+  height: 30px;
+  right: 6px;
+  top: 11px;
+  transform: rotate(-17deg);
+}
+
+.dabo-brand-leaf-b {
+  width: 39px;
+  height: 23px;
+  right: 31px;
+  top: 29px;
+  transform: rotate(19deg) scaleX(-1);
+  opacity: .68;
+}
+
+.dabo-brand-sun {
+  position: absolute;
+  right: 25px;
+  top: 27px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-mustard);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-mustardBg) 62%, transparent);
+}
+
+/* Le point doré devient le repère actif de navigation : minuscule, mais
+   constant sur chaque écran. */
+.dabo-main-nav-pill-active {
+  position: relative;
+}
+
+.dabo-main-nav-pill-active::after {
+  content: "";
+  position: absolute;
+  right: 9px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-mustard);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-paper) 22%, transparent);
+}
+
+/* Les quatre cartes de la tour de contrôle portent une courbe DABO presque
+   imperceptible. Elle n'ajoute aucune information et ne concurrence pas les
+   couleurs des membres. */
+.dabo-home-orbit-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--color-ink) 3%, transparent);
+}
+
+.dabo-home-orbit-card::after {
+  content: "";
+  position: absolute;
+  right: -23px;
+  bottom: -31px;
+  width: 68px;
+  height: 54px;
+  border: 1px solid color-mix(in srgb, var(--color-mustard) 17%, transparent);
+  border-radius: 100% 0 100% 0;
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+/* Quand DABO est calme, le vide porte lui aussi la marque : une grande feuille
+   en filigrane, jamais une illustration décorative supplémentaire. */
+.dabo-empty-state-leaf {
+  position: absolute;
+  right: -25px;
+  top: -26px;
+  width: 105px;
+  height: 78px;
+  border: 1.5px solid color-mix(in srgb, var(--color-mustard) 18%, transparent);
+  border-radius: 100% 0 100% 0;
+  transform: rotate(-15deg);
+  pointer-events: none;
+}
+
+@media (max-width: 390px) {
+  .dabo-brand-orbit {
+    right: 8px;
+    width: 72px;
+    transform: scale(.88);
+    transform-origin: right top;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-brand-orbit,
+  .dabo-brand-leaf,
+  .dabo-brand-sun {
+    animation: none !important;
+  }
+}

@@ -409,7 +409,7 @@ export default function TodayPage() {
                 key={item.key}
                 type="button"
                 onClick={() => router.push(item.href)}
-                className="flex items-center gap-3 rounded-2xl bg-white2 px-3 py-3 text-left transition active:scale-[0.99]"
+                className="dabo-home-orbit-card flex items-center gap-3 rounded-2xl bg-white2 px-3 py-3 text-left transition active:scale-[0.99]"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-paper">
                   <Icon size={16} />
