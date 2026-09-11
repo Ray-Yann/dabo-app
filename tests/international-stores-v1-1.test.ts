@@ -6,10 +6,10 @@ const route = fs.readFileSync("app/api/store-suggestions/route.ts", "utf8");
 const courses = fs.readFileSync("app/app/courses/page.tsx", "utf8");
 const catalog = fs.readFileSync("lib/world-store-catalog.ts", "utf8");
 
-test("Internationalisation V1.1 utilise une source mondiale de supermarchés par pays", () => {
+test("Internationalisation V1.1 + UX Light V1.2 utilise NSI avec rattachement explicite au pays", () => {
   assert.match(route, /name-suggestion-index/);
-  assert.match(route, /include\.includes\(cc\)/);
-  assert.match(route, /include\.includes\("001"\)/);
+  assert.match(route, /return include\.includes\(cc\)/);
+  assert.doesNotMatch(route, /include\.includes\(cc\) \|\| include\.includes\("001"\)/);
 });
 
 test("Internationalisation V1.1 garde DABO fonctionnel si la source mondiale est indisponible", () => {
@@ -22,9 +22,10 @@ test("Internationalisation V1.1 couvre explicitement les pays du test production
   for (const code of ["CM", "DE", "CA", "JP"]) assert.match(catalog, new RegExp(`${code}:`));
 });
 
-test("Courses fusionne catalogue mondial, catalogue communautaire et magasins du foyer", () => {
+test("Courses fusionne catalogue pays vérifié, source mondiale filtrée et magasins du foyer", () => {
+  assert.match(courses, /DEFAULT_STORES_BY_COUNTRY/);
   assert.match(courses, /worldStores/);
-  assert.match(courses, /globalStores\.map/);
   assert.match(courses, /householdStores\.map/);
+  assert.doesNotMatch(courses, /globalStores\.map/);
   assert.match(courses, /api\/store-suggestions/);
 });

@@ -17,14 +17,17 @@ import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 
 type HouseholdStore = { id: string; name: string };
-type GlobalStore = { id: string; name: string; country_code: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "", store: "", customStore: "" };
 const DEFAULT_STORES_BY_COUNTRY: Record<string, string[]> = {
-  BE: ["Carrefour", "Colruyt", "Lidl", "Aldi", "Delhaize", "Action", "Albert Heijn", "Intermarché"],
-  FR: ["Carrefour", "E.Leclerc", "Intermarché", "Lidl", "Aldi", "Auchan", "Monoprix", "Action"],
-  NL: ["Albert Heijn", "Jumbo", "Lidl", "Aldi", "PLUS", "Dirk", "Action"],
+  BE: ["Colruyt", "Delhaize", "Carrefour", "Lidl", "Aldi", "Albert Heijn", "Intermarché", "Jumbo"],
+  FR: ["E.Leclerc", "Carrefour", "Intermarché", "Lidl", "Aldi", "Auchan", "Super U", "Monoprix"],
+  NL: ["Albert Heijn", "Jumbo", "PLUS", "Lidl", "Aldi", "Dirk", "DekaMarkt", "Hoogvliet"],
   GB: ["Tesco", "Sainsbury's", "Asda", "Morrisons", "Aldi", "Lidl", "Waitrose", "Iceland"],
+  DE: ["Edeka", "Rewe", "Aldi Nord", "Aldi Süd", "Lidl", "Kaufland", "Penny", "Netto Marken-Discount"],
+  ES: ["Mercadona", "Carrefour", "Lidl", "Aldi", "Dia", "Alcampo", "Eroski", "Consum"],
+  IT: ["Conad", "Coop", "Esselunga", "Lidl", "Aldi", "Eurospin", "MD", "Carrefour"],
+  PT: ["Continente", "Pingo Doce", "Lidl", "Aldi", "Intermarché", "Auchan", "Minipreço", "Mercadona"],
 };
 const OTHER_STORE = "__other__";
 
@@ -84,7 +87,6 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
-  const [globalStores, setGlobalStores] = useState<GlobalStore[]>([]);
   const [worldStores, setWorldStores] = useState<string[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
@@ -188,18 +190,16 @@ export default function CoursesPage() {
 
   async function loadItems() {
     if (!household) return;
-    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }, { data: storeData }, { data: globalStoreData }] = await Promise.all([
+    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }, { data: storeData }] = await Promise.all([
       supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
       supabase.from("tasks").select("name").eq("household_id", household.id).limit(200),
       supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
-      supabase.from("global_stores").select("id,name,country_code").eq("country_code", household.country_code || "BE").order("name"),
     ]);
     setItems((itemData as ShoppingItem[]) || []);
     setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
     setTaskNameSuggestions((taskNameData || []).map((row: { name: string }) => row.name));
     setHouseholdStores((storeData as HouseholdStore[]) || []);
-    setGlobalStores((globalStoreData as GlobalStore[]) || []);
   }
 
   useEffect(() => {
@@ -226,11 +226,15 @@ export default function CoursesPage() {
 
   function availableStores() {
     const byKey = new Map<string, string>();
-    [...(DEFAULT_STORES_BY_COUNTRY[household?.country_code || "BE"] || []), ...worldStores, ...globalStores.map((store) => store.name), ...householdStores.map((store) => store.name)].forEach((name) => {
+    // UX Light V1.2: ordre volontaire — enseignes crédibles/populaires du pays,
+    // magasins déjà appris par ce foyer, puis catalogue mondial explicitement lié au pays.
+    // Le catalogue communautaire global n'alimente plus directement les suggestions.
+    [...(DEFAULT_STORES_BY_COUNTRY[household?.country_code || "BE"] || []), ...householdStores.map((store) => store.name), ...worldStores].forEach((name) => {
       const clean = name.trim();
-      if (clean) byKey.set(clean.toLocaleLowerCase(), clean);
+      const key = clean.toLocaleLowerCase();
+      if (clean && !byKey.has(key)) byKey.set(key, clean);
     });
-    return [...byKey.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return [...byKey.values()];
   }
 
   function resolvedStore(form: ItemForm) {
@@ -241,10 +245,9 @@ export default function CoursesPage() {
     if (!household || !name) return;
     const alreadyKnown = householdStores.some((store) => store.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
     if (alreadyKnown) return;
-    await Promise.all([
-      supabase.from("household_stores").insert({ household_id: household.id, name }),
-      supabase.from("global_stores").insert({ name, country_code: household.country_code || "BE" }),
-    ]);
+    // Un magasin saisi manuellement est personnel au foyer. Il ne devient pas
+    // automatiquement une recommandation nationale pour les autres foyers.
+    await supabase.from("household_stores").insert({ household_id: household.id, name });
   }
 
   async function addItem() {
@@ -693,7 +696,6 @@ export default function CoursesPage() {
       )}
 
       <div className="px-5">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_to_buy")}</div>
         {toBuy.length === 0 && !showAdd && <EmptyState message={`${t("courses_empty_title")} ${t("courses_empty")}`} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
           {toBuyGroups.map(([storeLabel, storeItems]) => (

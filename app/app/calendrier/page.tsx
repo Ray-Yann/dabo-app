@@ -137,7 +137,12 @@ export default function CalendarPage() {
   const locale = ({ fr: "fr-BE", nl: "nl-BE", en: "en-GB", de: "de-BE", es: "es-ES", it: "it-IT", pt: "pt-PT" } as const)[me?.language || "fr"] || "fr-BE";
 
   function formatEventDate(date: Date) {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(date);
+    const currentYear = new Date().getFullYear();
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "long",
+      ...(date.getFullYear() !== currentYear ? { year: "numeric" as const } : {}),
+    }).format(date);
   }
 
   function proximityLabel(date: Date) {
@@ -201,10 +206,10 @@ export default function CalendarPage() {
         </select>
       </div>
 
-      {view !== "month" && <IntroTip
-        id={`calendar-${view}-v1`}
-        title={t(view === "personal" ? "intro_calendar_personal_title" : "intro_calendar_title")}
-        text={t(view === "personal" ? "intro_calendar_personal" : "intro_calendar")}
+      {view === "personal" && <IntroTip
+        id="calendar-personal-v1"
+        title={t("intro_calendar_personal_title")}
+        text={t("intro_calendar_personal")}
       />}
 
       {errorMessage && (

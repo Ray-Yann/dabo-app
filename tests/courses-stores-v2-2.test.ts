@@ -6,12 +6,15 @@ const page = fs.readFileSync("app/app/courses/page.tsx", "utf8");
 const settings = fs.readFileSync("app/app/reglages/page.tsx", "utf8");
 const migration = fs.readFileSync("supabase-migrations/2026-09-10-courses-v2-2-stores-by-country.sql", "utf8");
 
-test("Courses V2.2 filtre le catalogue partagé par pays du foyer", () => {
-  assert.match(page, /from\("global_stores"\).*eq\("country_code", household\.country_code \|\| "BE"\)/);
+test("Courses V2.2 + UX Light V1.2 filtre les suggestions externes par pays du foyer", () => {
+  assert.match(page, /api\/store-suggestions\?country=/);
+  assert.match(page, /household\.country_code/);
+  assert.doesNotMatch(page, /from\("global_stores"\)\.select/);
 });
 
-test("Courses V2.2 associe un nouveau magasin au pays du foyer", () => {
-  assert.match(page, /global_stores"\)\.insert\(\{ name, country_code: household\.country_code \|\| "BE" \}\)/);
+test("Courses V2.2 + UX Light V1.2 n'élève plus un magasin manuel au rang national", () => {
+  assert.match(page, /household_stores"\)\.insert/);
+  assert.doesNotMatch(page, /global_stores"\)\.insert/);
 });
 
 test("Courses V2.2 stocke le pays au niveau du foyer et le rend modifiable", () => {
@@ -20,7 +23,7 @@ test("Courses V2.2 stocke le pays au niveau du foyer et le rend modifiable", () 
   assert.match(settings, /country_code: householdCountry/);
 });
 
-test("Courses V2.2 garde un catalogue distinct par pays", () => {
+test("Courses V2.2 garde le catalogue historique distinct par pays", () => {
   assert.match(migration, /global_stores_country_name_ci_uidx[\s\S]*country_code, lower\(trim\(name\)\)/);
   assert.match(migration, /'Tesco','GB'/);
   assert.match(migration, /'E\.Leclerc','FR'/);

@@ -16,7 +16,9 @@ function appliesToCountry(item: NsiItem, country: string): boolean {
   const exclude = item.locationSet?.exclude || [];
   const cc = country.toLowerCase();
   if (exclude.includes(cc)) return false;
-  return include.includes(cc) || include.includes("001");
+  // Ne jamais traiter une marque mondiale (001) comme présente dans chaque pays.
+  // Seules les enseignes explicitement rattachées au pays sont proposées.
+  return include.includes(cc);
 }
 
 export async function GET(request: NextRequest) {
