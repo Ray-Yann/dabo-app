@@ -569,3 +569,26 @@ input, select, textarea {
     transition: none !important;
   }
 }
+
+/* Dark Mode Readability V1 — AttentionCard utilise des tons explicites.
+   Ne pas utiliser de pseudo-variante `dabo-dark:` : le thème DABO est une
+   classe applicative et non une variante Tailwind. Les surfaces et textes
+   doivent donc être pilotés ensemble pour conserver le contraste. */
+.dabo-attention-card {
+  --dabo-attention-accent: var(--color-muted);
+  --dabo-attention-surface: var(--color-white2);
+  --dabo-attention-border: var(--color-borderLight);
+  background: var(--dabo-attention-surface);
+  border-color: var(--dabo-attention-border);
+}
+.dabo-attention-accent,
+.dabo-attention-icon { color: var(--dabo-attention-accent); }
+.dabo-attention-icon { background: color-mix(in srgb, var(--color-white2) 82%, transparent); }
+.dabo-attention-action-now { --dabo-attention-accent: #BE123C; --dabo-attention-surface: color-mix(in srgb, #FFF1F2 80%, transparent); --dabo-attention-border: color-mix(in srgb, #FECDD3 80%, transparent); }
+.dabo-attention-anticipate { --dabo-attention-accent: #B45309; --dabo-attention-surface: color-mix(in srgb, #FFFBEB 80%, transparent); --dabo-attention-border: color-mix(in srgb, #FDE68A 80%, transparent); }
+.dabo-attention-suggestion { --dabo-attention-accent: #0369A1; --dabo-attention-surface: color-mix(in srgb, #F0F9FF 70%, transparent); --dabo-attention-border: color-mix(in srgb, #BAE6FD 80%, transparent); }
+
+.dabo-dark .dabo-attention-action-now { --dabo-attention-accent: #FDA4AF; --dabo-attention-surface: color-mix(in srgb, #4C0519 22%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #881337 52%, var(--color-border)); }
+.dabo-dark .dabo-attention-anticipate { --dabo-attention-accent: #FCD34D; --dabo-attention-surface: color-mix(in srgb, #451A03 24%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #78350F 52%, var(--color-border)); }
+.dabo-dark .dabo-attention-suggestion { --dabo-attention-accent: #7DD3FC; --dabo-attention-surface: color-mix(in srgb, #082F49 24%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #0C4A6E 52%, var(--color-border)); }
+.dabo-dark .dabo-attention-information { --dabo-attention-accent: var(--color-muted); --dabo-attention-surface: var(--color-white2); --dabo-attention-border: var(--color-borderLight); }
