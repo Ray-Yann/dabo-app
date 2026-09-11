@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, ReceiptText, WalletCards } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -63,6 +62,7 @@ export default function BudgetPage() {
   const [bills,setBills]=useState<Bill[]>([]);
   const [budgets,setBudgets]=useState<Budget[]>([]);
   const [period,setPeriod]=useState<FinancePeriod>("month");
+  const [financeSection,setFinanceSection]=useState<"overview"|"expenses"|"bills"|"references">("overview");
   const [periodAnchor,setPeriodAnchor]=useState(()=>new Date());
   const [form,setForm]=useState<FormKind>(null);
   const [editingExpense,setEditingExpense]=useState<Transaction|null>(null);
@@ -154,12 +154,19 @@ export default function BudgetPage() {
   if(loading||!household||!me)return <LoadingState/>;
 
   return <div className="pb-8">
-    <Header eyebrow="FINANCE DU FOYER" title="Budget" />
-    <div className="mx-5 mb-5 grid grid-cols-2 rounded-2xl bg-white2 p-1">
-      <Link href="/app/equilibre" className="rounded-xl px-3 py-2 text-center text-sm font-medium text-muted">Organisation</Link>
-      <span className="rounded-xl bg-paper px-3 py-2 text-center text-sm font-semibold text-ink shadow-sm">Budget</span>
+    <Header eyebrow="ARGENT DU FOYER" title="Finances" />
+    <div className="mx-5 mb-5">
+      <label className="block text-xs font-medium text-muted">Vue affichée
+        <select value={financeSection} onChange={e=>setFinanceSection(e.target.value as typeof financeSection)} className="mt-2 w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm font-semibold text-ink shadow-sm outline-none">
+          <option value="overview">Vue d’ensemble</option>
+          <option value="expenses">Dépenses</option>
+          <option value="bills">Factures</option>
+          <option value="references">Repères mensuels</option>
+        </select>
+      </label>
     </div>
 
+    {financeSection==="overview"&&<>
     <section className="mx-5 rounded-3xl border border-borderLight bg-paper p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-wide text-muted">{periodLabel}</p><h2 className="mt-1 font-serif text-xl">Où en est le foyer ?</h2></div>
         <div className="relative"><select value={period} onChange={e=>setPeriod(e.target.value as FinancePeriod)} className="appearance-none rounded-xl border border-borderLight bg-paper py-2 pl-3 pr-8 text-xs font-semibold"><option value="week">Semaine</option><option value="month">Mois</option><option value="year">Année</option><option value="quarter">Trimestre</option><option value="semester">Semestre</option></select><ChevronDown size={14} className="pointer-events-none absolute right-2 top-2.5 text-muted"/></div></div>
@@ -180,6 +187,7 @@ export default function BudgetPage() {
     <div className="mx-5 mt-5 grid grid-cols-3 gap-2">
       <ActionButton onClick={()=>reset("expense")} label="Dépense"/><ActionButton onClick={()=>reset("bill")} label="Facture"/><ActionButton onClick={()=>reset("reference")} label="Repère"/>
     </div>
+    </>}
 
     {form&&<section className="mx-5 mt-4 rounded-3xl border border-borderLight bg-paper p-5">
       <div className="flex items-center justify-between"><h3 className="font-serif text-lg">{form==="expense"?(editingExpense?"Modifier la dépense":"Ajouter une dépense"):form==="bill"?"Ajouter une facture":"Ajouter un repère mensuel"}</h3><button onClick={()=>reset()} className="text-sm text-muted">Annuler</button></div>
@@ -200,15 +208,21 @@ export default function BudgetPage() {
       <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={busy} onClick={()=>setPayingBill(null)} className="rounded-2xl border border-borderLight px-4 py-3 text-sm font-semibold">Annuler</button><button disabled={busy} onClick={()=>markPaid(payingBill)} className="rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-50">{busy?"Enregistrement…":"Confirmer"}</button></div>
     </section>}
 
+    {financeSection==="expenses"&&<>
     <Section title="Dépenses" icon={<WalletCards size={18}/>} empty="Aucune dépense sur cette période.">
       {visibleTx.map(tx=><Row key={tx.id} title={tx.label} subtitle={`${CATEGORY_LABELS[tx.category]} · ${new Date(tx.occurred_on+"T12:00:00").toLocaleDateString("fr-BE")}`} value={money(Number(tx.amount))} onEdit={()=>startExpenseEdit(tx)}/>) }
     </Section>
+    </>}
+    {financeSection==="bills"&&<>
     <Section title="Factures à venir" icon={<ReceiptText size={18}/>} empty="Aucune facture à payer sur cette période.">
       {visibleBills.map(b=><div key={b.id} className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{b.label}</p><p className="text-xs text-muted">Échéance {new Date(b.due_on+"T12:00:00").toLocaleDateString("fr-BE")}{b.series_id?" · Récurrente":""}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(Number(b.amount||0))}</p><button disabled={busy} onClick={()=>{setPayer(me.id);setPayingBill(b);}} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink"><Check size={13}/> Marquer payée</button></div></div>)}
     </Section>
+    </>}
+    {financeSection==="references"&&<>
     <Section title="Repères mensuels" icon={<ArrowLeft className="rotate-180" size={18}/>} empty="Aucun repère défini. Ils restent facultatifs.">
       {budgets.map(b=>{const used=monthCats[b.category]||0;const pct=Math.min(100,Math.round((used/Number(b.monthly_reference))*100));return <div key={b.id} className="border-t border-borderLight/70 py-3 first:border-0"><div className="flex justify-between gap-3 text-sm"><span className="font-medium">{CATEGORY_LABELS[b.category]}</span><span>{money(used)} / {money(Number(b.monthly_reference))}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-white2"><div className="h-full rounded-full bg-ink" style={{width:`${pct}%`}}/></div></div>})}
     </Section>
+    </>}
     <p className="mx-5 mt-5 text-xs leading-relaxed text-muted">Les montants sont des repères pour comprendre le foyer, jamais une note sur ses membres. Organisation et argent restent deux lectures séparées.</p>
   </div>;
 }

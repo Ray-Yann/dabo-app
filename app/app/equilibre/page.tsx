@@ -16,7 +16,6 @@ import {
   fetchContributionBalanceData,
 } from "@/lib/task-contributions";
 import { Avatar } from "@/components/Avatar";
-import Link from "next/link";
 import { computeHouseholdInsights } from "@/lib/household-insights";
 
 type Period = "week" | "month" | "quarter";
@@ -406,32 +405,19 @@ export default function BalancePage() {
       />
       <IntroTip id="balance" title={t("intro_balance_title")} text={t("intro_balance")} />
 
-      <div className="mx-5 mb-5 grid grid-cols-2 rounded-2xl bg-white2 p-1">
-        <span className="rounded-xl bg-paper px-3 py-2 text-center text-sm font-semibold text-ink shadow-sm">Organisation</span>
-        <Link href="/app/equilibre/budget" className="rounded-xl px-3 py-2 text-center text-sm font-medium text-muted">Budget</Link>
-      </div>
-
-      <div className="mx-5 mb-5 grid grid-cols-4 border-b border-borderLight/70">
-        {(["overview", "contributions", "redistribute", "insights"] as const).map((section) => (
-          <button
-            key={section}
-            type="button"
-            onClick={() => setBalanceSection(section)}
-            className={`relative px-2 pb-3 pt-1 text-xs transition-colors ${
-              balanceSection === section
-                ? "text-ink font-semibold"
-                : "text-muted hover:text-ink"
-            }`}
+      <div className="mx-5 mb-5">
+        <label className="block text-xs font-medium text-muted">
+          {t("balance_view_label")}
+          <select
+            value={balanceSection}
+            onChange={(event) => setBalanceSection(event.target.value as typeof balanceSection)}
+            className="mt-2 w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-sm font-semibold text-ink shadow-sm outline-none"
           >
-            {t(`balance_section_${section}`)}
-            {balanceSection === section && (
-              <span
-                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-mustard"
-                aria-hidden="true"
-              />
-            )}
-          </button>
-        ))}
+            {(["overview", "contributions", "redistribute", "insights"] as const).map((section) => (
+              <option key={section} value={section}>{t(`balance_section_${section}`)}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {editingContributionId && (

@@ -127,7 +127,7 @@ export function buildDailyDigest(candidates: NotificationCandidate[]) {
       ? "/app/taches"
       : first.domain === "calendar"
         ? "/app/calendrier"
-        : "/app/equilibre/budget"
+        : "/app/finances"
     : "/app";
 
   return {
