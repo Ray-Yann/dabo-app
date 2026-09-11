@@ -22,10 +22,10 @@ test("Internationalisation V1.1 couvre explicitement les pays du test production
   for (const code of ["CM", "DE", "CA", "JP"]) assert.match(catalog, new RegExp(`${code}:`));
 });
 
-test("Courses fusionne catalogue pays vérifié, source mondiale filtrée et magasins du foyer", () => {
-  assert.match(courses, /DEFAULT_STORES_BY_COUNTRY/);
-  assert.match(courses, /worldStores/);
+test("Courses V1.2.1 garde la source mondiale hors du sélecteur et fusionne catalogue vérifié + magasins du foyer", () => {
+  assert.match(courses, /VERIFIED_STORE_SUPPLEMENTS\[household\?\.country_code/);
   assert.match(courses, /householdStores\.map/);
+  assert.doesNotMatch(courses, /worldStores/);
   assert.doesNotMatch(courses, /globalStores\.map/);
-  assert.match(courses, /api\/store-suggestions/);
+  assert.doesNotMatch(courses, /api\/store-suggestions/);
 });

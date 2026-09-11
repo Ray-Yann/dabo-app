@@ -15,20 +15,11 @@ import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
+import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 
 type HouseholdStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "", store: "", customStore: "" };
-const DEFAULT_STORES_BY_COUNTRY: Record<string, string[]> = {
-  BE: ["Colruyt", "Delhaize", "Carrefour", "Lidl", "Aldi", "Albert Heijn", "Intermarché", "Jumbo"],
-  FR: ["E.Leclerc", "Carrefour", "Intermarché", "Lidl", "Aldi", "Auchan", "Super U", "Monoprix"],
-  NL: ["Albert Heijn", "Jumbo", "PLUS", "Lidl", "Aldi", "Dirk", "DekaMarkt", "Hoogvliet"],
-  GB: ["Tesco", "Sainsbury's", "Asda", "Morrisons", "Aldi", "Lidl", "Waitrose", "Iceland"],
-  DE: ["Edeka", "Rewe", "Aldi Nord", "Aldi Süd", "Lidl", "Kaufland", "Penny", "Netto Marken-Discount"],
-  ES: ["Mercadona", "Carrefour", "Lidl", "Aldi", "Dia", "Alcampo", "Eroski", "Consum"],
-  IT: ["Conad", "Coop", "Esselunga", "Lidl", "Aldi", "Eurospin", "MD", "Carrefour"],
-  PT: ["Continente", "Pingo Doce", "Lidl", "Aldi", "Intermarché", "Auchan", "Minipreço", "Mercadona"],
-};
 const OTHER_STORE = "__other__";
 
 function ItemFormFields({
@@ -87,7 +78,6 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
-  const [worldStores, setWorldStores] = useState<string[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -208,16 +198,6 @@ export default function CoursesPage() {
   }, [household]);
 
   useEffect(() => {
-    if (!household?.country_code) return;
-    let cancelled = false;
-    fetch(`/api/store-suggestions?country=${encodeURIComponent(household.country_code)}`)
-      .then((response) => response.ok ? response.json() : { stores: [] })
-      .then((payload: { stores?: string[] }) => { if (!cancelled) setWorldStores(payload.stores || []); })
-      .catch(() => { if (!cancelled) setWorldStores([]); });
-    return () => { cancelled = true; };
-  }, [household?.country_code]);
-
-  useEffect(() => {
     if (!household) return;
     void loadShoppingFinancePrompt();
     const timer = window.setInterval(() => void loadShoppingFinancePrompt(), 60_000);
@@ -226,10 +206,11 @@ export default function CoursesPage() {
 
   function availableStores() {
     const byKey = new Map<string, string>();
-    // UX Light V1.2: ordre volontaire — enseignes crédibles/populaires du pays,
-    // magasins déjà appris par ce foyer, puis catalogue mondial explicitement lié au pays.
-    // Le catalogue communautaire global n'alimente plus directement les suggestions.
-    [...(DEFAULT_STORES_BY_COUNTRY[household?.country_code || "BE"] || []), ...householdStores.map((store) => store.name), ...worldStores].forEach((name) => {
+    // UX Light V1.2.1: menu strict — uniquement le catalogue national DABO vérifié,
+    // puis les magasins personnels déjà appris par ce foyer. La source mondiale/NSI
+    // reste disponible côté serveur pour de futurs enrichissements, mais n'alimente
+    // jamais directement le sélecteur Courses.
+    [...(VERIFIED_STORE_SUPPLEMENTS[household?.country_code || "BE"] || []), ...householdStores.map((store) => store.name)].forEach((name) => {
       const clean = name.trim();
       const key = clean.toLocaleLowerCase();
       if (clean && !byKey.has(key)) byKey.set(key, clean);
