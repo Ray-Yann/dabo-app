@@ -17,6 +17,7 @@ import {
 } from "@/lib/task-contributions";
 import { Avatar } from "@/components/Avatar";
 import Link from "next/link";
+import { computeHouseholdInsights } from "@/lib/household-insights";
 
 type Period = "week" | "month" | "quarter";
 
@@ -50,7 +51,7 @@ export default function BalancePage() {
   const [period, setPeriod] = useState<Period>("week");
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [balanceSection, setBalanceSection] = useState<"overview" | "contributions" | "redistribute">("overview");
+  const [balanceSection, setBalanceSection] = useState<"overview" | "contributions" | "redistribute" | "insights">("overview");
   const [showCalculationInfo, setShowCalculationInfo] = useState(false);
   const [historicalContributionId, setHistoricalContributionId] = useState<string | null>(null);
   const [confirmingHistoricalPerformer, setConfirmingHistoricalPerformer] = useState(false);
@@ -207,6 +208,13 @@ export default function BalancePage() {
     // No personal recommendation when the signal does not identify one member clearly.
     return lowestMembers.length === 1 ? lowestMembers[0].member : null;
   })();
+
+  const householdInsights = computeHouseholdInsights(
+    members,
+    balanceData.contributions,
+    balanceData.participants,
+    new Date(referenceNow)
+  );
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const redistributionSuggestions = tasks
@@ -403,8 +411,8 @@ export default function BalancePage() {
         <Link href="/app/equilibre/budget" className="rounded-xl px-3 py-2 text-center text-sm font-medium text-muted">Budget</Link>
       </div>
 
-      <div className="mx-5 mb-5 grid grid-cols-3 border-b border-borderLight/70">
-        {(["overview", "contributions", "redistribute"] as const).map((section) => (
+      <div className="mx-5 mb-5 grid grid-cols-4 border-b border-borderLight/70">
+        {(["overview", "contributions", "redistribute", "insights"] as const).map((section) => (
           <button
             key={section}
             type="button"
@@ -764,6 +772,63 @@ export default function BalancePage() {
             </div>
           )}
         </>
+      )}
+
+      {balanceSection === "insights" && (
+        <div className="mx-5 space-y-4 pb-28">
+          <div className="rounded-2xl border border-borderLight/70 bg-white2/70 p-5">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{t("insights_period")}</p>
+            <h2 className="mt-1 font-serif text-xl text-ink">{t("insights_title")}</h2>
+            <p className="mt-2 text-sm text-muted">{t("insights_intro")}</p>
+          </div>
+
+          {!householdInsights.enoughCurrentData ? (
+            <div className="rounded-2xl border border-borderLight/70 bg-paper p-5">
+              <p className="font-medium text-ink">{t("insights_building_title")}</p>
+              <p className="mt-1 text-sm text-muted">
+                {t("insights_building_text").replace("{count}", String(householdInsights.currentCount))}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-borderLight/70 bg-paper p-5">
+                <p className="text-sm font-medium text-ink">
+                  {t(`insights_trend_${householdInsights.trend}_title`)}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  {t(`insights_trend_${householdInsights.trend}_text`)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-borderLight/70 bg-paper p-4">
+                  <p className="text-[11px] text-muted">{t("insights_completed_label")}</p>
+                  <p className="mt-1 text-2xl font-semibold text-ink">{householdInsights.currentCount}</p>
+                  <p className="mt-1 text-[11px] text-muted">
+                    {t("insights_previous_value").replace("{value}", String(householdInsights.previousCount))}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-borderLight/70 bg-paper p-4">
+                  <p className="text-[11px] text-muted">{t("insights_highest_share_label")}</p>
+                  <p className="mt-1 text-2xl font-semibold text-ink">
+                    {householdInsights.currentHighestShare === null ? "—" : `${householdInsights.currentHighestShare}%`}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted">
+                    {householdInsights.previousHighestShare === null
+                      ? t("insights_previous_unavailable")
+                      : t("insights_previous_value").replace("{value}", `${householdInsights.previousHighestShare}%`)}
+                  </p>
+                </div>
+              </div>
+
+              {!householdInsights.enoughComparisonData && (
+                <p className="px-1 text-xs text-muted">{t("insights_comparison_building")}</p>
+              )}
+            </>
+          )}
+
+          <p className="px-1 text-xs text-muted">{t("insights_footnote")}</p>
+        </div>
       )}
 
       {balanceSection === "redistribute" && (
