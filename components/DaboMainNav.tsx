@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Calendar, GripVertical, Home, ListChecks, Menu, PiggyBank, Scale, Settings, ShoppingBag, Tags, X } from "lucide-react";
 import { useT } from "@/lib/language-context";
 import { useHousehold } from "@/lib/use-household";
 
 type TabKey = "tasks" | "courses" | "calendar" | "finances" | "balance" | "promos";
+const TAB_KEYS: TabKey[] = ["tasks", "courses", "calendar", "finances", "balance", "promos"];
+const TAB_KEY_SET = new Set<string>(TAB_KEYS);
 const DEFAULT_TABS: TabKey[] = ["tasks", "courses", "calendar", "finances"];
+
+function isTabKey(value: string): value is TabKey {
+  return TAB_KEY_SET.has(value);
+}
 
 export function DaboMainNav() {
   const pathname = usePathname();
@@ -17,6 +23,7 @@ export function DaboMainNav() {
   const [pinned, setPinned] = useState<TabKey[]>(DEFAULT_TABS);
   const [moreOpen, setMoreOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const catalog = useMemo(() => ({
     tasks: { href: "/app/taches", icon: ListChecks, label: t("tab_tasks") },
@@ -29,19 +36,37 @@ export function DaboMainNav() {
 
   useEffect(() => {
     if (!me?.user_id) return;
+    let cancelled = false;
+
     supabase.from("user_navigation_preferences").select("pinned_tabs").eq("user_id", me.user_id).maybeSingle()
       .then(({ data, error }) => {
+        if (cancelled) return;
         if (error) { console.error("DABO navigation preference load failed", error); return; }
-        const tabs = (data?.pinned_tabs || []).filter((key: string): key is TabKey => key in catalog);
+        const tabs = (data?.pinned_tabs || []).filter((key: string): key is TabKey => isTabKey(key));
         if (tabs.length === 4 && new Set(tabs).size === 4) setPinned(tabs);
       });
-  }, [me?.user_id, supabase, catalog]);
 
-  async function save(next: TabKey[]) {
+    return () => { cancelled = true; };
+  }, [me?.user_id, supabase]);
+
+  function save(next: TabKey[]) {
     if (!me?.user_id || next.length !== 4 || new Set(next).size !== 4) return;
+
+    // Mise à jour immédiate de l'interface. Les écritures Supabase sont ensuite
+    // sérialisées pour qu'un réordonnancement rapide ne puisse pas sauvegarder
+    // une ancienne position après la plus récente.
     setPinned(next);
-    const { error } = await supabase.from("user_navigation_preferences").upsert({ user_id: me.user_id, pinned_tabs: next, updated_at: new Date().toISOString() });
-    if (error) console.error("DABO navigation preference save failed", error);
+    const userId = me.user_id;
+    saveQueueRef.current = saveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const { error } = await supabase.from("user_navigation_preferences").upsert({
+          user_id: userId,
+          pinned_tabs: next,
+          updated_at: new Date().toISOString(),
+        });
+        if (error) console.error("DABO navigation preference save failed", error);
+      });
   }
 
   function swap(index: number, direction: -1 | 1) {
@@ -49,19 +74,19 @@ export function DaboMainNav() {
     if (target < 0 || target >= pinned.length) return;
     const next = [...pinned];
     [next[index], next[target]] = [next[target], next[index]];
-    void save(next);
+    save(next);
   }
 
   function replace(slot: number, key: TabKey) {
     if (pinned.includes(key)) return;
-    const next = [...pinned]; next[slot] = key; void save(next);
+    const next = [...pinned]; next[slot] = key; save(next);
   }
 
   const navItems = [
     { key: "today", href: "/app", icon: Home, label: t("tab_today") },
     ...pinned.map(key => ({ key, ...catalog[key] })),
   ];
-  const hidden = (Object.keys(catalog) as TabKey[]).filter(key => !pinned.includes(key));
+  const hidden = TAB_KEYS.filter(key => !pinned.includes(key));
 
   const go = (href: string) => { setMoreOpen(false); setEditing(false); router.push(href); };
   const isActive = (href: string) => pathname === href || (href === "/app/equilibre" && pathname.startsWith("/app/equilibre")) || (href === "/app/finances" && pathname === "/app/equilibre/budget");
@@ -76,7 +101,7 @@ export function DaboMainNav() {
 
     {moreOpen && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25" onClick={()=>setMoreOpen(false)}><section className="w-full max-w-lg rounded-t-[28px] bg-paper px-5 pb-7 pt-4 shadow-2xl" onClick={e=>e.stopPropagation()} aria-modal="true" role="dialog"><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-wide text-muted">DABO</p><h2 className="font-serif text-xl">{editing?t("nav_customize_title"):t("tab_more")}</h2></div><button onClick={()=>setMoreOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white2" aria-label={t("nav_close")}><X size={18}/></button></div>
       {!editing ? <><div className="mt-5 grid grid-cols-2 gap-2">{hidden.map(key=>{const item=catalog[key];const Icon=item.icon;return <button key={key} onClick={()=>go(item.href)} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Icon size={19}/><span className="text-sm font-semibold">{item.label}</span></button>})}<button onClick={()=>go("/app/reglages")} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Settings size={19}/><span className="text-sm font-semibold">{t("tab_settings")}</span></button></div><button onClick={()=>setEditing(true)} className="mt-4 w-full rounded-2xl border border-borderLight px-4 py-3 text-sm font-semibold">{t("nav_customize_action")}</button></>
-      : <div className="mt-5 space-y-3"><p className="text-sm leading-relaxed text-muted">{t("nav_customize_help")}</p><div className="rounded-2xl border border-borderLight bg-white2 p-3"><div className="flex items-center gap-3 rounded-xl bg-paper px-3 py-3"><Home size={18}/><span className="flex-1 text-sm font-semibold">{t("tab_today")}</span><span className="text-xs text-muted">{t("nav_locked")}</span></div>{pinned.map((key,index)=>{const item=catalog[key];const Icon=item.icon;return <div key={key} className="mt-2 flex items-center gap-2 rounded-xl bg-paper px-2 py-2"><GripVertical size={16} className="text-muted"/><Icon size={18}/><select value={key} onChange={e=>replace(index,e.target.value as TabKey)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none">{(Object.keys(catalog) as TabKey[]).map(candidate=><option key={candidate} value={candidate} disabled={candidate!==key&&pinned.includes(candidate)}>{catalog[candidate].label}</option>)}</select><button disabled={index===0} onClick={()=>swap(index,-1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↑</button><button disabled={index===pinned.length-1} onClick={()=>swap(index,1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↓</button></div>})}</div><button onClick={()=>setEditing(false)} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper">{t("nav_done")}</button></div>}
+      : <div className="mt-5 space-y-3"><p className="text-sm leading-relaxed text-muted">{t("nav_customize_help")}</p><div className="rounded-2xl border border-borderLight bg-white2 p-3"><div className="flex items-center gap-3 rounded-xl bg-paper px-3 py-3"><Home size={18}/><span className="flex-1 text-sm font-semibold">{t("tab_today")}</span><span className="text-xs text-muted">{t("nav_locked")}</span></div>{pinned.map((key,index)=>{const item=catalog[key];const Icon=item.icon;return <div key={key} className="mt-2 flex items-center gap-2 rounded-xl bg-paper px-2 py-2"><GripVertical size={16} className="text-muted"/><Icon size={18}/><select value={key} onChange={e=>replace(index,e.target.value as TabKey)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none">{TAB_KEYS.map(candidate=><option key={candidate} value={candidate} disabled={candidate!==key&&pinned.includes(candidate)}>{catalog[candidate].label}</option>)}</select><button disabled={index===0} onClick={()=>swap(index,-1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↑</button><button disabled={index===pinned.length-1} onClick={()=>swap(index,1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↓</button></div>})}</div><button onClick={()=>setEditing(false)} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper">{t("nav_done")}</button></div>}
       </section></div>}
   </>;
 }
