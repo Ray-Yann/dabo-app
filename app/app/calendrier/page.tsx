@@ -10,7 +10,7 @@ import { CalendarEvent } from "@/lib/types";
 import { nextOccurrence, daysUntil } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
-import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, Pencil, LockKeyhole } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users } from "lucide-react";
 
 type CalendarView = "upcoming" | "month" | "personal";
 
@@ -19,6 +19,8 @@ export default function CalendarPage() {
   const t = useT();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [view, setView] = useState<CalendarView>("upcoming");
+  const [monthCursor, setMonthCursor] = useState(() => new Date());
+  const [newVisibility, setNewVisibility] = useState<"household" | "personal">("household");
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -58,8 +60,8 @@ export default function CalendarPage() {
       event_date: eventDate,
       recurring,
       reminder_days_before: reminderDays,
-      visibility: view === "personal" ? "personal" : "household",
-      private_owner_id: view === "personal" ? me.id : null,
+      visibility: newVisibility,
+      private_owner_id: newVisibility === "personal" ? me.id : null,
     });
     if (error) {
       setErrorMessage(t("calendar_error_save"));
@@ -73,6 +75,8 @@ export default function CalendarPage() {
     setReminderDays(7);
     setShowMoreOptions(false);
     setShowAdd(false);
+    if (newVisibility === "personal") setView("personal");
+    else if (view === "personal") setView("upcoming");
     loadEvents();
   }
 
@@ -106,6 +110,7 @@ export default function CalendarPage() {
 
   function changeView(nextView: CalendarView) {
     setView(nextView);
+    setNewVisibility(nextView === "personal" ? "personal" : "household");
     setShowAdd(false);
     setShowMoreOptions(false);
     cancelEditing();
@@ -152,11 +157,11 @@ export default function CalendarPage() {
     return `${t("event_in")} ${days} ${t("event_days")}`;
   }
 
-  const visibleEvents = events.filter((event) =>
-    view === "personal"
-      ? event.visibility === "personal" && event.private_owner_id === me?.id
-      : event.visibility === "household"
-  );
+  const visibleEvents = events.filter((event) => {
+    if (view === "personal") return event.visibility === "personal" && event.private_owner_id === me?.id;
+    if (view === "month") return event.visibility === "household" || (event.visibility === "personal" && event.private_owner_id === me?.id);
+    return event.visibility === "household";
+  });
 
   const upcoming = visibleEvents
     .map((e) => ({ ...e, next: nextOccurrence(e.event_date, e.recurring) }))
@@ -180,20 +185,39 @@ export default function CalendarPage() {
     { key: "later", label: t("calendar_section_later"), events: laterEvents },
   ].filter((section) => section.events.length > 0);
 
-  const monthDate = new Date();
+  const monthDate = monthCursor;
   const monthYear = monthDate.getFullYear();
   const monthIndex = monthDate.getMonth();
   const firstWeekday = (new Date(monthYear, monthIndex, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
   const monthCells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
   const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(monthDate);
-  const eventDays = new Set(upcoming.filter((event) => event.next.getFullYear() === monthYear && event.next.getMonth() === monthIndex).map((event) => event.next.getDate()));
+  const monthEvents = visibleEvents.flatMap((event) => {
+    const original = new Date(`${event.event_date}T00:00:00`);
+    if (!event.recurring) {
+      return original.getFullYear() === monthYear && original.getMonth() === monthIndex ? [{ ...event, monthOccurrence: original }] : [];
+    }
+    if (original.getMonth() !== monthIndex) return [];
+    const lastDay = new Date(monthYear, monthIndex + 1, 0).getDate();
+    return [{ ...event, monthOccurrence: new Date(monthYear, monthIndex, Math.min(original.getDate(), lastDay)) }];
+  });
+  const householdEventDays = new Set(monthEvents.filter((event) => event.visibility === "household").map((event) => event.monthOccurrence.getDate()));
+  const personalEventDays = new Set(monthEvents.filter((event) => event.visibility === "personal").map((event) => event.monthOccurrence.getDate()));
+
+  function moveMonth(delta: number) {
+    setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  }
+
+  function openAdd() {
+    setNewVisibility(view === "personal" ? "personal" : "household");
+    setShowAdd(true);
+  }
 
   return (
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
         <Header title={t("calendar_title")} />
-        <button onClick={() => setShowAdd(true)} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium mt-8 mr-0">
+        <button onClick={openAdd} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium mt-8 mr-0">
           {t("add")}
         </button>
       </div>
@@ -220,15 +244,31 @@ export default function CalendarPage() {
 
       {view === "month" && (
         <section className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-4">
-          <div className="mb-4 text-lg font-semibold capitalize text-ink">{monthLabel}</div>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <button type="button" onClick={() => moveMonth(-1)} className="rounded-xl border border-border p-2 text-ink" aria-label={t("calendar_previous_month")}><ChevronLeft size={17} /></button>
+            <div className="text-center">
+              <div className="text-lg font-semibold capitalize text-ink">{monthLabel}</div>
+              <button type="button" onClick={() => setMonthCursor(new Date())} className="mt-0.5 text-xs text-mustard">{t("calendar_back_today")}</button>
+            </div>
+            <button type="button" onClick={() => moveMonth(1)} className="rounded-xl border border-border p-2 text-ink" aria-label={t("calendar_next_month")}><ChevronRight size={17} /></button>
+          </div>
+          <div className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-muted">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-mustard" />{t("calendar_month_household_legend")}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-muted bg-paper" />{t("calendar_month_personal_legend")}</span>
+          </div>
           <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted">
             {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => <div key={`${day}-${index}`} className="py-1">{day}</div>)}
           </div>
           <div className="mt-1 grid grid-cols-7 gap-1">
             {monthCells.map((day, index) => (
-              <div key={index} className={`relative flex aspect-square items-center justify-center rounded-xl text-sm ${day === monthDate.getDate() ? "bg-ink text-paper font-semibold" : "text-ink"}`}>
+              <div key={index} className={`relative flex aspect-square items-center justify-center rounded-xl text-sm ${day === new Date().getDate() && monthIndex === new Date().getMonth() && monthYear === new Date().getFullYear() ? "bg-ink text-paper font-semibold" : "text-ink"}`}>
                 {day ?? ""}
-                {day && eventDays.has(day) && <span className={`absolute bottom-1 h-1 w-1 rounded-full ${day === monthDate.getDate() ? "bg-paper" : "bg-mustard"}`} />}
+                {day && (householdEventDays.has(day) || personalEventDays.has(day)) && (
+                  <span className="absolute bottom-1 flex gap-0.5">
+                    {householdEventDays.has(day) && <span className={`h-1 w-1 rounded-full ${day === new Date().getDate() && monthIndex === new Date().getMonth() && monthYear === new Date().getFullYear() ? "bg-paper" : "bg-mustard"}`} />}
+                    {personalEventDays.has(day) && <span className="h-1 w-1 rounded-full border border-muted bg-paper" />}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -240,7 +280,7 @@ export default function CalendarPage() {
           <div className="mb-4">
             <div className="text-sm font-semibold text-ink">{t("calendar_new_event")}</div>
             <div className="mt-0.5 text-xs text-muted">{t("calendar_new_event_hint")}</div>
-            {view === "personal" && (
+            {newVisibility === "personal" && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
                 <LockKeyhole size={12} />
                 <span>{t("calendar_personal_private_note")}</span>
@@ -249,6 +289,19 @@ export default function CalendarPage() {
           </div>
 
           <div className="space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_scope_label")}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setNewVisibility("household")} className={`rounded-xl border px-3 py-2.5 text-left ${newVisibility === "household" ? "border-mustard bg-mustardBg" : "border-border bg-paper/30"}`}>
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-ink"><Users size={14} />{t("calendar_scope_household")}</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-muted">{t("calendar_scope_household_hint")}</span>
+                </button>
+                <button type="button" onClick={() => setNewVisibility("personal")} className={`rounded-xl border px-3 py-2.5 text-left ${newVisibility === "personal" ? "border-mustard bg-mustardBg" : "border-border bg-paper/30"}`}>
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-ink"><LockKeyhole size={14} />{t("calendar_scope_personal")}</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-muted">{t("calendar_scope_personal_hint")}</span>
+                </button>
+              </div>
+            </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_name")}</label>
               <input autoFocus placeholder={t("event_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
@@ -312,7 +365,7 @@ export default function CalendarPage() {
       )}
 
       {view !== "month" && (<div className="px-5">
-        {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={() => setShowAdd(true)} />}
+        {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={openAdd} />}
         <div className="space-y-6 pb-6">
           {sections.map((section) => (
             <section key={section.key}>
