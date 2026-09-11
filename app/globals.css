@@ -521,3 +521,51 @@ input, select, textarea {
     animation: none !important;
   }
 }
+
+/* DABO Brand Language V1.1 — la forme devient interface.
+   Une asymétrie unique remplace la décoration répétée : le coin bas-droit
+   se resserre comme la pointe de la feuille DABO. */
+.dabo-organic-header {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Sur les en-têtes métier, l'orbite vit dans le même espace que le titre,
+   sans déplacer le contenu ni ajouter de bloc. */
+.dabo-organic-header > .relative .dabo-brand-orbit {
+  right: -4px;
+  top: -18px;
+  transform: scale(.72);
+  transform-origin: right top;
+  opacity: .72;
+}
+
+.dabo-primary-action {
+  border-radius: 14px 14px 5px 14px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.dabo-organic-card,
+.dabo-empty-state {
+  border-radius: 22px 22px 8px 22px !important;
+}
+
+/* Le point solaire est réservé aux repères DABO : navigation et orbite.
+   Les couleurs de membres restent donc libres de raconter les personnes. */
+.dabo-primary-action,
+.dabo-organic-card,
+.dabo-empty-state {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-radius 160ms ease;
+}
+
+.dabo-primary-action:active {
+  transform: translateY(1px) scale(.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-primary-action,
+  .dabo-organic-card,
+  .dabo-empty-state {
+    transition: none !important;
+  }
+}

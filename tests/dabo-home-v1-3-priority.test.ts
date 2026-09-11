@@ -13,7 +13,7 @@ test("Home V1.3 met uniquement la première attention au premier plan", () => {
 test("AttentionCard V1.3 conserve sa densité compacte hors priorité", () => {
   assert.match(card, /primary\?: boolean/);
   assert.match(card, /primary = false/);
-  assert.match(card, /primary \? "px-4 py-4[^"]*" : "px-3 py-3/);
+  assert.match(card, /primary \? "(?:dabo-organic-card )?px-4 py-4[^"]*" : "px-3 py-3/);
 });
 
 test("AttentionCard V1.3 renforce subtilement la priorité sans nouveau bloc", () => {

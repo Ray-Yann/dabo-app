@@ -193,7 +193,7 @@ export default function CalendarPage() {
     <div>
       <div className="flex items-start justify-between px-5 pt-8 pb-4">
         <Header title={t("calendar_title")} />
-        <button onClick={() => setShowAdd(true)} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium mt-8 mr-0">
+        <button onClick={() => setShowAdd(true)} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium mt-8 mr-0">
           {t("add")}
         </button>
       </div>

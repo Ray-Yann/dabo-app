@@ -39,6 +39,6 @@ export function AttentionCard({ level, levelLabel, title, description, meta, act
     </>
   );
 
-  const classes = `w-full rounded-2xl border text-left transition ${ui.surface} ${primary ? "px-4 py-4 shadow-[0_6px_20px_rgba(34,48,31,0.08)]" : "px-3 py-3 shadow-[0_1px_0_rgba(34,48,31,0.03)]"} ${onAction ? "cursor-pointer active:scale-[0.995]" : ""}`;
+  const classes = `w-full rounded-2xl border text-left transition ${ui.surface} ${primary ? "dabo-organic-card px-4 py-4 shadow-[0_6px_20px_rgba(34,48,31,0.08)]" : "px-3 py-3 shadow-[0_1px_0_rgba(34,48,31,0.03)]"} ${onAction ? "cursor-pointer active:scale-[0.995]" : ""}`;
   return onAction ? <button type="button" onClick={onAction} className={classes}>{<div className={`flex items-start ${primary ? "gap-3" : "gap-2.5"}`}>{content}</div>}</button> : <article className={classes}><div className={`flex items-start ${primary ? "gap-3" : "gap-2.5"}`}>{content}</div></article>;
 }

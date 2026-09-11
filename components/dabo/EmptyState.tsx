@@ -17,7 +17,7 @@ export function EmptyState({ title = "Tout est tranquille", message, actionLabel
       <div className="relative z-[1] font-serif text-lg font-semibold text-ink">{title}</div>
       {message && <p className="relative z-[1] mt-1 max-w-sm text-xs leading-relaxed text-muted">{message}</p>}
       {actionLabel && onAction && (
-        <button type="button" onClick={onAction} className="relative z-[1] mt-4 inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-xs font-semibold text-paper">
+        <button type="button" onClick={onAction} className="dabo-primary-action relative z-[1] mt-4 inline-flex items-center gap-2 bg-ink px-4 py-2.5 text-xs font-semibold text-paper">
           <Plus size={15} aria-hidden="true" />{actionLabel}
         </button>
       )}

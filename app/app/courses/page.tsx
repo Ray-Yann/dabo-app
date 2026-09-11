@@ -526,12 +526,13 @@ export default function CoursesPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between px-5 pt-8 pb-4">
-        <div>
+      <div className="dabo-organic-header flex items-start justify-between px-5 pt-8 pb-4">
+        <div className="relative z-[1]">
+          <div className="dabo-brand-orbit" aria-hidden="true"><span className="dabo-brand-leaf dabo-brand-leaf-a" /><span className="dabo-brand-leaf dabo-brand-leaf-b" /><span className="dabo-brand-sun" /></div>
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t("courses_remaining")}</div>
           <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
         </div>
-        <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="bg-ink text-paper rounded-xl px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
+        <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
           <Plus size={15} /> {t("add")}
         </button>
       </div>
