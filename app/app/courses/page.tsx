@@ -16,6 +16,7 @@ import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "
 import { SmartNameInput } from "@/components/SmartNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
+import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
 
 type HouseholdStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
@@ -224,11 +225,28 @@ export default function CoursesPage() {
 
   async function rememberStore(name: string) {
     if (!household || !name) return;
-    const alreadyKnown = householdStores.some((store) => store.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+    const cleanName = name.trim();
+    const alreadyKnown = householdStores.some((store) => store.name.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase());
     if (alreadyKnown) return;
-    // Un magasin saisi manuellement est personnel au foyer. Il ne devient pas
-    // automatiquement une recommandation nationale pour les autres foyers.
-    await supabase.from("household_stores").insert({ household_id: household.id, name });
+    // Un magasin saisi manuellement ou choisi à proximité reste personnel au foyer.
+    // Il ne devient jamais automatiquement une recommandation nationale.
+    const { data, error } = await supabase
+      .from("household_stores")
+      .insert({ household_id: household.id, name: cleanName })
+      .select("id,name")
+      .single();
+    if (!error && data) {
+      setHouseholdStores((current) => current.some((store) => store.id === data.id) ? current : [...current, data as HouseholdStore]);
+    }
+  }
+
+  async function useNearbyStore(name: string) {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+    await rememberStore(cleanName);
+    setEditingId(null);
+    setShowAdd(true);
+    setAddForm((current) => ({ ...current, store: cleanName, customStore: "" }));
   }
 
   async function addItem() {
@@ -657,6 +675,8 @@ export default function CoursesPage() {
           <option value="history">{t("ux_history")}</option>
         </select>
       </div>
+
+      {view === "to_buy" && <NearbyStoresPanel supabase={supabase} t={t} onUseStore={useNearbyStore} />}
 
       {view === "suggestions" && !shoppingSuggestion && (
         <div className="mx-5 rounded-3xl border border-borderLight bg-white2 p-6 text-center text-sm text-muted">{t("courses_empty")}</div>

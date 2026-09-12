@@ -11,7 +11,7 @@ test("Courses V2.1: le catalogue partagé historique reste compatible en base", 
 });
 
 test("Courses V2.1 + UX Light V1.2: un magasin appris reste désormais propre au foyer", () => {
-  assert.match(page, /from\("household_stores"\)\.insert/);
+  assert.match(page, /from\("household_stores"\)[\s\S]{0,120}\.insert/);
   assert.doesNotMatch(page, /from\("global_stores"\)\.insert/);
 });
 

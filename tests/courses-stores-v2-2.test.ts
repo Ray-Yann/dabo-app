@@ -13,7 +13,7 @@ test("Courses V2.2 + UX Light V1.2.1 utilise uniquement le catalogue vérifié d
 });
 
 test("Courses V2.2 + UX Light V1.2 n'élève plus un magasin manuel au rang national", () => {
-  assert.match(page, /household_stores"\)\.insert/);
+  assert.match(page, /household_stores"\)[\s\S]{0,120}\.insert/);
   assert.doesNotMatch(page, /global_stores"\)\.insert/);
 });
 

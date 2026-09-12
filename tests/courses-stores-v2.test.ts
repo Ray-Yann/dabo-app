@@ -6,7 +6,7 @@ const page = fs.readFileSync("app/app/courses/page.tsx", "utf8");
 const migration = fs.readFileSync("supabase-migrations/2026-09-10-courses-v2-stores.sql", "utf8");
 
 test("Courses V2 stores: custom store is persisted for the household", () => {
-  assert.match(page, /from\("household_stores"\)\.insert/);
+  assert.match(page, /from\("household_stores"\)[\s\S]{0,120}\.insert/);
   assert.match(migration, /create table if not exists public\.household_stores/);
 });
 

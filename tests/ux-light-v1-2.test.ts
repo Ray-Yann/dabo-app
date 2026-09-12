@@ -16,7 +16,7 @@ test("UX Light V1.2 ne transforme plus 001 en présence dans tous les pays", () 
 test("UX Light V1.2 sépare les magasins du foyer du catalogue national", () => {
   assert.ok(!courses.includes('supabase.from("global_stores").insert'));
   assert.ok(!courses.includes('supabase.from("global_stores").select'));
-  assert.ok(courses.includes('supabase.from("household_stores").insert'));
+  assert.match(courses, /from\("household_stores"\)[\s\S]{0,120}\.insert/);
 });
 
 test("UX Light V1.2 fournit des enseignes crédibles pour les principaux pays DABO", () => {

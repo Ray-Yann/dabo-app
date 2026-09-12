@@ -15,7 +15,7 @@ test("UX Light V1.2.1 réserve le menu aux enseignes nationales vérifiées et a
 
 test("UX Light V1.2.1 garde Autre magasin comme porte de sortie manuelle", () => {
   assert.ok(courses.includes('<option value={OTHER_STORE}>{t("courses_store_other")}</option>'));
-  assert.ok(courses.includes('supabase.from("household_stores").insert'));
+  assert.match(courses, /from\("household_stores"\)[\s\S]{0,120}\.insert/);
 });
 
 test("UX Light V1.2.1 conserve un catalogue belge strict et crédible", () => {
