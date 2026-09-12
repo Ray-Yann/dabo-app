@@ -15,6 +15,7 @@ import { countryOptions, detectIsoCountryFromDevice } from "@/lib/countries";
 import { Lang } from "@/lib/i18n";
 import { LANGUAGE_OPTIONS, isAvailableLang } from "@/lib/languages";
 import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
+import { setTutorialEnabled } from "@/lib/tutorial-preferences";
 
 type SettingsConfirmation =
   | { kind: "promote"; memberId: string; name: string }
@@ -53,6 +54,7 @@ export default function SettingsPage() {
   const [memberActionsId, setMemberActionsId] = useState<string | null>(null);
   const [householdDetailsOpen, setHouseholdDetailsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [guideInvite, setGuideInvite] = useState(false);
   const [confirmation, setConfirmation] = useState<SettingsConfirmation | null>(null);
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState("");
@@ -67,6 +69,25 @@ export default function SettingsPage() {
     if (confirmationLoading) return;
     setConfirmation(null);
     setDeletePhrase("");
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const guide = new URLSearchParams(window.location.search).get("guide");
+    if (guide !== "invite") return;
+    setInviteOpen(true);
+    setGuideInvite(true);
+    window.setTimeout(() => document.getElementById("dabo-invite-member")?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+  }, []);
+
+  async function replayTutorial() {
+    try {
+      await setTutorialEnabled(supabase, true);
+      Object.keys(localStorage).filter((key) => key.startsWith("dabo-intro-") || key.startsWith("dabo-invite-nudge-")).forEach((key) => localStorage.removeItem(key));
+      showFeedback("success", t("tutorial_reenabled"));
+    } catch {
+      showFeedback("error", t("settings_error_save"));
+    }
   }
 
   useEffect(() => {
@@ -724,7 +745,8 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="bg-white2 rounded-2xl p-4 mb-3">
+          <div id="dabo-invite-member" className={`bg-white2 rounded-2xl p-4 mb-3 transition-shadow ${guideInvite ? "ring-2 ring-mustard ring-offset-2 ring-offset-paper" : ""}`}>
+            {guideInvite && <div className="text-xs font-semibold text-mustard mb-2">{t("tutorial_here_invite")}</div>}
             {!inviteOpen ? (
               <button
                 onClick={() => setInviteOpen(true)}
@@ -755,6 +777,10 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+
+          <button onClick={() => void replayTutorial()} className="w-full mb-3 border border-border bg-white2 rounded-2xl px-4 py-3 text-sm text-ink font-medium text-left">
+            {t("tutorial_replay")}
+          </button>
 
           <div className="bg-white2 rounded-2xl p-4">
             <div className="text-sm font-medium text-ink mb-3">{t("settings_members")}</div>
