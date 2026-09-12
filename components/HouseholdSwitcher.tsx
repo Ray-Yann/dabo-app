@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Bot, Check, Home, Plus, Users } from "lucide-react";
 import { useHousehold } from "@/lib/use-household";
-import { genInviteCode } from "@/lib/utils";
 import { useT } from "@/lib/language-context";
 
 type Mode = "closed" | "choice" | "create" | "join";
@@ -54,46 +53,21 @@ export function HouseholdSwitcher() {
     if (!me || !name.trim()) return;
     setBusy(true);
     setError("");
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (!userId) {
-      setError(t("settings_error_session"));
-      setBusy(false);
-      return;
-    }
-
-    const { data: created, error: householdError } = await supabase
-      .from("households")
-      .insert({ name: name.trim(), invite_code: genInviteCode(), household_type: type })
-      .select("*")
-      .single();
-    if (householdError || !created) {
-      setError(t("households_error_create"));
-      setBusy(false);
-      return;
-    }
-
-    const { error: memberError } = await supabase.from("members").insert({
-      household_id: created.id,
-      user_id: userId,
-      first_name: me.first_name,
-      role: "creator",
-      language: me.language,
-      dark_mode: me.dark_mode,
-      avatar_color: me.avatar_color,
-      avatar_url: null,
-      avatar_path: null,
-      avatar_emoji: me.avatar_emoji || null,
-      rotation_order: 0,
+    const { data: result, error: createError } = await supabase.rpc("create_household_with_creator", {
+      p_name: name.trim(),
+      p_household_type: type,
+      p_first_name: me.first_name,
+      p_language: me.language,
     });
-    if (memberError) {
+    const created = result?.[0];
+    if (createError || !created?.household_id) {
       setError(t("households_error_create"));
       setBusy(false);
       return;
     }
 
     setMode("closed");
-    await switchHousehold(created.id);
+    await switchHousehold(created.household_id);
     setBusy(false);
   }
 
@@ -101,58 +75,25 @@ export function HouseholdSwitcher() {
     if (!me || !code.trim()) return;
     setBusy(true);
     setError("");
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (!userId) {
-      setError(t("settings_error_session"));
-      setBusy(false);
-      return;
-    }
 
-    const { data: target } = await supabase
-      .from("households")
-      .select("id")
-      .eq("invite_code", code.trim().toUpperCase())
-      .maybeSingle();
-    if (!target) {
-      setError(t("households_error_code"));
-      setBusy(false);
-      return;
-    }
-    if (memberships.some((membership) => membership.household.id === target.id)) {
-      setMode("closed");
-      await switchHousehold(target.id);
-      setBusy(false);
-      return;
-    }
-
-    const { count } = await supabase
-      .from("members")
-      .select("*", { count: "exact", head: true })
-      .eq("household_id", target.id)
-      .is("left_at", null)
-      .not("user_id", "is", null);
-    const { error: memberError } = await supabase.from("members").insert({
-      household_id: target.id,
-      user_id: userId,
-      first_name: me.first_name,
-      role: (count || 0) === 0 ? "creator" : "member",
-      language: me.language,
-      dark_mode: me.dark_mode,
-      avatar_color: me.avatar_color,
-      avatar_url: null,
-      avatar_path: null,
-      avatar_emoji: me.avatar_emoji || null,
-      rotation_order: count || 0,
+    // Le code d'invitation n'est jamais recherché directement dans households.
+    // Le RPC SECURITY DEFINER valide le code, attribue le rôle et gère les
+    // jointures simultanées sans exposer les autres foyers au client.
+    const { data: result, error: joinError } = await supabase.rpc("join_household_by_invite", {
+      p_invite_code: code.trim().toUpperCase(),
+      p_first_name: me.first_name,
+      p_language: me.language,
     });
-    if (memberError) {
-      setError(t("households_error_join"));
+    const joined = result?.[0];
+    if (joinError || !joined?.household_id) {
+      const message = joinError?.message || "";
+      setError(message.includes("INVITE_NOT_FOUND") ? t("households_error_code") : t("households_error_join"));
       setBusy(false);
       return;
     }
 
     setMode("closed");
-    await switchHousehold(target.id);
+    await switchHousehold(joined.household_id);
     setBusy(false);
   }
 

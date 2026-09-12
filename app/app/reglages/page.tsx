@@ -434,7 +434,7 @@ export default function SettingsPage() {
   }
 
   async function promoteToCreator(memberId: string) {
-    const { error } = await supabase.from("members").update({ role: "creator" }).eq("id", memberId);
+    const { error } = await supabase.rpc("promote_household_member_to_creator", { p_member_id: memberId });
     if (error) {
       showFeedback("error", t("settings_error_promote"));
       return false;

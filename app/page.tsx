@@ -6,7 +6,6 @@ import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
-import { genInviteCode } from "@/lib/utils";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2 } from "lucide-react";
 import type { Lang } from "@/lib/i18n";
 import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
@@ -167,32 +166,22 @@ export default function OnboardingPage() {
       setBusy(false);
       return;
     }
-    const code = genInviteCode();
-    const { data: household, error: hErr } = await supabase
-      .from("households")
-      .insert({ name: householdName || "Notre foyer", invite_code: code, household_type: householdType })
-      .select()
-      .single();
-    if (hErr || !household) {
-      setError(hErr?.message || "Erreur lors de la création du foyer.");
-      setBusy(false);
-      return;
-    }
-    const { error: mErr } = await supabase.from("members").insert({
-      household_id: household.id,
-      user_id: sessionData.session.user.id,
-      first_name: firstName,
-      role: "creator",
-      language: memberLang,
-      rotation_order: 0,
+    // La création du foyer et de son membre creator est atomique côté base :
+    // aucun foyer orphelin ne peut rester si l'une des deux écritures échoue.
+    const { data: createResult, error: createError } = await supabase.rpc("create_household_with_creator", {
+      p_name: householdName || "Notre foyer",
+      p_household_type: householdType,
+      p_first_name: firstName.trim(),
+      p_language: memberLang,
     });
-    if (mErr) {
-      setError(mErr.message);
+    const created = createResult?.[0];
+    if (createError || !created?.household_id || !created?.invite_code) {
+      setError("Erreur lors de la création du foyer.");
       setBusy(false);
       return;
     }
-    await trackAcquisitionEvent("household_created", { householdId: household.id });
-    setCreatedHousehold({ id: household.id, name: household.name, invite_code: household.invite_code });
+    await trackAcquisitionEvent("household_created", { householdId: created.household_id });
+    setCreatedHousehold({ id: created.household_id, name: created.household_name, invite_code: created.invite_code });
     setSetupMode("created");
     setBusy(false);
   }
