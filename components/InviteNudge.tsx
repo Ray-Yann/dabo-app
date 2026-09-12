@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { useT } from "@/lib/language-context";
 import { getTutorialEnabled, setTutorialEnabled } from "@/lib/tutorial-preferences";
+import { tutorialInviteNudgeKey } from "@/lib/tutorial-local-storage";
 
 export function InviteNudge({ householdId, memberCount, householdType, text }: { householdId: string; memberCount: number; householdType: string; text: string; }) {
   const router = useRouter();
@@ -17,9 +18,9 @@ export function InviteNudge({ householdId, memberCount, householdType, text }: {
     let active = true;
     async function load() {
       if (householdType === "couple" || memberCount >= 3) return;
-      const enabled = await getTutorialEnabled(supabase);
-      if (!enabled) return;
-      const key = `dabo-invite-nudge-${householdId}`;
+      const [{ data: userData }, enabled] = await Promise.all([supabase.auth.getUser(), getTutorialEnabled(supabase)]);
+      if (!enabled || !userData.user?.id) return;
+      const key = tutorialInviteNudgeKey(userData.user.id, householdId);
       const count = parseInt(localStorage.getItem(key) || "0", 10);
       if (count >= 3) return;
       localStorage.setItem(key, String(count + 1));

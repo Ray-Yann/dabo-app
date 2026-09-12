@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { CheckSquare, Eye, EyeOff } from "lucide-react";
+import { translate, type Lang } from "@/lib/i18n";
+import { detectAvailableLanguageFromDevice } from "@/lib/languages";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -24,6 +26,8 @@ export default function ResetPasswordPage() {
     []
   );
 
+  const [lang, setLang] = useState<Lang>("fr");
+  const t = (key: string) => translate(lang, key);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -34,6 +38,7 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     document.documentElement.classList.remove("dark");
+    setLang(detectAvailableLanguageFromDevice());
   }, []);
 
   useEffect(() => {
@@ -51,7 +56,7 @@ export default function ResetPasswordPage() {
       setRecoveryReady(false);
       setCheckingRecovery(false);
       setError(
-        "Ce lien de réinitialisation est invalide ou a expiré. Demande un nouveau lien depuis DABO."
+        t("reset_invalid")
       );
     };
 
@@ -108,7 +113,7 @@ export default function ResetPasswordPage() {
       cancelled = true;
       authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, lang]);
 
   async function handleSubmit() {
     if (!recoveryReady || password.length < 6) return;
@@ -123,7 +128,7 @@ export default function ResetPasswordPage() {
       setBusy(false);
       setRecoveryReady(false);
       setError(
-        "La session de réinitialisation a expiré. Demande un nouveau lien depuis DABO."
+        t("reset_expired")
       );
       return;
     }
@@ -134,8 +139,8 @@ export default function ResetPasswordPage() {
     if (updateError) {
       setError(
         updateError.message === "Auth session missing!"
-          ? "La session de réinitialisation a expiré. Demande un nouveau lien depuis DABO."
-          : updateError.message
+          ? t("reset_expired")
+          : t("onboarding_error_generic")
       );
       return;
     }
@@ -157,16 +162,16 @@ export default function ResetPasswordPage() {
         {!done ? (
           <>
             <h1 className="font-serif text-2xl text-ink mb-1">
-              Nouveau mot de passe
+              {t("reset_title")}
             </h1>
             <p className="text-sm text-muted mb-6">
-              Choisis un mot de passe pour ton compte Dabo.
+              {t("reset_body")}
             </p>
 
             <div className="relative text-left">
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Nouveau mot de passe"
+                placeholder={t("reset_placeholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={checkingRecovery || !recoveryReady}
@@ -177,7 +182,7 @@ export default function ResetPasswordPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={checkingRecovery || !recoveryReady}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted disabled:opacity-50"
-                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                aria-label={showPassword ? t("reset_hide_password") : t("reset_show_password")}
               >
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
@@ -185,7 +190,7 @@ export default function ResetPasswordPage() {
 
             {checkingRecovery && (
               <p className="text-sm text-muted mt-3">
-                Vérification du lien de réinitialisation…
+                {t("reset_checking")}
               </p>
             )}
 
@@ -202,12 +207,12 @@ export default function ResetPasswordPage() {
               onClick={handleSubmit}
               className="w-full bg-ink text-paper rounded-xl py-3 mt-4 font-medium disabled:opacity-50"
             >
-              {busy ? "..." : "Enregistrer"}
+              {busy ? "..." : t("reset_save")}
             </button>
           </>
         ) : (
           <p className="text-sm text-ink">
-            Mot de passe mis à jour. Tu peux maintenant te reconnecter.
+            {t("reset_done")}
           </p>
         )}
       </div>

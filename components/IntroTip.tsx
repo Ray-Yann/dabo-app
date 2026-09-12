@@ -5,31 +5,36 @@ import { Info, X } from "lucide-react";
 import { createClient } from "@/lib/supabase-client";
 import { useT } from "@/lib/language-context";
 import { getTutorialEnabled, setTutorialEnabled, TUTORIAL_EVENT } from "@/lib/tutorial-preferences";
+import { tutorialIntroKey } from "@/lib/tutorial-local-storage";
 
 export function IntroTip({ id, title, text }: { id: string; title?: string; text: string }) {
   const t = useT();
   const [supabase] = useState(() => createClient());
   const [visible, setVisible] = useState(false);
+  const [storageKey, setStorageKey] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      const enabled = await getTutorialEnabled(supabase);
-      const seen = localStorage.getItem(`dabo-intro-${id}`);
-      if (active) setVisible(enabled && !seen);
+      const [{ data: userData }, enabled] = await Promise.all([supabase.auth.getUser(), getTutorialEnabled(supabase)]);
+      const userId = userData.user?.id;
+      if (!userId) { if (active) setVisible(false); return; }
+      const key = tutorialIntroKey(userId, id);
+      const seen = localStorage.getItem(key);
+      if (active) { setStorageKey(key); setVisible(enabled && !seen); }
     }
     void load();
     const onPreference = (event: Event) => {
       const enabled = (event as CustomEvent<{ enabled: boolean }>).detail?.enabled;
       if (enabled === false) setVisible(false);
-      if (enabled === true && !localStorage.getItem(`dabo-intro-${id}`)) setVisible(true);
+      if (enabled === true && storageKey && !localStorage.getItem(storageKey)) setVisible(true);
     };
     window.addEventListener(TUTORIAL_EVENT, onPreference);
     return () => { active = false; window.removeEventListener(TUTORIAL_EVENT, onPreference); };
-  }, [id, supabase]);
+  }, [id, storageKey, supabase]);
 
   function dismiss() {
-    localStorage.setItem(`dabo-intro-${id}`, "1");
+    if (storageKey) localStorage.setItem(storageKey, "1");
     setVisible(false);
   }
 

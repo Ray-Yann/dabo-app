@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
 import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2 } from "lucide-react";
-import type { Lang } from "@/lib/i18n";
+import { translate, type Lang } from "@/lib/i18n";
 import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 
@@ -30,6 +30,7 @@ export default function OnboardingPage() {
   const [householdName, setHouseholdName] = useState("");
   const [householdType, setHouseholdType] = useState<"couple" | "coloc" | "famille">("couple");
   const [memberLang, setMemberLang] = useState<Lang>("fr");
+  const t = (key: string) => translate(memberLang, key);
 
   // Cet écran (avant connexion) ne doit jamais s'afficher en mode sombre —
   // cette préférence appartient à un profil qui n'existe pas encore ici.
@@ -84,7 +85,7 @@ export default function OnboardingPage() {
     });
     setBusy(false);
     if (error) {
-      setError(error.message);
+      setError(t("onboarding_error_generic"));
       return;
     }
     setForgotSent(true);
@@ -125,7 +126,7 @@ export default function OnboardingPage() {
     if (authMode === "signup") {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) {
-        setError(error.message);
+        setError(t("onboarding_error_signup"));
         setBusy(false);
         return;
       }
@@ -133,7 +134,7 @@ export default function OnboardingPage() {
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setError(error.message);
+        setError(t("onboarding_error_login"));
         setBusy(false);
         return;
       }
@@ -162,21 +163,21 @@ export default function OnboardingPage() {
     setError("");
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
-      setError("Session expirée, reconnecte-toi.");
+      setError(t("onboarding_error_session"));
       setBusy(false);
       return;
     }
     // La création du foyer et de son membre creator est atomique côté base :
     // aucun foyer orphelin ne peut rester si l'une des deux écritures échoue.
     const { data: createResult, error: createError } = await supabase.rpc("create_household_with_creator", {
-      p_name: householdName || "Notre foyer",
+      p_name: householdName || t("onboarding_default_household"),
       p_household_type: householdType,
       p_first_name: firstName.trim(),
       p_language: memberLang,
     });
     const created = createResult?.[0];
     if (createError || !created?.household_id || !created?.invite_code) {
-      setError("Erreur lors de la création du foyer.");
+      setError(t("onboarding_error_create"));
       setBusy(false);
       return;
     }
@@ -191,7 +192,7 @@ export default function OnboardingPage() {
     setError("");
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
-      setError("Session expirée, reconnecte-toi.");
+      setError(t("onboarding_error_session"));
       setBusy(false);
       return;
     }
@@ -205,7 +206,7 @@ export default function OnboardingPage() {
     });
     if (joinErr || !joinResult?.[0]?.household_id) {
       const message = joinErr?.message || "";
-      setError(message.includes("INVITE_NOT_FOUND") ? "Code introuvable. Vérifie et réessaie." : "Impossible de rejoindre ce foyer pour le moment.");
+      setError(message.includes("INVITE_NOT_FOUND") ? t("onboarding_error_invite") : t("onboarding_error_join"));
       setBusy(false);
       return;
     }
@@ -216,7 +217,7 @@ export default function OnboardingPage() {
   async function shareCreatedHousehold() {
     if (!createdHousehold) return;
     const inviteUrl = `${window.location.origin}/?invite=${encodeURIComponent(createdHousehold.invite_code)}`;
-    const text = `Rejoins ${createdHousehold.name} sur DABO.`;
+    const text = t("onboarding_share_text").replace("{household}", createdHousehold.name);
     try {
       if (navigator.share) {
         await navigator.share({ title: "DABO", text, url: inviteUrl });
@@ -247,14 +248,14 @@ export default function OnboardingPage() {
 
         {phase === "auth" && authMode !== "forgot" && (
           <>
-            <h1 className="font-serif text-2xl text-ink mb-1">{inviteFromLink ? "Tu es invité·e sur DABO" : "Bienvenue sur Dabo"}</h1>
-            <p className="text-sm text-muted mb-1">{inviteFromLink ? "Connecte-toi ou crée ton compte pour rejoindre le foyer." : "L’équilibre du foyer, enfin visible."}</p>
-            <p className="text-xs text-muted mb-6">{inviteFromLink ? `Invitation ${inviteCode} prête à être utilisée.` : "Crée ton compte pour retrouver ton foyer, où que tu sois — tes proches t’y attendent déjà, ou t’y rejoindront bientôt."}</p>
+            <h1 className="font-serif text-2xl text-ink mb-1">{inviteFromLink ? t("onboarding_invited_title") : t("onboarding_welcome_title")}</h1>
+            <p className="text-sm text-muted mb-1">{inviteFromLink ? t("onboarding_invited_subtitle") : t("onboarding_welcome_subtitle")}</p>
+            <p className="text-xs text-muted mb-6">{inviteFromLink ? t("onboarding_invite_ready_code").replace("{code}", inviteCode) : t("onboarding_welcome_body")}</p>
 
             <div className="space-y-3 text-left">
               <input
                 type="email"
-                placeholder="Ton email"
+                placeholder={t("onboarding_email_placeholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 focus:border-ink outline-none"
@@ -262,7 +263,7 @@ export default function OnboardingPage() {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Mot de passe"
+                  placeholder={t("onboarding_password_placeholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full border border-border rounded-xl px-4 py-3 pr-11 text-sm bg-white2 focus:border-ink outline-none"
@@ -284,19 +285,19 @@ export default function OnboardingPage() {
               onClick={handleAuth}
               className="w-full bg-ink text-paper rounded-xl py-3 mt-4 font-medium disabled:opacity-50"
             >
-              {busy ? "..." : authMode === "signup" ? "Créer mon compte" : "Se connecter"}
+              {busy ? "..." : authMode === "signup" ? t("onboarding_signup") : t("onboarding_login")}
             </button>
 
             <button
               className="text-sm text-muted mt-4"
               onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
             >
-              {authMode === "signup" ? "J'ai déjà un compte" : "Créer un compte"}
+              {authMode === "signup" ? t("onboarding_have_account") : t("onboarding_create_account")}
             </button>
 
             {authMode === "login" && (
               <button className="text-sm text-muted mt-2 block mx-auto" onClick={() => { setAuthMode("forgot"); setError(""); setForgotSent(false); }}>
-                Mot de passe oublié ?
+                {t("onboarding_forgot_password")}
               </button>
             )}
           </>
@@ -304,13 +305,13 @@ export default function OnboardingPage() {
 
         {phase === "auth" && authMode === "forgot" && (
           <>
-            <h1 className="font-serif text-2xl text-ink mb-1">Mot de passe oublié</h1>
+            <h1 className="font-serif text-2xl text-ink mb-1">{t("onboarding_forgot_title")}</h1>
             {!forgotSent ? (
               <>
-                <p className="text-sm text-muted mb-6">On t&apos;envoie un lien pour en choisir un nouveau.</p>
+                <p className="text-sm text-muted mb-6">{t("onboarding_forgot_body")}</p>
                 <input
                   type="email"
-                  placeholder="Ton email"
+                  placeholder={t("onboarding_email_placeholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 focus:border-ink outline-none"
@@ -321,30 +322,30 @@ export default function OnboardingPage() {
                   onClick={handleForgotPassword}
                   className="w-full bg-ink text-paper rounded-xl py-3 mt-4 font-medium disabled:opacity-50"
                 >
-                  {busy ? "..." : "Envoyer le lien"}
+                  {busy ? "..." : t("onboarding_send_link")}
                 </button>
               </>
             ) : (
-              <p className="text-sm text-muted mb-2">Vérifie tes emails (et tes spams) — un lien vient de t&apos;être envoyé.</p>
+              <p className="text-sm text-muted mb-2">{t("onboarding_email_sent")}</p>
             )}
             <button className="text-sm text-muted mt-4" onClick={() => setAuthMode("login")}>
-              Retour
+              {t("onboarding_back")}
             </button>
           </>
         )}
 
         {phase === "setup" && setupMode === "choice" && (
           <>
-            <h1 className="font-serif text-2xl text-ink mb-1">Ton foyer</h1>
-            <p className="text-sm text-muted mb-6">Crée ton foyer ou rejoins celui d&apos;un proche.</p>
+            <h1 className="font-serif text-2xl text-ink mb-1">{t("onboarding_household_title")}</h1>
+            <p className="text-sm text-muted mb-6">{t("onboarding_household_body")}</p>
             <button
               onClick={() => setSetupMode("create")}
               className="w-full flex items-center gap-3 border border-border rounded-xl p-4 mb-3 text-left hover:border-ink"
             >
               <HomeIcon size={20} className="text-ink" />
               <div>
-                <div className="font-medium text-ink text-sm">Créer un foyer</div>
-                <div className="text-xs text-muted">Démarrer un nouvel espace partagé</div>
+                <div className="font-medium text-ink text-sm">{t("onboarding_create_household")}</div>
+                <div className="text-xs text-muted">{t("onboarding_create_household_help")}</div>
               </div>
             </button>
             <button
@@ -353,8 +354,8 @@ export default function OnboardingPage() {
             >
               <KeyRound size={20} className="text-ink" />
               <div>
-                <div className="font-medium text-ink text-sm">Rejoindre un foyer</div>
-                <div className="text-xs text-muted">Utiliser un code d&apos;invitation</div>
+                <div className="font-medium text-ink text-sm">{t("onboarding_join_household")}</div>
+                <div className="text-xs text-muted">{t("onboarding_join_household_help")}</div>
               </div>
             </button>
           </>
@@ -362,16 +363,16 @@ export default function OnboardingPage() {
 
         {phase === "setup" && setupMode === "create" && (
           <>
-            <h1 className="font-serif text-xl text-ink mb-4">Créer ton foyer</h1>
+            <h1 className="font-serif text-xl text-ink mb-4">{t("onboarding_create_title")}</h1>
             <div className="space-y-3 text-left">
               <input
-                placeholder="Ton prénom"
+                placeholder={t("onboarding_first_name_placeholder")}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <input
-                placeholder="Nom du foyer (ex. Chez nous)"
+                placeholder={t("onboarding_household_name_placeholder")}
                 value={householdName}
                 onChange={(e) => setHouseholdName(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
@@ -381,12 +382,12 @@ export default function OnboardingPage() {
                 onChange={(e) => setHouseholdType(e.target.value as "couple" | "coloc" | "famille")}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               >
-                <option value="couple">Couple</option>
-                <option value="coloc">Colocation</option>
-                <option value="famille">Famille</option>
+                <option value="couple">{t("onboarding_type_couple")}</option>
+                <option value="coloc">{t("onboarding_type_roommates")}</option>
+                <option value="famille">{t("onboarding_type_family")}</option>
               </select>
               <select
-                aria-label="Langue de DABO"
+                aria-label={t("onboarding_language_label")}
                 value={memberLang}
                 onChange={(event) => { if (isAvailableLang(event.target.value)) setMemberLang(event.target.value); }}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
@@ -402,10 +403,10 @@ export default function OnboardingPage() {
               onClick={handleCreateHousehold}
               className="w-full bg-ink text-paper rounded-xl py-3 mt-4 font-medium disabled:opacity-50"
             >
-              {busy ? "..." : "Créer"}
+              {busy ? "..." : t("onboarding_create_action")}
             </button>
             <button className="text-sm text-muted mt-4" onClick={() => setSetupMode("choice")}>
-              Retour
+              {t("onboarding_back")}
             </button>
           </>
         )}
@@ -415,39 +416,39 @@ export default function OnboardingPage() {
             <div className="w-12 h-12 rounded-full bg-mustardBg flex items-center justify-center mx-auto mb-4">
               <CheckSquare size={22} className="text-ink" />
             </div>
-            <h1 className="font-serif text-2xl text-ink mb-1">Ton foyer est prêt 🎉</h1>
-            <p className="text-sm text-muted mb-5">Invite maintenant les personnes avec qui tu veux organiser le quotidien.</p>
+            <h1 className="font-serif text-2xl text-ink mb-1">{t("onboarding_created_title")}</h1>
+            <p className="text-sm text-muted mb-5">{t("onboarding_created_body")}</p>
             <div className="rounded-xl border border-border bg-white2 px-4 py-3 mb-3">
-              <div className="text-xs text-muted mb-1">Code d’invitation</div>
+              <div className="text-xs text-muted mb-1">{t("onboarding_invite_code_label")}</div>
               <div className="font-mono font-medium tracking-wider text-ink">{createdHousehold.invite_code}</div>
             </div>
             <button onClick={() => void shareCreatedHousehold()} className="w-full bg-ink text-paper rounded-xl py-3 font-medium flex items-center justify-center gap-2">
-              <Share2 size={17} /> {inviteShared ? "Invitation prête ✓" : "Partager l’invitation"}
+              <Share2 size={17} /> {inviteShared ? t("onboarding_invite_shared") : t("onboarding_share_invite")}
             </button>
-            <button className="text-sm text-muted mt-4" onClick={() => router.replace("/app")}>Plus tard</button>
+            <button className="text-sm text-muted mt-4" onClick={() => router.replace("/app")}>{t("tutorial_later")}</button>
           </>
         )}
 
         {phase === "setup" && setupMode === "join" && (
           <>
-            <h1 className="font-serif text-xl text-ink mb-1">{inviteFromLink ? "Ton invitation est prête" : "Rejoindre un foyer"}</h1>
-            {inviteFromLink && <p className="text-sm text-muted mb-4">Il ne reste qu’à confirmer ton prénom pour rejoindre le foyer.</p>}
+            <h1 className="font-serif text-xl text-ink mb-1">{inviteFromLink ? t("onboarding_join_ready_title") : t("onboarding_join_household")}</h1>
+            {inviteFromLink && <p className="text-sm text-muted mb-4">{t("onboarding_join_ready_body")}</p>}
             <div className="space-y-3 text-left">
               <input
-                placeholder="Code du foyer (ex. ABC-482)"
+                placeholder={t("onboarding_invite_code_placeholder")}
                 value={inviteCode}
                 readOnly={inviteFromLink}
                 onChange={(e) => setInviteCode(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <input
-                placeholder="Ton prénom"
+                placeholder={t("onboarding_first_name_placeholder")}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               />
               <select
-                aria-label="Langue de DABO"
+                aria-label={t("onboarding_language_label")}
                 value={memberLang}
                 onChange={(event) => { if (isAvailableLang(event.target.value)) setMemberLang(event.target.value); }}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
@@ -463,10 +464,10 @@ export default function OnboardingPage() {
               onClick={handleJoinHousehold}
               className="w-full bg-ink text-paper rounded-xl py-3 mt-4 font-medium disabled:opacity-50"
             >
-              {busy ? "..." : "Rejoindre"}
+              {busy ? "..." : t("onboarding_join_action")}
             </button>
             <button className="text-sm text-muted mt-4" onClick={() => setSetupMode("choice")}>
-              Retour
+              {t("onboarding_back")}
             </button>
           </>
         )}

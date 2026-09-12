@@ -39,6 +39,8 @@ test("Onboarding V3 peut être réactivé depuis Réglages et repart sur les aid
   const settings = read("app/app/reglages/page.tsx");
   assert.match(settings, /tutorial_replay/);
   assert.match(settings, /setTutorialEnabled\(supabase, true\)/);
-  assert.match(settings, /startsWith\("dabo-intro-"\)/);
-  assert.match(settings, /startsWith\("dabo-invite-nudge-"\)/);
+  assert.match(settings, /clearTutorialLocalStateForUser/);
+  const storage = read("lib/tutorial-local-storage.ts");
+  assert.match(storage, /dabo-intro-\$\{userId\}-/);
+  assert.match(storage, /dabo-invite-nudge-\$\{userId\}-/);
 });

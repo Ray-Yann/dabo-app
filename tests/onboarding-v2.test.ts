@@ -28,9 +28,9 @@ test("Onboarding V2 laisse un utilisateur multi-foyers accepter une invitation",
 
 test("Onboarding V2 propose l'invitation juste après la création sans la forcer", () => {
   assert.match(onboarding, /setSetupMode\("created"\)/);
-  assert.match(onboarding, /Ton foyer est prêt/);
-  assert.match(onboarding, /Partager l’invitation/);
-  assert.match(onboarding, />Plus tard<\/button>/);
+  assert.match(onboarding, /onboarding_created_title/);
+  assert.match(onboarding, /onboarding_share_invite/);
+  assert.match(onboarding, /tutorial_later/);
 });
 
 test("Onboarding V2 offre trois premiers pas utiles sur un foyer neuf", () => {

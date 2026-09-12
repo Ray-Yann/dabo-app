@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const page = readFileSync(new URL("../app/app/equilibre/budget/page.tsx", import.meta.url), "utf8");
+const page = readFileSync(new URL("../app/app/finances/page.tsx", import.meta.url), "utf8");
 
 test("Finance V1.1 ajoute une modification discrète sur chaque dépense", () => {
   assert.match(page, /Pencil/);

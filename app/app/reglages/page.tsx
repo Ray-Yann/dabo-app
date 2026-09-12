@@ -16,6 +16,7 @@ import { Lang } from "@/lib/i18n";
 import { LANGUAGE_OPTIONS, isAvailableLang } from "@/lib/languages";
 import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
 import { setTutorialEnabled } from "@/lib/tutorial-preferences";
+import { clearTutorialLocalStateForUser } from "@/lib/tutorial-local-storage";
 
 type SettingsConfirmation =
   | { kind: "promote"; memberId: string; name: string }
@@ -83,7 +84,8 @@ export default function SettingsPage() {
   async function replayTutorial() {
     try {
       await setTutorialEnabled(supabase, true);
-      Object.keys(localStorage).filter((key) => key.startsWith("dabo-intro-") || key.startsWith("dabo-invite-nudge-")).forEach((key) => localStorage.removeItem(key));
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user?.id) clearTutorialLocalStateForUser(userData.user.id);
       showFeedback("success", t("tutorial_reenabled"));
     } catch {
       showFeedback("error", t("settings_error_save"));

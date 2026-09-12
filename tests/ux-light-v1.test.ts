@@ -22,13 +22,13 @@ test("UX Light V1 synchronise la navigation par utilisateur", () => {
 test("UX Light V1 fait de Finances une destination principale", () => {
   const route = read("app/app/finances/page.tsx");
   const home = read("app/app/page.tsx");
-  assert.match(route, /equilibre\/budget\/page/);
+  assert.match(route, /financeSection/);
   assert.match(home, /\/app\/finances/);
 });
 
 test("UX Light V1 allège Équilibre et Finances avec une seule vue sélectionnée", () => {
   const balance = read("app/app/equilibre/page.tsx");
-  const finances = read("app/app/equilibre/budget/page.tsx");
+  const finances = read("app/app/finances/page.tsx");
   assert.match(balance, /<select[\s\S]*balanceSection/);
   assert.match(finances, /financeSection/);
   assert.match(finances, /title="Finances"/);
