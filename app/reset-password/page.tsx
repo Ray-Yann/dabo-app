@@ -121,15 +121,23 @@ export default function ResetPasswordPage() {
     setBusy(true);
     setError("");
 
+    // getSession() confirme l'état local, puis getUser() vérifie réellement
+    // la session auprès de Supabase avant toute modification sensible.
     const { data: sessionData, error: sessionError } =
       await supabase.auth.getSession();
 
     if (sessionError || !sessionData.session) {
       setBusy(false);
       setRecoveryReady(false);
-      setError(
-        t("reset_expired")
-      );
+      setError(t("reset_expired"));
+      return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      setBusy(false);
+      setRecoveryReady(false);
+      setError(t("reset_expired"));
       return;
     }
 
@@ -137,11 +145,29 @@ export default function ResetPasswordPage() {
     setBusy(false);
 
     if (updateError) {
-      setError(
+      // Ne jamais afficher le message brut du fournisseur : on exploite le code
+      // Auth stable pour donner une action utile dans les 7 langues DABO.
+      const code = updateError.code ?? "";
+      console.warn("[DABO password recovery] update failed", {
+        code,
+        status: updateError.status,
+      });
+
+      if (code === "same_password") {
+        setError(t("reset_same_password"));
+      } else if (code === "weak_password") {
+        setError(t("reset_weak_password"));
+      } else if (
+        code === "session_not_found" ||
+        code === "refresh_token_not_found" ||
+        code === "refresh_token_already_used" ||
         updateError.message === "Auth session missing!"
-          ? t("reset_expired")
-          : t("onboarding_error_generic")
-      );
+      ) {
+        setRecoveryReady(false);
+        setError(t("reset_expired"));
+      } else {
+        setError(t("reset_update_failed"));
+      }
       return;
     }
 

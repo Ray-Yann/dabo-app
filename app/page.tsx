@@ -38,7 +38,11 @@ export default function OnboardingPage() {
   useEffect(() => {
     document.documentElement.classList.remove("dark");
     captureReferralFromUrl();
-    const incomingInvite = new URLSearchParams(window.location.search).get("invite")?.trim().toUpperCase();
+    const searchParams = new URLSearchParams(window.location.search);
+    const incomingInvite = searchParams.get("invite")?.trim().toUpperCase();
+    if (searchParams.get("forgot") === "1") {
+      setAuthMode("forgot");
+    }
     if (incomingInvite) {
       setInviteCode(incomingInvite);
       setInviteFromLink(true);
