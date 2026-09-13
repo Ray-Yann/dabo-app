@@ -26,7 +26,18 @@ import { EmptyState as DaboEmptyState } from "@/components/dabo/EmptyState";
 import { SectionHeader } from "@/components/dabo/SectionHeader";
 
 export default function TodayPage() {
-  useEffect(() => { void trackAcquisitionEvent("app_open"); }, []);
+  useEffect(() => {
+    // Mobile Performance V1: analytics are best-effort and must not compete
+    // with the critical Supabase reads needed for the first useful paint.
+    const schedule = () => { void trackAcquisitionEvent("app_open"); };
+    const win = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (win.requestIdleCallback) {
+      const id = win.requestIdleCallback(schedule, { timeout: 2500 });
+      return () => win.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(schedule, 1200);
+    return () => window.clearTimeout(id);
+  }, []);
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const lang = useLanguage();
@@ -46,53 +57,45 @@ export default function TodayPage() {
   useEffect(() => {
     if (!household || !me) return;
     (async () => {
-      const { data: myTasks } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("household_id", household.id)
-        .eq("status", "pending");
-      setTasks((myTasks as Task[]) || []);
-
-      const [{ data: allTasks }, contributionData] = await Promise.all([
+      // Mobile Performance V1: the dashboard used to load its data in several
+      // sequential waves and queried tasks twice. Fetch each independent
+      // resource in one parallel wave and derive pending tasks locally.
+      const [
+        allTasksResult,
+        contributionData,
+        myItemsResult,
+        totalShoppingResult,
+        activeShoppingResult,
+        eventsResult,
+        routinesResult,
+        billsResult,
+      ] = await Promise.all([
         supabase.from("tasks").select("*").eq("household_id", household.id),
         fetchContributionBalanceData(supabase, household.id),
-      ]);
-      setAllTasksForBalance((allTasks as Task[]) || []);
-      setBalanceData(contributionData);
-      setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
-
-      const { data: myItems } = await supabase
-        .from("shopping_items")
-        .select("*")
-        .eq("household_id", household.id)
-        .eq("status", "to_buy")
-        .or(`assigned_to.eq.${me.id},assigned_to.is.null`);
-      setItems((myItems as ShoppingItem[]) || []);
-
-      const [{ count }, { count: activeShoppingCount }] = await Promise.all([
         supabase
           .from("shopping_items")
-          .select("*", { count: "exact", head: true })
-          .eq("household_id", household.id),
-        supabase
-          .from("shopping_items")
-          .select("*", { count: "exact", head: true })
+          .select("*")
           .eq("household_id", household.id)
-          .eq("status", "to_buy"),
-      ]);
-      setTotalItemsEver(count ?? 0);
-      setActiveHouseholdShoppingCount(activeShoppingCount ?? 0);
-
-      const [{ data: events }, { data: routineData }, { data: billData }] = await Promise.all([
+          .eq("status", "to_buy")
+          .or(`assigned_to.eq.${me.id},assigned_to.is.null`),
+        supabase.from("shopping_items").select("*", { count: "exact", head: true }).eq("household_id", household.id),
+        supabase.from("shopping_items").select("*", { count: "exact", head: true }).eq("household_id", household.id).eq("status", "to_buy"),
         supabase.from("calendar_events").select("*").eq("household_id", household.id).eq("visibility", "household"),
         supabase.from("routines").select("*").eq("household_id", household.id),
         supabase.from("finance_bills").select("id,label,amount,currency,due_on,status,paid_transaction_id").eq("household_id", household.id).eq("status", "pending").order("due_on", { ascending: true }),
       ]);
-      const householdEvents = (events as CalendarEvent[]) || [];
-      setCalendarEvents(householdEvents);
-      setRoutines((routineData as Routine[]) || []);
-      setFinanceBills((billData as FinanceBillAttentionLike[]) || []);
 
+      const allTasks = (allTasksResult.data as Task[]) || [];
+      setTasks(allTasks.filter((task) => task.status === "pending"));
+      setAllTasksForBalance(allTasks);
+      setBalanceData(contributionData);
+      setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
+      setItems((myItemsResult.data as ShoppingItem[]) || []);
+      setTotalItemsEver(totalShoppingResult.count ?? 0);
+      setActiveHouseholdShoppingCount(activeShoppingResult.count ?? 0);
+      setCalendarEvents((eventsResult.data as CalendarEvent[]) || []);
+      setRoutines((routinesResult.data as Routine[]) || []);
+      setFinanceBills((billsResult.data as FinanceBillAttentionLike[]) || []);
     })();
   }, [household, me]);
 

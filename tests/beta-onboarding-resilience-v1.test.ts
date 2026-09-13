@@ -67,8 +67,8 @@ test("Beta Onboarding & Resilience V1 transforme les erreurs silencieuses du foy
   const layout = read("app/app/layout.tsx");
   assert.match(context, /loadError/);
   assert.match(context, /if \(myMembersError\) throw myMembersError/);
-  assert.match(context, /if \(householdsError\) throw householdsError/);
-  assert.match(context, /if \(householdMembersError\) throw householdMembersError/);
+  assert.match(context, /if \(householdsResult\.error\) throw householdsResult\.error/);
+  assert.match(context, /if \(householdMembersResult\.error\) throw householdMembersResult\.error/);
   assert.match(context, /const retry = useCallback/);
   assert.match(layout, /household_load_error_title/);
   assert.match(layout, /HouseholdLoadError/);

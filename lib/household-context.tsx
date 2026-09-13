@@ -70,13 +70,21 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       }
 
       const householdIds = activeMemberships.map((member) => member.household_id);
-      const { data: householdRows, error: householdsError } = await supabase
-        .from("households")
-        .select("*")
-        .in("id", householdIds);
-      if (householdsError) throw householdsError;
+      // Mobile Performance V1: once the active membership is known, these two
+      // reads are independent. Run them together to remove one full network
+      // round-trip from the app bootstrap path.
+      const [householdsResult, householdMembersResult] = await Promise.all([
+        supabase.from("households").select("*").in("id", householdIds),
+        supabase
+          .from("members")
+          .select("*")
+          .eq("household_id", myMember.household_id)
+          .order("rotation_order", { ascending: true }),
+      ]);
+      if (householdsResult.error) throw householdsResult.error;
+      if (householdMembersResult.error) throw householdMembersResult.error;
 
-      const availableHouseholds = (householdRows as Household[] | null) || [];
+      const availableHouseholds = (householdsResult.data as Household[] | null) || [];
       const nextMemberships = activeMemberships.flatMap((member) => {
         const memberHousehold = availableHouseholds.find((item) => item.id === member.household_id);
         return memberHousehold ? [{ household: memberHousehold, member }] : [];
@@ -84,14 +92,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       const householdData = availableHouseholds.find((item) => item.id === myMember.household_id) || null;
       if (!householdData) throw new Error("ACTIVE_HOUSEHOLD_UNAVAILABLE");
 
-      const { data: householdMembers, error: householdMembersError } = await supabase
-        .from("members")
-        .select("*")
-        .eq("household_id", myMember.household_id)
-        .order("rotation_order", { ascending: true });
-      if (householdMembersError) throw householdMembersError;
-
-      const historicalMembers = (householdMembers as Member[]) || [];
+      const historicalMembers = (householdMembersResult.data as Member[]) || [];
       window.localStorage.setItem(activeHouseholdKey, myMember.household_id);
       setMemberships(nextMemberships);
       setMe(myMember);
