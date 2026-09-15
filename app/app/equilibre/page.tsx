@@ -17,6 +17,7 @@ import {
 } from "@/lib/task-contributions";
 import { Avatar } from "@/components/Avatar";
 import { computeHouseholdInsights } from "@/lib/household-insights";
+import Link from "next/link";
 
 type Period = "week" | "month" | "quarter";
 
@@ -813,6 +814,7 @@ export default function BalancePage() {
             </>
           )}
 
+          <Link href="/app/bilan" className="block rounded-2xl bg-mustard px-5 py-4 text-center text-sm font-medium text-white">{t("weekly_report_open")}</Link>
           <p className="px-1 text-xs text-muted">{t("insights_footnote")}</p>
         </div>
       )}
