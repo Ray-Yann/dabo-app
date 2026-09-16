@@ -339,7 +339,7 @@ export default function TodayPage() {
     return t("attention_level_information");
   }
 
-  async function consultHouseholdIntelligence(attention: AttentionCandidate) {
+  async function consultHouseholdIntelligence(attention: AttentionCandidate) { 
     if (!household || !me?.user_id) {
       router.push("/app/bilan");
       return;

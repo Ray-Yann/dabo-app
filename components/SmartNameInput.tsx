@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/lib/language-context";
 import { getSmartSuggestions, loadLanguageLexicon, type SuggestionDomain } from "@/lib/smart-suggestions";
 
@@ -16,7 +16,16 @@ export function SmartNameInput({ value, onChange, placeholder, learnedTerms, dom
   const [focused, setFocused] = useState(false);
   const [lexicon, setLexicon] = useState<string[]>([]);
   const lang = useLanguage();
-  const queryLength = value.trim().length;
+  // iOS/iPadOS: keep the keystroke on a tiny local state. The parent pages (which can
+  // render long task/shopping histories) are updated as a transition, so Safari does
+  // not have to finish the whole page render before painting the typed character.
+  const [draft, setDraft] = useState(value);
+  const deferredDraft = useDeferredValue(draft);
+  const queryLength = deferredDraft.trim().length;
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,8 +40,8 @@ export function SmartNameInput({ value, onChange, placeholder, learnedTerms, dom
   }, [focused, lang, queryLength >= 2]);
 
   const suggestions = useMemo(
-    () => getSmartSuggestions(value, learnedTerms, { lang, domain, lexicon }),
-    [value, learnedTerms, lang, domain, lexicon],
+    () => getSmartSuggestions(deferredDraft, learnedTerms, { lang, domain, lexicon }),
+    [deferredDraft, learnedTerms, lang, domain, lexicon],
   );
   const open = focused && queryLength > 0 && suggestions.length > 0;
 
@@ -42,8 +51,12 @@ export function SmartNameInput({ value, onChange, placeholder, learnedTerms, dom
       autoComplete="off"
       spellCheck
       placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={draft}
+      onChange={(e) => {
+        const nextValue = e.target.value;
+        setDraft(nextValue);
+        startTransition(() => onChange(nextValue));
+      }}
       onFocus={() => setFocused(true)}
       onBlur={() => window.setTimeout(() => setFocused(false), 120)}
       className={className}
@@ -53,7 +66,7 @@ export function SmartNameInput({ value, onChange, placeholder, learnedTerms, dom
         key={suggestion}
         type="button"
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => { onChange(suggestion); setFocused(false); }}
+        onClick={() => { setDraft(suggestion); onChange(suggestion); setFocused(false); }}
         className="w-full text-left px-3 py-2.5 text-sm text-ink hover:bg-paper border-b border-border/60 last:border-b-0"
       >{suggestion}</button>)}
     </div>}

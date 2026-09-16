@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useDeferredValue, useEffect, useRef, useState, type CSSProperties } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
@@ -115,6 +115,7 @@ export default function TasksPage() {
   const [editCommentText, setEditCommentText] = useState("");
   const [showAllDone, setShowAllDone] = useState(false);
   const [doneSearch, setDoneSearch] = useState("");
+  const deferredDoneSearch = useDeferredValue(doneSearch);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [recurrenceDeleteTarget, setRecurrenceDeleteTarget] = useState<Task | null>(null);
   const [showFloatingAdd, setShowFloatingAdd] = useState(false);
@@ -440,7 +441,7 @@ export default function TasksPage() {
     .filter((task) => task.status === "done" && task.completed_at && !taskContributions[task.id]?.hidden_from_task_history)
     .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
   const hasDoneTasks = allDone.length > 0;
-  const filteredDone = allDone.filter((task) => task.name.toLowerCase().includes(doneSearch.trim().toLowerCase()));
+  const filteredDone = allDone.filter((task) => task.name.toLowerCase().includes(deferredDoneSearch.trim().toLowerCase()));
   const doneRecent = showAllDone ? filteredDone : allDone.slice(0, 3);
 
   function memberName(id: string | null) {

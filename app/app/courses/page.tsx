@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
@@ -90,6 +90,7 @@ export default function CoursesPage() {
   const [editCommentText, setEditCommentText] = useState("");
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [boughtSearch, setBoughtSearch] = useState("");
+  const deferredBoughtSearch = useDeferredValue(boughtSearch);
   const [showAllBought, setShowAllBought] = useState(false);
   const [addConfirmation, setAddConfirmation] = useState(false);
   const [boughtConfirmation, setBoughtConfirmation] = useState(false);
@@ -504,7 +505,7 @@ export default function CoursesPage() {
   const hasBoughtItems = items.some((i) => i.status === "bought");
   const allBought = items
     .filter((i) => i.status === "bought")
-    .filter((i) => i.name.toLowerCase().includes(boughtSearch.toLowerCase()))
+    .filter((i) => i.name.toLowerCase().includes(deferredBoughtSearch.toLowerCase()))
     .sort((a, b) => new Date(b.bought_at || 0).getTime() - new Date(a.bought_at || 0).getTime());
   const bought = showAllBought ? allBought : allBought.slice(0, 3);
 
