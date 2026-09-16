@@ -1,5 +1,6 @@
 import type { Member, Task } from "@/lib/types";
 import type { HouseholdWeeklyReport } from "@/lib/household-weekly-report";
+import type { TaskContribution } from "@/lib/task-contributions";
 
 export type HouseholdActionSuggestion = {
   taskId: string;
@@ -11,23 +12,52 @@ export type HouseholdActionSuggestion = {
   reason: "rebalance";
 };
 
+export type HouseholdAcceptedAction = {
+  id: string;
+  household_id: string;
+  task_id: string;
+  suggested_member_id: string;
+  previous_assigned_to: string | null;
+  reason: "rebalance";
+  accepted_at: string;
+};
+
+export type RebalanceActionState = "none" | "in_progress" | "awaiting_confirmation" | "measured" | "released";
+
+export function getRebalanceActionState(input: {
+  report: HouseholdWeeklyReport;
+  members: Member[];
+  tasks: Task[];
+  acceptedActions?: HouseholdAcceptedAction[];
+  contributions?: TaskContribution[];
+}): RebalanceActionState {
+  if (input.report.suggestion !== "rebalance" || input.members.length < 2) return "none";
+  const shares = input.report.memberShares
+    .filter((share) => input.members.some((member) => member.id === share.memberId))
+    .sort((a, b) => a.percentage - b.percentage || a.points - b.points || a.memberId.localeCompare(b.memberId));
+  if (shares.length < 2 || shares[0].percentage === shares[shares.length - 1].percentage) return "none";
+  const targetId = shares[0].memberId;
+  const action = [...(input.acceptedActions || [])]
+    .filter((row) => row.reason === "rebalance" && row.suggested_member_id === targetId)
+    .sort((a, b) => b.accepted_at.localeCompare(a.accepted_at))[0];
+  if (!action) return "none";
+  const task = input.tasks.find((row) => row.id === action.task_id);
+  if (!task || task.assigned_to !== targetId) return "released";
+  if (task.status === "pending") return "in_progress";
+  const contribution = (input.contributions || []).find((row) => row.task_id === action.task_id && !row.cancelled_at);
+  if (!contribution || contribution.performer_status !== "confirmed") return "awaiting_confirmation";
+  return "measured";
+}
+
 export function hasRebalanceInProgress(input: {
   report: HouseholdWeeklyReport;
   members: Member[];
   tasks: Task[];
-  today: string;
+  acceptedActions?: HouseholdAcceptedAction[];
+  contributions?: TaskContribution[];
 }): boolean {
-  if (input.report.suggestion !== "rebalance" || input.members.length < 2) return false;
-  const shares = input.report.memberShares
-    .filter((share) => input.members.some((member) => member.id === share.memberId))
-    .sort((a, b) => a.percentage - b.percentage || a.points - b.points || a.memberId.localeCompare(b.memberId));
-  if (shares.length < 2 || shares[0].percentage === shares[shares.length - 1].percentage) return false;
-  const targetId = shares[0].memberId;
-  return input.tasks.some((task) =>
-    task.status === "pending" &&
-    task.assigned_to === targetId &&
-    (!task.due_date || task.due_date >= input.today)
-  );
+  const state = getRebalanceActionState(input);
+  return state === "in_progress" || state === "awaiting_confirmation";
 }
 
 /**
@@ -40,6 +70,8 @@ export function buildHouseholdActionSuggestion(input: {
   members: Member[];
   tasks: Task[];
   today: string;
+  acceptedActions?: HouseholdAcceptedAction[];
+  contributions?: TaskContribution[];
 }): HouseholdActionSuggestion | null {
   if (input.report.suggestion !== "rebalance" || input.members.length < 2) return null;
 
@@ -51,9 +83,9 @@ export function buildHouseholdActionSuggestion(input: {
   const target = input.members.find((member) => member.id === shares[0].memberId);
   if (!target) return null;
 
-  // V1.1 anti-surcorrection: if the lower-contributing member already has a
-  // pending current/future task, DABO waits for that planned load to resolve
-  // before suggesting another redistribution. One gentle correction at a time.
+  // V1.2: only an action explicitly accepted through DABO can pause another
+  // redistribution. Ordinary household assignments must never be mistaken for
+  // a DABO correction. Completed actions wait for confirmed contribution data.
   if (hasRebalanceInProgress(input)) return null;
 
   const candidates = input.tasks
