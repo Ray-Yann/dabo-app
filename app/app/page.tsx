@@ -24,6 +24,8 @@ import { AttentionCandidate, daboInsightAttentionCandidates, financeBillAttentio
 import { AttentionCard } from "@/components/dabo/AttentionCard";
 import { EmptyState as DaboEmptyState } from "@/components/dabo/EmptyState";
 import { SectionHeader } from "@/components/dabo/SectionHeader";
+import { computeHouseholdInsights } from "@/lib/household-insights";
+import { buildTodayHouseholdIntelligenceCandidate } from "@/lib/today-household-intelligence";
 
 export default function TodayPage() {
   useEffect(() => {
@@ -185,14 +187,25 @@ export default function TodayPage() {
       .slice(0, 3);
   }, [household, members, allTasksForBalance, calendarEvents, routines]);
 
+  const todayHouseholdIntelligence = useMemo(() => {
+    if (!household) return null;
+    const insights = computeHouseholdInsights(members, balanceData.contributions, balanceData.participants);
+    return buildTodayHouseholdIntelligenceCandidate({ householdId: household.id, insights });
+  }, [household, members, balanceData]);
+
   const attentionItems = useMemo(() => {
     if (!household || !me) return [];
     const today = todayCivilDate();
+    const insightCandidates = daboInsightAttentionCandidates(
+      todayHouseholdIntelligence ? daboInsights.filter((insight) => insight.type !== "balance") : daboInsights,
+      household.id
+    );
     const candidates = [
       ...taskAttentionCandidates(tasks, household.id, today),
       ...shoppingItemAttentionCandidates(items, household.id, today),
       ...financeBillAttentionCandidates(financeBills, household.id, today),
-      ...daboInsightAttentionCandidates(daboInsights, household.id),
+      ...insightCandidates,
+      ...(todayHouseholdIntelligence ? [todayHouseholdIntelligence] : []),
     ];
     return selectHouseholdAttention({
       candidates,
@@ -200,7 +213,7 @@ export default function TodayPage() {
       viewerMemberId: me.id,
       now: `${today}T12:00:00.000Z`,
     });
-  }, [household, me, tasks, items, financeBills, daboInsights]);
+  }, [household, me, tasks, items, financeBills, daboInsights, todayHouseholdIntelligence]);
 
   if (loading || !household || !me) return <LoadingState />;
 
@@ -299,6 +312,16 @@ export default function TodayPage() {
   }
 
   function attentionDetails(attention: AttentionCandidate) {
+    if (attention.type === "household.weekly_watch") {
+      return {
+        icon: Scale,
+        title: t("today_household_intelligence_title"),
+        description: t("today_household_intelligence_text").replace("{count}", String(attention.metadata?.currentCount ?? "")),
+        meta: t("today_household_intelligence_meta"),
+        onAction: () => router.push("/app/bilan"),
+      };
+    }
+
     if (attention.id.startsWith("insight:")) {
       const insight = daboInsights.find((candidate) => `insight:${candidate.id}` === attention.id);
       if (insight) {
