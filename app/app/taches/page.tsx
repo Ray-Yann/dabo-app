@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useDeferredValue, useEffect, useRef, useState, type CSSProperties } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
-import { Task, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
+import { Task, TaskSubtask, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
 import { memberColor, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold } from "@/lib/notifications";
 import { completeHouseholdTask, insertNextRecurringOccurrence, uncompleteHouseholdTask } from "@/lib/task-completion";
@@ -17,9 +17,39 @@ import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { NativeNameInput } from "@/components/NativeNameInput";
 
 
-type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
-const EMPTY_FORM: TaskForm = { name: "", durationKey: DURATION_OPTIONS[2].key, effortKey: "moyen", assignedTo: "", recurrence: "none", customDays: [], urgent: false, dueDate: "" };
+type SubtaskDraft = { id?: string; name: string; assignedTo: string };
+type TaskForm = { name: string; subtasks: SubtaskDraft[]; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
+const EMPTY_FORM: TaskForm = { name: "", subtasks: [], durationKey: DURATION_OPTIONS[2].key, effortKey: "moyen", assignedTo: "", recurrence: "none", customDays: [], urgent: false, dueDate: "" };
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
+function SubtaskFields({ subtasks, onChange, members, t }: { subtasks: SubtaskDraft[]; onChange: (items: SubtaskDraft[]) => void; members: { id: string; first_name: string }[]; t: (key: string) => string }) {
+  function update(index: number, patch: Partial<SubtaskDraft>) {
+    onChange(subtasks.map((item, i) => i === index ? { ...item, ...patch } : item));
+  }
+  return (
+    <div className="pt-2 border-t border-borderLight">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div>
+          <div className="text-[11px] uppercase tracking-wide text-muted font-semibold">{t("subtasks_title")}</div>
+          <div className="text-[11px] text-muted mt-0.5">{t("subtasks_hint")}</div>
+        </div>
+        <button type="button" onClick={() => onChange([...subtasks, { name: "", assignedTo: "" }])} className="text-xs font-medium text-ink underline underline-offset-2">+ {t("subtask_add")}</button>
+      </div>
+      {subtasks.length > 0 && <div className="space-y-2">
+        {subtasks.map((subtask, index) => (
+          <div key={subtask.id || index} className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_150px_auto] gap-2 items-center">
+            <NativeNameInput placeholder={t("subtask_placeholder")} value={subtask.name} onCommit={(name) => update(index, { name })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
+            <select value={subtask.assignedTo} onChange={(e) => update(index, { assignedTo: e.target.value })} className="col-span-1 border border-border rounded-xl px-2 py-2 text-xs outline-none bg-white2 text-ink">
+              <option value="">{t("unassigned")}</option>
+              {members.map((member) => <option key={member.id} value={member.id}>{member.first_name}</option>)}
+            </select>
+            <button type="button" onClick={() => onChange(subtasks.filter((_, i) => i !== index))} className="text-muted" aria-label={t("delete")}><X size={16} /></button>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
 
 function TaskFormFields({
   form,
@@ -41,13 +71,17 @@ function TaskFormFields({
         <NativeNameInput autoFocus placeholder={t("task_name_placeholder")} value={form.name} onCommit={(name) => setForm({ ...form, name })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
       </div>
 
+      <SubtaskFields subtasks={form.subtasks} onChange={(subtasks) => setForm({ ...form, subtasks })} members={members} t={t} />
+
       <div className="pt-1">
         <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_form_for_task")}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-            <option value="">{t("unassigned")}</option>
-            {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
-          </select>
+          {form.subtasks.length === 0 ? (
+            <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
+              <option value="">{t("unassigned")}</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.first_name}</option>)}
+            </select>
+          ) : <div className="rounded-xl border border-border bg-white2 px-3 py-2 text-xs text-muted">{t("subtasks_assignment_auto")}</div>}
           <div>
             <input aria-label={form.recurrence !== "none" ? t("due_date_required") : t("due_date_optional")} type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink" />
             <div className="text-[10px] text-muted mt-1 px-1">{form.recurrence !== "none" ? t("due_date_required") : t("due_date_optional")}</div>
@@ -99,6 +133,7 @@ export default function TasksPage() {
   const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [subtasks, setSubtasks] = useState<TaskSubtask[]>([]);
   const [view, setView] = useState<"to_do" | "routines" | "done">("to_do");
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -126,13 +161,15 @@ export default function TasksPage() {
 
   async function loadTasks() {
     if (!household) return;
-    const [{ data }, { data: routineData }, { data: contributionData }] = await Promise.all([
+    const [{ data }, { data: routineData }, { data: contributionData }, { data: subtaskData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("routines").select("*").eq("household_id", household.id),
       supabase.from("task_contributions").select("id, task_id, hidden_from_task_history, cancelled_at").eq("household_id", household.id),
+      supabase.from("task_subtasks").select("*").eq("household_id", household.id).order("position", { ascending: true }),
     ]);
     setTasks((data as Task[]) || []);
     setRoutines((routineData as Routine[]) || []);
+    setSubtasks((subtaskData as TaskSubtask[]) || []);
     const contributionMap: Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }> = {};
     for (const row of contributionData || []) {
       contributionMap[row.task_id] = {
@@ -163,7 +200,11 @@ export default function TasksPage() {
     if (addForm.recurrence === "custom" && addForm.customDays.length === 0) { alert(t("recurrence_days_required")); return; }
     const points = computeTaskPoints(addForm.durationKey, addForm.effortKey);
     let routineId: string | null = null;
-    const finalAssignee = addForm.assignedTo || null;
+    const validSubtasks = addForm.subtasks.filter((item) => item.name.trim());
+    const subtaskAssignees = [...new Set(validSubtasks.map((item) => item.assignedTo || null))];
+    const finalAssignee = validSubtasks.length > 0
+      ? (subtaskAssignees.length === 1 && subtaskAssignees[0] ? subtaskAssignees[0] : null)
+      : (addForm.assignedTo || null);
 
     if (addForm.recurrence !== "none") {
       const { data: routine } = await supabase
@@ -184,7 +225,7 @@ export default function TasksPage() {
       routineId = routine?.id || null;
     }
 
-    const { error: taskInsertError } = await supabase.from("tasks").insert({
+    const { data: insertedTask, error: taskInsertError } = await supabase.from("tasks").insert({
       household_id: household.id,
       routine_id: routineId,
       name: addForm.name.trim(),
@@ -194,7 +235,12 @@ export default function TasksPage() {
       assigned_to: finalAssignee,
       urgent: addForm.urgent,
       due_date: addForm.dueDate || null,
-    });
+    }).select("id").single();
+    if (!taskInsertError && insertedTask && validSubtasks.length > 0) {
+      await supabase.from("task_subtasks").insert(validSubtasks.map((item, position) => ({
+        household_id: household.id, task_id: insertedTask.id, name: item.name.trim(), assigned_to: item.assignedTo || null, position,
+      })));
+    }
     if (!taskInsertError) void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "task" });
     if (addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: addForm.name.trim() });
@@ -219,6 +265,7 @@ export default function TasksPage() {
     const routine = task.routine_id ? routines.find((item) => item.id === task.routine_id) : null;
     setEditForm({
       name: task.name,
+      subtasks: subtasks.filter((item) => item.task_id === task.id).map((item) => ({ id: item.id, name: item.name, assignedTo: item.assigned_to || "" })),
       durationKey: task.duration_key || fallbackDuration.key,
       effortKey: task.effort_level || "faible",
       assignedTo: task.assigned_to || "",
@@ -239,15 +286,26 @@ export default function TasksPage() {
     }
     const points = computeTaskPoints(editForm.durationKey, editForm.effortKey);
     const wasUrgent = editedTask?.urgent || false;
+    const validSubtasks = editForm.subtasks.filter((item) => item.name.trim());
+    const subtaskAssignees = [...new Set(validSubtasks.map((item) => item.assignedTo || null))];
+    const finalAssignee = validSubtasks.length > 0
+      ? (subtaskAssignees.length === 1 && subtaskAssignees[0] ? subtaskAssignees[0] : null)
+      : (editForm.assignedTo || null);
     await supabase.from("tasks").update({
       name: editForm.name.trim(),
       weight_points: points,
       duration_key: editForm.durationKey,
       effort_level: editForm.effortKey,
-      assigned_to: editForm.assignedTo || null,
+      assigned_to: finalAssignee,
       urgent: editForm.urgent,
       due_date: editForm.dueDate || null,
     }).eq("id", id);
+    await supabase.from("task_subtasks").delete().eq("task_id", id);
+    if (validSubtasks.length > 0 && household) {
+      await supabase.from("task_subtasks").insert(validSubtasks.map((item, position) => ({
+        household_id: household.id, task_id: id, name: item.name.trim(), assigned_to: item.assignedTo || null, position,
+      })));
+    }
     if (editedTask?.routine_id && existingRoutine) {
       const recurrenceChanged = existingRoutine.frequency !== editForm.recurrence
         || JSON.stringify(existingRoutine.custom_days || []) !== JSON.stringify(editForm.recurrence === "custom" ? editForm.customDays : []);
@@ -261,7 +319,7 @@ export default function TasksPage() {
         // The current occurrence keeps its due date. When the rhythm changes,
         // that occurrence becomes the anchor for the next cadence.
         anchor_date: recurrenceChanged ? (editForm.dueDate || editedTask.due_date || existingRoutine.anchor_date) : (editForm.dueDate || existingRoutine.anchor_date),
-        last_assigned_member: editForm.assignedTo || null,
+        last_assigned_member: finalAssignee,
       }).eq("id", editedTask.routine_id);
     }
     if (editForm.urgent && !wasUrgent && household && me) {
@@ -308,6 +366,29 @@ export default function TasksPage() {
       setAnimatingId(null);
       loadTasks();
     }
+  }
+
+  async function toggleSubtask(task: Task, subtask: TaskSubtask) {
+    if (!household || !me || animatingId) return;
+    if (subtask.completed_at) {
+      await supabase.from("task_subtasks").update({ completed_at: null, completed_by: null }).eq("id", subtask.id);
+      loadTasks();
+      return;
+    }
+    const completedAt = new Date().toISOString();
+    const { error } = await supabase.from("task_subtasks").update({ completed_at: completedAt, completed_by: subtask.assigned_to || me.id }).eq("id", subtask.id);
+    if (error) { alert(t("task_completion_error")); return; }
+    const { data: rows } = await supabase.from("task_subtasks").select("id, completed_at, completed_by").eq("task_id", task.id);
+    const all = rows || [];
+    if (all.length > 0 && all.every((row) => Boolean(row.completed_at))) {
+      const weights: Record<string, number> = {};
+      for (const row of all) if (row.completed_by) weights[row.completed_by] = (weights[row.completed_by] || 0) + 1;
+      const performerIds = Object.keys(weights);
+      const result = await completeHouseholdTask({ supabase, householdId: household.id, members, me }, task, performerIds, weights);
+      if (!result.ok) alert(t("task_completion_error"));
+      else { setCompletedConfirmation(true); window.setTimeout(() => setCompletedConfirmation(false), 2200); }
+    }
+    loadTasks();
   }
 
   async function uncompleteTask(task: Task) {
@@ -419,18 +500,27 @@ export default function TasksPage() {
     if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
     return a.due_date ? -1 : b.due_date ? 1 : 0;
   });
-  const pendingGroups = [
-    ...members.map((member) => ({
-      key: member.id,
-      label: member.first_name,
-      tasks: pending.filter((task) => task.assigned_to === member.id),
-    })),
-    {
-      key: "unassigned",
-      label: t("unassigned"),
-      tasks: pending.filter((task) => !task.assigned_to || !members.some((member) => member.id === task.assigned_to)),
-    },
-  ].filter((group) => group.tasks.length > 0);
+  const subtasksByTask = new Map<string, TaskSubtask[]>();
+  for (const subtask of subtasks) {
+    const rows = subtasksByTask.get(subtask.task_id) || []; rows.push(subtask); subtasksByTask.set(subtask.task_id, rows);
+  }
+  const groupEntries = members.map((member) => ({ key: member.id, label: member.first_name, entries: [] as { task: Task; visibleSubtasks: TaskSubtask[] }[] }));
+  const unassignedGroup = { key: "unassigned", label: t("unassigned"), entries: [] as { task: Task; visibleSubtasks: TaskSubtask[] }[] };
+  for (const task of pending) {
+    const taskSubs = subtasksByTask.get(task.id) || [];
+    if (taskSubs.length === 0) {
+      const group = groupEntries.find((item) => item.key === task.assigned_to) || unassignedGroup;
+      group.entries.push({ task, visibleSubtasks: [] });
+      continue;
+    }
+    for (const member of members) {
+      const visible = taskSubs.filter((item) => item.assigned_to === member.id);
+      if (visible.length) groupEntries.find((item) => item.key === member.id)!.entries.push({ task, visibleSubtasks: visible });
+    }
+    const visibleUnassigned = taskSubs.filter((item) => !item.assigned_to || !members.some((member) => member.id === item.assigned_to));
+    if (visibleUnassigned.length) unassignedGroup.entries.push({ task, visibleSubtasks: visibleUnassigned });
+  }
+  const pendingGroups = [...groupEntries, unassignedGroup].filter((group) => group.entries.length > 0);
 
   const allDone = tasks
     .filter((task) => task.status === "done" && task.completed_at && !taskContributions[task.id]?.hidden_from_task_history)
@@ -626,7 +716,7 @@ export default function TasksPage() {
                 <span>{group.label}</span>
               </div>
               <div className="space-y-1">
-                {group.tasks.map((task) => (
+                {group.entries.map(({ task, visibleSubtasks }) => (
             <div key={task.id} className="dabo-task-row border-b border-borderLight py-3">
               {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
@@ -639,7 +729,9 @@ export default function TasksPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div onClick={() => completeTask(task)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === task.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
+                  {(subtasksByTask.get(task.id) || []).length === 0 ? (
+                    <div onClick={() => completeTask(task)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === task.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
+                  ) : <div className="w-5 h-5 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-ink flex items-center gap-2 flex-wrap">
                       <span>{task.name}</span>
@@ -649,8 +741,17 @@ export default function TasksPage() {
                       {task.due_date && <span className={task.due_date < today ? "text-mustard font-medium" : ""}>{taskDateLabel(task.due_date)}</span>}
                       {task.assigned_to && <span>{t("task_for")} {memberName(task.assigned_to)}</span>}
                       {task.routine_id && <span className="flex items-center gap-1"><Repeat size={10} /> {routineLabel(task)}</span>}
-                      {!task.assigned_to && !task.due_date && !task.routine_id && <span>{t("unassigned")}</span>}
+                      {(subtasksByTask.get(task.id) || []).length > 0 && <span>{!task.assigned_to ? `${t("task_shared")} · ` : ""}{(subtasksByTask.get(task.id) || []).filter((item) => item.completed_at).length}/{(subtasksByTask.get(task.id) || []).length}</span>}
+                      {!task.assigned_to && !task.due_date && !task.routine_id && (subtasksByTask.get(task.id) || []).length === 0 && <span>{t("unassigned")}</span>}
                     </div>
+                    {visibleSubtasks.length > 0 && <div className="mt-2 space-y-1.5">
+                      {visibleSubtasks.map((subtask) => (
+                        <button key={subtask.id} type="button" onClick={() => void toggleSubtask(task, subtask)} className="flex items-center gap-2 text-left text-xs text-ink w-full">
+                          <span className={`w-4 h-4 rounded border border-border flex items-center justify-center shrink-0 ${subtask.completed_at ? "bg-ink text-paper" : ""}`}>{subtask.completed_at ? <Check size={11} /> : null}</span>
+                          <span className={subtask.completed_at ? "line-through text-muted" : ""}>{subtask.name}</span>
+                        </button>
+                      ))}
+                    </div>}
                   </div>
                   <button onClick={() => startEdit(task)} className="text-muted" aria-label={t("edit")}><Pencil size={16} /></button>
                   <button onClick={() => setActiveActionTask(task)} className="text-muted" aria-label={t("task_item_actions")}><MoreHorizontal size={18} /></button>

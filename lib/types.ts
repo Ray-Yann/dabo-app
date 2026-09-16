@@ -59,6 +59,18 @@ export type Task = {
   created_at: string;
 };
 
+export type TaskSubtask = {
+  id: string;
+  household_id: string;
+  task_id: string;
+  name: string;
+  assigned_to: string | null;
+  position: number;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_at: string;
+};
+
 export type Comment = {
   id: string;
   household_id: string;

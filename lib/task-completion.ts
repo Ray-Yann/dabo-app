@@ -44,7 +44,7 @@ export async function insertNextRecurringOccurrence(
     routine.anchor_date || baseDue
   );
 
-  const { error } = await supabase.from("tasks").insert({
+  const { data: nextTask, error } = await supabase.from("tasks").insert({
     household_id: householdId,
     routine_id: routine.id,
     name: routine.name,
@@ -53,7 +53,27 @@ export async function insertNextRecurringOccurrence(
     effort_level: routine.effort_level ?? task.effort_level,
     assigned_to: nextMember?.id || null,
     due_date: nextDue,
-  });
+  }).select("id").maybeSingle();
+
+  if (!error && nextTask?.id) {
+    const { data: subtasks } = await supabase
+      .from("task_subtasks")
+      .select("name, assigned_to, position")
+      .eq("task_id", task.id)
+      .order("position", { ascending: true });
+    if (subtasks?.length) {
+      const { error: subtaskError } = await supabase.from("task_subtasks").insert(
+        subtasks.map((subtask) => ({
+          household_id: householdId,
+          task_id: nextTask.id,
+          name: subtask.name,
+          assigned_to: subtask.assigned_to,
+          position: subtask.position,
+        }))
+      );
+      if (subtaskError) throw subtaskError;
+    }
+  }
 
   // 23505 = another device already created the same pending occurrence.
   if (error && error.code !== "23505") throw error;
@@ -69,7 +89,8 @@ export async function insertNextRecurringOccurrence(
 export async function completeHouseholdTask(
   { supabase, householdId, members, me }: CompleteTaskContext,
   task: Task,
-  performerMemberIds: string[] = [me.id]
+  performerMemberIds: string[] = [me.id],
+  performerWeights?: Record<string, number>
 ): Promise<TaskCompletionResult> {
   const completedAt = new Date().toISOString();
   const uniquePerformerIds = [...new Set(performerMemberIds)].filter(Boolean);
@@ -158,13 +179,24 @@ export async function completeHouseholdTask(
       if (participantDeleteError) throw participantDeleteError;
     }
 
+    if (performerWeights) {
+      for (const memberId of uniquePerformerIds.filter((id) => existingIds.has(id))) {
+        const { error: weightError } = await supabase
+          .from("task_contribution_participants")
+          .update({ share_weight: Math.max(1, performerWeights[memberId] || 1) })
+          .eq("contribution_id", contributionId)
+          .eq("member_id", memberId);
+        if (weightError) throw weightError;
+      }
+    }
+
     if (missingIds.length > 0) {
       const { error: participantError } = await supabase
         .from("task_contribution_participants")
         .insert(missingIds.map((memberId) => ({
           contribution_id: contributionId,
           member_id: memberId,
-          share_weight: 1,
+          share_weight: Math.max(1, performerWeights?.[memberId] || 1),
         })));
       if (participantError) throw participantError;
     }
@@ -300,6 +332,12 @@ export async function uncompleteHouseholdTask(
     console.error("DABO task undo failed", taskError);
     return { ok: false, reason: "contribution_error" };
   }
+
+  const { error: subtaskResetError } = await supabase
+    .from("task_subtasks")
+    .update({ completed_at: null, completed_by: null })
+    .eq("task_id", task.id);
+  if (subtaskResetError) console.error("DABO subtask reset failed", subtaskResetError);
 
   if (task.routine_id) {
     const { error: routineError } = await supabase

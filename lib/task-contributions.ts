@@ -83,10 +83,11 @@ export function computeContributionMemberPoints(
     const eligible = rows.filter((row) => totals.has(row.member_id));
     if (eligible.length === 0) continue;
 
-    // DABO V1 partage toujours une tâche collective à parts égales.
-    const share = contribution.weight_points / eligible.length;
+    const totalWeight = eligible.reduce((sum, row) => sum + Math.max(0, Number(row.share_weight) || 0), 0);
+    const fallbackWeight = eligible.length > 0 ? 1 / eligible.length : 0;
     for (const participant of eligible) {
-      totals.set(participant.member_id, (totals.get(participant.member_id) || 0) + share);
+      const ratio = totalWeight > 0 ? Math.max(0, Number(participant.share_weight) || 0) / totalWeight : fallbackWeight;
+      totals.set(participant.member_id, (totals.get(participant.member_id) || 0) + contribution.weight_points * ratio);
     }
   }
 
