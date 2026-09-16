@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/lib/language-context";
@@ -24,14 +24,14 @@ export function SmartNameInput({ value, onChange, placeholder, learnedTerms, dom
   const queryLength = deferredDraft.trim().length;
 
   useEffect(() => {
-    setDraft(value);
-  }, [value]);
+    if (!focused) setDraft(value);
+  }, [value, focused]);
 
   useEffect(() => {
     let cancelled = false;
     setLexicon([]);
-    // Le dictionnaire complet est chargé seulement quand la personne commence réellement un mot.
-    // Les termes du foyer et DABO restent disponibles dès la première lettre.
+    // Le dictionnaire complet est chargÃ© seulement quand la personne commence rÃ©ellement un mot.
+    // Les termes du foyer et DABO restent disponibles dÃ¨s la premiÃ¨re lettre.
     if (!focused || queryLength < 2) return;
     loadLanguageLexicon(lang).then((words) => {
       if (!cancelled) setLexicon(words);
@@ -72,3 +72,6 @@ export function SmartNameInput({ value, onChange, placeholder, learnedTerms, dom
     </div>}
   </div>;
 }
+
+
+
