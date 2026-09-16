@@ -19,6 +19,7 @@ import { ContributionBalanceData, countConfirmedContributionsSince, fetchContrib
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { notifyHousehold } from "@/lib/notifications";
 import { FinanceBillAttentionLike } from "@/lib/finance-engine";
 import { AttentionCandidate, daboInsightAttentionCandidates, financeBillAttentionCandidates, selectHouseholdAttention, shoppingItemAttentionCandidates, taskAttentionCandidates } from "@/lib/attention-engine";
 import { AttentionCard } from "@/components/dabo/AttentionCard";
@@ -159,8 +160,14 @@ export default function TodayPage() {
     setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
   }
   async function toggleItem(id: string) {
+    const item = items.find((candidate) => candidate.id === id);
     const { error } = await supabase.rpc("dabo_set_shopping_item_status", { p_item_id: id, p_status: "bought" });
-    if (!error) setItems((prev) => prev.filter((i) => i.id !== id));
+    if (!error) {
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      if (household && me && item) {
+        void notifyHousehold(supabase, household.id, me.id, "notif_item_bought", { name: me.first_name, item: item.name });
+      }
+    }
   }
 
   const daboInsights = useMemo(() => {

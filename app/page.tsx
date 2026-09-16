@@ -10,6 +10,7 @@ import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2 } from "lu
 import { translate, type Lang } from "@/lib/i18n";
 import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
+import { notifyHousehold } from "@/lib/notifications";
 
 type Phase = "loading" | "auth" | "setup";
 type AuthMode = "signup" | "login" | "forgot";
@@ -215,6 +216,9 @@ export default function OnboardingPage() {
       return;
     }
     await trackAcquisitionEvent("household_joined", { householdId: joinResult[0].household_id });
+    void notifyHousehold(supabase, joinResult[0].household_id, joinResult[0].member_id, "notif_member_joined", {
+      name: firstName.trim(),
+    });
     router.replace("/app");
   }
 

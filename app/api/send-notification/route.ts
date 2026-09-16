@@ -21,7 +21,7 @@ function configureWebPush() {
 // Seules ces clés peuvent déclencher une notification — empêche quiconque
 // d'injecter un texte arbitraire dans une notification, même en cas de jeton
 // valide détourné.
-const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent"];
+const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent", "notif_member_joined"];
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   const { data: members } = await admin
     .from("members")
-    .select("id, language")
+    .select("id, user_id, language")
     .eq("household_id", householdId)
     .is("left_at", null)
     .not("user_id", "is", null)
@@ -78,18 +78,34 @@ export async function POST(req: NextRequest) {
   }
 
   let sent = 0;
+  const deliveredEndpoints = new Set<string>();
   for (const member of members) {
+    // Depuis le multi-foyers, un même compte possède un profil membre différent
+    // dans chaque foyer. L'abonnement Push reste attaché au terminal et son
+    // endpoint est unique : il peut donc être enregistré sous n'importe lequel
+    // des profils actifs de ce compte. On retrouve tous ces profils avant
+    // d'envoyer, au lieu de supposer que l'abonnement est sur le profil du
+    // foyer qui vient de déclencher l'événement.
+    const { data: accountMemberships } = await admin
+      .from("members")
+      .select("id")
+      .eq("user_id", member.user_id)
+      .is("left_at", null);
+    const accountMemberIds = (accountMemberships || []).map((membership) => membership.id);
+    if (accountMemberIds.length === 0) continue;
+
     const { data: subs } = await admin
       .from("push_subscriptions")
       .select("*")
-      .eq("member_id", member.id);
+      .in("member_id", accountMemberIds);
 
-    // Chaque destinataire reçoit le message dans SA propre langue,
+    // Chaque destinataire reçoit le message dans SA langue du foyer concerné,
     // pas celle de la personne qui a déclenché l'action.
     const lang: Lang = (member.language as Lang) || "fr";
     const body = translateWithParams(lang, key, params || {});
 
     for (const sub of subs || []) {
+      if (deliveredEndpoints.has(sub.endpoint)) continue;
       try {
         await webpush.sendNotification(
           {
@@ -98,6 +114,7 @@ export async function POST(req: NextRequest) {
           },
           JSON.stringify({ title: "Dabo", body })
         );
+        deliveredEndpoints.add(sub.endpoint);
         sent++;
       } catch (e: unknown) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
