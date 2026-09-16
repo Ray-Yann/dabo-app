@@ -26,6 +26,7 @@ import { EmptyState as DaboEmptyState } from "@/components/dabo/EmptyState";
 import { SectionHeader } from "@/components/dabo/SectionHeader";
 import { computeHouseholdInsights } from "@/lib/household-insights";
 import { buildTodayHouseholdIntelligenceCandidate } from "@/lib/today-household-intelligence";
+import { applyHouseholdSignalLifecycle, householdAttentionFingerprint, householdSignalSnoozedUntil, type HouseholdAttentionReceipt } from "@/lib/household-attention-lifecycle";
 
 export default function TodayPage() {
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function TodayPage() {
   const [financeBills, setFinanceBills] = useState<FinanceBillAttentionLike[]>([]);
   const [dashboardReady, setDashboardReady] = useState(false);
   const [dashboardLoadError, setDashboardLoadError] = useState(false);
+  const [householdAttentionReceipt, setHouseholdAttentionReceipt] = useState<HouseholdAttentionReceipt | null>(null);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
 
@@ -76,6 +78,7 @@ export default function TodayPage() {
         eventsResult,
         routinesResult,
         billsResult,
+        attentionReceiptResult,
       ] = await Promise.all([
         supabase.from("tasks").select("*").eq("household_id", household.id),
         fetchContributionBalanceData(supabase, household.id),
@@ -90,6 +93,9 @@ export default function TodayPage() {
         supabase.from("calendar_events").select("*").eq("household_id", household.id).eq("visibility", "household"),
         supabase.from("routines").select("*").eq("household_id", household.id),
         supabase.from("finance_bills").select("id,label,amount,currency,due_on,status,paid_transaction_id").eq("household_id", household.id).eq("status", "pending").order("due_on", { ascending: true }),
+        me.user_id
+          ? supabase.from("household_attention_receipts").select("signal_key,fingerprint,viewed_at,snoozed_until").eq("household_id", household.id).eq("user_id", me.user_id).eq("signal_key", "household-intelligence:weekly").maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
       const allTasks = (allTasksResult.data as Task[]) || [];
@@ -103,6 +109,8 @@ export default function TodayPage() {
       setCalendarEvents((eventsResult.data as CalendarEvent[]) || []);
       setRoutines((routinesResult.data as Routine[]) || []);
       setFinanceBills((billsResult.data as FinanceBillAttentionLike[]) || []);
+      if (attentionReceiptResult.error) throw attentionReceiptResult.error;
+      setHouseholdAttentionReceipt((attentionReceiptResult.data as HouseholdAttentionReceipt | null) || null);
       if (!cancelled) setDashboardReady(true);
     })().catch((error) => {
       console.error("DABO Today dashboard load failed", error);
@@ -205,8 +213,13 @@ export default function TodayPage() {
   const todayHouseholdIntelligence = useMemo(() => {
     if (!household || !dashboardReady || dashboardLoadError) return null;
     const insights = computeHouseholdInsights(members, balanceData.contributions, balanceData.participants);
-    return buildTodayHouseholdIntelligenceCandidate({ householdId: household.id, insights });
-  }, [household, members, balanceData, dashboardReady, dashboardLoadError]);
+    const candidate = buildTodayHouseholdIntelligenceCandidate({ householdId: household.id, insights });
+    return applyHouseholdSignalLifecycle({
+      candidate,
+      receipt: householdAttentionReceipt,
+      now: new Date().toISOString(),
+    });
+  }, [household, members, balanceData, dashboardReady, dashboardLoadError, householdAttentionReceipt]);
 
   const attentionItems = useMemo(() => {
     if (!household || !me) return [];
@@ -326,6 +339,35 @@ export default function TodayPage() {
     return t("attention_level_information");
   }
 
+  async function consultHouseholdIntelligence(attention: AttentionCandidate) {
+    if (!household || !me?.user_id) {
+      router.push("/app/bilan");
+      return;
+    }
+
+    const viewedAt = new Date().toISOString();
+    const receipt: HouseholdAttentionReceipt = {
+      signal_key: attention.dedupeKey,
+      fingerprint: householdAttentionFingerprint(attention),
+      viewed_at: viewedAt,
+      snoozed_until: householdSignalSnoozedUntil(viewedAt),
+    };
+
+    const { error } = await supabase.from("household_attention_receipts").upsert({
+      household_id: household.id,
+      user_id: me.user_id,
+      ...receipt,
+      updated_at: viewedAt,
+    }, { onConflict: "household_id,user_id,signal_key" });
+
+    if (error) {
+      console.error("DABO household attention receipt save failed", error);
+    } else {
+      setHouseholdAttentionReceipt(receipt);
+    }
+    router.push("/app/bilan");
+  }
+
   function attentionDetails(attention: AttentionCandidate) {
     if (attention.type === "household.weekly_watch") {
       return {
@@ -333,7 +375,7 @@ export default function TodayPage() {
         title: t("today_household_intelligence_title"),
         description: t("today_household_intelligence_text").replace("{count}", String(attention.metadata?.currentCount ?? "")),
         meta: t("today_household_intelligence_meta"),
-        onAction: () => router.push("/app/bilan"),
+        onAction: () => void consultHouseholdIntelligence(attention),
       };
     }
 
