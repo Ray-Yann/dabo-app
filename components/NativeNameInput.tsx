@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 export function NativeNameInput({
   value,
@@ -24,7 +25,12 @@ export function NativeNameInput({
 
   function commit() {
     setFocused(false);
-    if (draft !== value) onCommit(draft);
+    if (draft !== value) {
+      // The parent must receive the final native input value before a Save/Add
+      // click is handled. This keeps typing local (fast on iOS/iPadOS) while
+      // preventing the last edited value from being lost on blur.
+      flushSync(() => onCommit(draft));
+    }
   }
 
   return (

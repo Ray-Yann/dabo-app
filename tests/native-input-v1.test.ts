@@ -30,3 +30,9 @@ test("Native Input V1 retire les lectures croisées uniquement destinées au dic
   assert.doesNotMatch(tasks, /shoppingNameSuggestions/);
   assert.doesNotMatch(courses, /taskNameSuggestions/);
 });
+
+
+test("commits the final local draft synchronously before an adjacent action click", () => {
+  assert.match(nativeInput, /import \{ flushSync \} from "react-dom"/);
+  assert.match(nativeInput, /flushSync\(\(\) => onCommit\(draft\)\)/);
+});
