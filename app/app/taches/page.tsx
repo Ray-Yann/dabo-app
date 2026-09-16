@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useDeferredValue, useEffect, useRef, useState, type CSSProperties } from "react";
 import { LoadingState } from "@/components/LoadingState";
@@ -14,7 +14,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
-import { SmartNameInput } from "@/components/SmartNameInput";
+import { NativeNameInput } from "@/components/NativeNameInput";
 
 
 type TaskForm = { name: string; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
@@ -27,20 +27,18 @@ function TaskFormFields({
   members,
   editingRecurring,
   t,
-  nameSuggestions,
 }: {
   form: TaskForm;
   setForm: (f: TaskForm) => void;
   members: { id: string; first_name: string }[];
   editingRecurring?: boolean;
   t: (key: string) => string;
-  nameSuggestions: string[];
 }) {
   return (
     <>
       <div>
         <label className="text-sm font-medium text-ink block mb-1.5">{t("task_form_main_label")}</label>
-        <SmartNameInput domain="tasks" autoFocus placeholder={t("task_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
+        <NativeNameInput autoFocus placeholder={t("task_name_placeholder")} value={form.name} onCommit={(name) => setForm({ ...form, name })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
       </div>
 
       <div className="pt-1">
@@ -61,10 +59,10 @@ function TaskFormFields({
         <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_form_if_needed")}</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <select value={form.durationKey} onChange={(e) => setForm({ ...form, durationKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-            {DURATION_OPTIONS.map((d) => <option key={d.key} value={d.key}>{t("task_duration")} · {d.label}</option>)}
+            {DURATION_OPTIONS.map((d) => <option key={d.key} value={d.key}>{t("task_duration")} Â· {d.label}</option>)}
           </select>
           <select value={form.effortKey} onChange={(e) => setForm({ ...form, effortKey: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
-            {EFFORT_OPTIONS.map((e) => <option key={e.key} value={e.key}>{t("effort_label")} · {e.label}</option>)}
+            {EFFORT_OPTIONS.map((e) => <option key={e.key} value={e.key}>{t("effort_label")} Â· {e.label}</option>)}
           </select>
           <select value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value as TaskForm["recurrence"], customDays: e.target.value === "custom" ? form.customDays : [] })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink">
             {!editingRecurring && <option value="none">{t("recurrence_none")}</option>}
@@ -102,7 +100,6 @@ export default function TasksPage() {
   const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"to_do" | "routines" | "done">("to_do");
-  const [shoppingNameSuggestions, setShoppingNameSuggestions] = useState<string[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
@@ -129,15 +126,13 @@ export default function TasksPage() {
 
   async function loadTasks() {
     if (!household) return;
-    const [{ data }, { data: routineData }, { data: contributionData }, { data: shoppingNameData }] = await Promise.all([
+    const [{ data }, { data: routineData }, { data: contributionData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("routines").select("*").eq("household_id", household.id),
       supabase.from("task_contributions").select("id, task_id, hidden_from_task_history, cancelled_at").eq("household_id", household.id),
-      supabase.from("shopping_items").select("name").eq("household_id", household.id).limit(200),
     ]);
     setTasks((data as Task[]) || []);
     setRoutines((routineData as Routine[]) || []);
-    setShoppingNameSuggestions((shoppingNameData || []).map((row: { name: string }) => row.name));
     const contributionMap: Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }> = {};
     for (const row of contributionData || []) {
       contributionMap[row.task_id] = {
@@ -214,10 +209,10 @@ export default function TasksPage() {
   function startEdit(task: Task) {
     setOpenComments(null);
     setEditingId(task.id);
-    // Si la tâche a été créée avant ce changement (pas de durée/effort
-    // enregistrés), on estime la durée la plus proche pour ne pas repartir
-    // de zéro à l'édition — sans jamais toucher au poids déjà existant tant
-    // que la personne n'a pas explicitement enregistré une modification.
+    // Si la tÃ¢che a Ã©tÃ© crÃ©Ã©e avant ce changement (pas de durÃ©e/effort
+    // enregistrÃ©s), on estime la durÃ©e la plus proche pour ne pas repartir
+    // de zÃ©ro Ã  l'Ã©dition â€” sans jamais toucher au poids dÃ©jÃ  existant tant
+    // que la personne n'a pas explicitement enregistrÃ© une modification.
     const fallbackDuration = DURATION_OPTIONS.reduce((closest, d) =>
       Math.abs(d.points - task.weight_points) < Math.abs(closest.points - task.weight_points) ? d : closest
     );
@@ -602,18 +597,18 @@ export default function TasksPage() {
       {view === "to_do" && <IntroTip id="tasks-v2" title={t("intro_tasks_title")} text={t("intro_tasks")} />}
 
       {addedConfirmation && (
-        <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>
+        <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">âœ“ {t("task_added_confirmation")}</div>
       )}
 
       {completedConfirmation && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg" role="status" aria-live="polite">
-          ✓ {t("task_completed_confirmation")}
+          âœ“ {t("task_completed_confirmation")}
         </div>
       )}
 
       {view === "to_do" && showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} nameSuggestions={[...tasks.map((task) => task.name), ...shoppingNameSuggestions]} />
+          <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
           <div className="flex gap-2">
             <button onClick={addTask} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
             <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
@@ -635,7 +630,7 @@ export default function TasksPage() {
             <div key={task.id} className="dabo-task-row border-b border-borderLight py-3">
               {editingId === task.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} editingRecurring={Boolean(task.routine_id)} t={t} nameSuggestions={[...tasks.map((item) => item.name), ...shoppingNameSuggestions]} />
+                  <TaskFormFields form={editForm} setForm={setEditForm} members={members} editingRecurring={Boolean(task.routine_id)} t={t} />
                   {task.routine_id && <p className="text-[11px] text-muted italic">{t("recurrence_edit_future_note")}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(task.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
@@ -792,3 +787,4 @@ export default function TasksPage() {
     </div>
   );
 }
+

@@ -13,7 +13,7 @@ import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
-import { SmartNameInput } from "@/components/SmartNameInput";
+import { NativeNameInput } from "@/components/NativeNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
@@ -28,19 +28,17 @@ function ItemFormFields({
   setForm,
   members,
   t,
-  nameSuggestions,
   stores,
 }: {
   form: ItemForm;
   setForm: (f: ItemForm) => void;
   members: { id: string; first_name: string }[];
   t: (key: string) => string;
-  nameSuggestions: string[];
   stores: string[];
 }) {
   return (
     <>
-      <SmartNameInput domain="courses" autoFocus placeholder={t("item_name_placeholder")} value={form.name} onChange={(name) => setForm({ ...form, name })} learnedTerms={nameSuggestions} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+      <NativeNameInput autoFocus placeholder={t("item_name_placeholder")} value={form.name} onCommit={(name) => setForm({ ...form, name })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
       <div className="rounded-xl bg-paper/60 p-3 space-y-2">
         <div className="text-[11px] font-medium text-muted">{t("courses_optional_details")}</div>
         <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
@@ -77,7 +75,6 @@ export default function CoursesPage() {
   const t = useT();
   const [view, setView] = useState<"to_buy" | "suggestions" | "history">("to_buy");
   const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [taskNameSuggestions, setTaskNameSuggestions] = useState<string[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
@@ -182,15 +179,13 @@ export default function CoursesPage() {
 
   async function loadItems() {
     if (!household) return;
-    const [{ data: itemData }, { data: preferenceData }, { data: taskNameData }, { data: storeData }] = await Promise.all([
+    const [{ data: itemData }, { data: preferenceData }, { data: storeData }] = await Promise.all([
       supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
-      supabase.from("tasks").select("name").eq("household_id", household.id).limit(200),
       supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
     ]);
     setItems((itemData as ShoppingItem[]) || []);
     setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
-    setTaskNameSuggestions((taskNameData || []).map((row: { name: string }) => row.name));
     setHouseholdStores((storeData as HouseholdStore[]) || []);
   }
 
@@ -690,7 +685,7 @@ export default function CoursesPage() {
             <div className="text-sm font-semibold text-ink">{t("courses_add_question")}</div>
             <div className="text-xs text-muted mt-0.5">{t("courses_add_hint")}</div>
           </div>
-          <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} nameSuggestions={[...items.map((item) => item.name), ...taskNameSuggestions]} stores={availableStores()} />
+          <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} stores={availableStores()} />
           <div className="flex gap-2">
             <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
             <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
@@ -708,7 +703,7 @@ export default function CoursesPage() {
             <div key={item.id} className="border-b border-borderLight py-3">
               {editingId === item.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
-                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} t={t} nameSuggestions={[...items.map((item) => item.name), ...taskNameSuggestions]} stores={availableStores()} />
+                  <ItemFormFields form={editForm} setForm={setEditForm} members={members} t={t} stores={availableStores()} />
                   <div className="flex gap-2">
                     <button onClick={() => saveEdit(item.id)} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("save")}</button>
                     <button onClick={() => setEditingId(null)} className="px-4 text-sm text-muted">{t("cancel")}</button>
