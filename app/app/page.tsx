@@ -53,11 +53,16 @@ export default function TodayPage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [financeBills, setFinanceBills] = useState<FinanceBillAttentionLike[]>([]);
+  const [dashboardReady, setDashboardReady] = useState(false);
+  const [dashboardLoadError, setDashboardLoadError] = useState(false);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
 
   useEffect(() => {
     if (!household || !me) return;
+    let cancelled = false;
+    setDashboardReady(false);
+    setDashboardLoadError(false);
     (async () => {
       // Mobile Performance V1: the dashboard used to load its data in several
       // sequential waves and queried tasks twice. Fetch each independent
@@ -98,8 +103,18 @@ export default function TodayPage() {
       setCalendarEvents((eventsResult.data as CalendarEvent[]) || []);
       setRoutines((routinesResult.data as Routine[]) || []);
       setFinanceBills((billsResult.data as FinanceBillAttentionLike[]) || []);
-    })();
-  }, [household, me]);
+      if (!cancelled) setDashboardReady(true);
+    })().catch((error) => {
+      console.error("DABO Today dashboard load failed", error);
+      if (!cancelled) {
+        setDashboardLoadError(true);
+        setDashboardReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [household, me, supabase]);
 
   async function toggleTask(task: Task, performerIds?: string[]) {
     if (!household || !me) return;
@@ -188,10 +203,10 @@ export default function TodayPage() {
   }, [household, members, allTasksForBalance, calendarEvents, routines]);
 
   const todayHouseholdIntelligence = useMemo(() => {
-    if (!household) return null;
+    if (!household || !dashboardReady || dashboardLoadError) return null;
     const insights = computeHouseholdInsights(members, balanceData.contributions, balanceData.participants);
     return buildTodayHouseholdIntelligenceCandidate({ householdId: household.id, insights });
-  }, [household, members, balanceData]);
+  }, [household, members, balanceData, dashboardReady, dashboardLoadError]);
 
   const attentionItems = useMemo(() => {
     if (!household || !me) return [];
@@ -400,6 +415,8 @@ export default function TodayPage() {
               </button>
             </div>
           </div>
+        ) : !dashboardReady || dashboardLoadError ? (
+          <LoadingState />
         ) : attentionItems.length === 0 ? (
           <DaboEmptyState title={t("today_nothing_pressing_title")} message={t("today_nothing_pressing_text")} />
         ) : (
