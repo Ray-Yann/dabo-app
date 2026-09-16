@@ -1,6 +1,6 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
-import { buildHouseholdActionSuggestion } from "../lib/household-action-suggestions";
+import { buildHouseholdActionSuggestion, hasRebalanceInProgress } from "../lib/household-action-suggestions";
 import type { HouseholdWeeklyReport } from "../lib/household-weekly-report.ts";
 import type { Member, Task } from "../lib/types.ts";
 
@@ -26,4 +26,18 @@ test("Suggestions V1 ignore tÃ¢ches terminÃ©es, Ã©chues et dÃ©jÃ  attr
 test("Suggestions V1 privilÃ©gie une tÃ¢che non attribuÃ©e avant une rÃ©attribution",()=>{
  const result=buildHouseholdActionSuggestion({report:baseReport,members,tasks:[task({id:"assigned"}),task({id:"free",assigned_to:null,name:"Courses"})],today:"2026-09-16"});
  assert.equal(result?.taskId,"free");
+});
+
+
+test("Suggestions V1.1 attend lorsqu une correction est deja en cours pour le membre cible",()=>{
+ const planned=task({id:"planned",assigned_to:"a",name:"Vitres",due_date:"2026-09-18"});
+ assert.equal(hasRebalanceInProgress({report:baseReport,members,tasks:[planned,task({id:"other"})],today:"2026-09-16"}),true);
+ assert.equal(buildHouseholdActionSuggestion({report:baseReport,members,tasks:[planned,task({id:"other"})],today:"2026-09-16"}),null);
+});
+
+test("Suggestions V1.1 ne bloque pas sur une ancienne tache echue du membre cible",()=>{
+ const old=task({id:"old",assigned_to:"a",due_date:"2026-09-15"});
+ const result=buildHouseholdActionSuggestion({report:baseReport,members,tasks:[old,task({id:"fresh"})],today:"2026-09-16"});
+ assert.equal(hasRebalanceInProgress({report:baseReport,members,tasks:[old],today:"2026-09-16"}),false);
+ assert.equal(result?.taskId,"fresh");
 });

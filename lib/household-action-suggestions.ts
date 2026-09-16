@@ -11,6 +11,25 @@ export type HouseholdActionSuggestion = {
   reason: "rebalance";
 };
 
+export function hasRebalanceInProgress(input: {
+  report: HouseholdWeeklyReport;
+  members: Member[];
+  tasks: Task[];
+  today: string;
+}): boolean {
+  if (input.report.suggestion !== "rebalance" || input.members.length < 2) return false;
+  const shares = input.report.memberShares
+    .filter((share) => input.members.some((member) => member.id === share.memberId))
+    .sort((a, b) => a.percentage - b.percentage || a.points - b.points || a.memberId.localeCompare(b.memberId));
+  if (shares.length < 2 || shares[0].percentage === shares[shares.length - 1].percentage) return false;
+  const targetId = shares[0].memberId;
+  return input.tasks.some((task) =>
+    task.status === "pending" &&
+    task.assigned_to === targetId &&
+    (!task.due_date || task.due_date >= input.today)
+  );
+}
+
 /**
  * DABO V2 — suggestion only. Pure and deterministic: this function never writes.
  * A proposal exists only when the weekly report already has enough confirmed
@@ -31,6 +50,11 @@ export function buildHouseholdActionSuggestion(input: {
 
   const target = input.members.find((member) => member.id === shares[0].memberId);
   if (!target) return null;
+
+  // V1.1 anti-surcorrection: if the lower-contributing member already has a
+  // pending current/future task, DABO waits for that planned load to resolve
+  // before suggesting another redistribution. One gentle correction at a time.
+  if (hasRebalanceInProgress(input)) return null;
 
   const candidates = input.tasks
     .filter((task) => task.status === "pending")
