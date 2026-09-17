@@ -12,7 +12,7 @@ import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvaila
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 import { notifyHousehold } from "@/lib/notifications";
 
-type Phase = "loading" | "auth" | "setup";
+type Phase = "loading" | "value" | "auth" | "setup";
 type AuthMode = "signup" | "login" | "forgot";
 type SetupMode = "choice" | "create" | "join" | "created";
 type CreatedHousehold = { id: string; name: string; invite_code: string };
@@ -22,6 +22,7 @@ export default function OnboardingPage() {
   const supabase = createClient();
 
   const [phase, setPhase] = useState<Phase>("loading");
+  const [valueStep, setValueStep] = useState<0 | 1>(0);
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
   const [setupMode, setSetupMode] = useState<SetupMode>("choice");
 
@@ -101,7 +102,7 @@ export default function OnboardingPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
-        setPhase("auth");
+        setPhase(new URLSearchParams(window.location.search).get("forgot") === "1" ? "auth" : "value");
         return;
       }
       const { data: members } = await supabase
@@ -254,6 +255,37 @@ export default function OnboardingPage() {
           <Image src="/icon.svg" alt="DABO" width={64} height={64} priority />
         </div>
 
+        {phase === "value" && (
+          <>
+            {valueStep === 0 ? (
+              <>
+                <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted mb-3">{t("onboarding_value_eyebrow")}</div>
+                <h1 className="font-serif text-2xl text-ink mb-3">{t("onboarding_value_title")}</h1>
+                <p className="text-sm leading-6 text-muted mb-5">{t("onboarding_value_body")}</p>
+                <div className="rounded-2xl border border-border bg-white2 p-4 text-left mb-5">
+                  <div className="text-2xl font-semibold text-ink">82% / 65%</div>
+                  <p className="mt-1 text-xs leading-5 text-muted">{t("onboarding_value_eige_fact")}</p>
+                  <a href="https://eige.europa.eu/publications-resources/publications/sharing-care-closing-gender-gaps-care-survey-2024" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-medium text-ink underline underline-offset-2">{t("onboarding_value_source_eige")}</a>
+                </div>
+                <button type="button" onClick={() => setValueStep(1)} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{t("onboarding_value_continue")}</button>
+              </>
+            ) : (
+              <>
+                <h1 className="font-serif text-2xl text-ink mb-3">{t("onboarding_value_dabo_title")}</h1>
+                <p className="text-sm leading-6 text-muted mb-5">{t("onboarding_value_dabo_body")}</p>
+                <div className="space-y-2 text-left mb-5">
+                  {["onboarding_value_point_visible", "onboarding_value_point_shared", "onboarding_value_point_decide"].map((key) => (
+                    <div key={key} className="flex gap-3 rounded-xl bg-white2 px-3 py-3 text-sm text-ink"><CheckSquare size={17} className="mt-0.5 shrink-0" />{t(key)}</div>
+                  ))}
+                </div>
+                <p className="text-sm font-medium text-ink mb-5">{t("onboarding_value_signature")}</p>
+                <button type="button" onClick={() => setPhase("auth")} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{inviteFromLink ? t("onboarding_value_join_invite") : t("onboarding_value_start")}</button>
+                <button type="button" onClick={() => setValueStep(0)} className="text-sm text-muted mt-4">{t("onboarding_back")}</button>
+              </>
+            )}
+          </>
+        )}
+
         {phase === "auth" && authMode !== "forgot" && (
           <>
             <h1 className="font-serif text-2xl text-ink mb-1">{inviteFromLink ? t("onboarding_invited_title") : t("onboarding_welcome_title")}</h1>
@@ -394,6 +426,15 @@ export default function OnboardingPage() {
                 <option value="coloc">{t("onboarding_type_roommates")}</option>
                 <option value="famille">{t("onboarding_type_family")}</option>
               </select>
+              <div className="rounded-2xl border border-border bg-white2 p-4 text-left">
+                <div className="text-xs font-semibold text-ink">{t(`onboarding_value_${householdType}_title`)}</div>
+                <p className="mt-1 text-xs leading-5 text-muted">{t(`onboarding_value_${householdType}_fact`)}</p>
+                <a
+                  href={householdType === "famille" ? "https://onlinelibrary.wiley.com/doi/10.1111/jomf.13057" : householdType === "coloc" ? "https://www.tandfonline.com/doi/abs/10.1111/ajpy.12238" : "https://dgs-p.eige.europa.eu/data/information/eige_care_hw__care_hw_distribution_hh"}
+                  target="_blank" rel="noreferrer"
+                  className="mt-2 inline-block text-xs font-medium text-ink underline underline-offset-2"
+                >{t("onboarding_value_view_source")}</a>
+              </div>
               <select
                 aria-label={t("onboarding_language_label")}
                 value={memberLang}
