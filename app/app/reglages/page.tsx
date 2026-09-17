@@ -8,7 +8,7 @@ import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
 import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
-import { enableNotifications, disableNotifications } from "@/lib/notifications";
+import { enableNotifications, disableNotifications, requiresIosHomeScreenInstall } from "@/lib/notifications";
 import { hasVerifiedPushSubscription, stopNotificationNudge } from "@/lib/notification-activation";
 import { MEMBER_COLORS } from "@/lib/utils";
 import { useLanguage, useT } from "@/lib/language-context";
@@ -40,7 +40,7 @@ export default function SettingsPage() {
   const lang = useLanguage();
   const householdCountries = countryOptions(lang);
   const [copied, setCopied] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error" | "checking" | "blocked" | "unsupported">("checking");
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error" | "checking" | "blocked" | "unsupported" | "ios-install">("checking");
   const [notifError, setNotifError] = useState("");
   const [firstName, setFirstName] = useState(me?.first_name || "");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -275,6 +275,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     (async () => {
+      if (requiresIosHomeScreenInstall()) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setNotifStatus("ios-install");
+        return;
+      }
       if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setNotifStatus("unsupported");
@@ -864,6 +869,7 @@ export default function SettingsPage() {
                       notifStatus === "done" ? t("settings_notifications_done") :
                       notifStatus === "blocked" ? t("settings_notifications_blocked") :
                       notifStatus === "unsupported" ? t("settings_notifications_unsupported") :
+                      notifStatus === "ios-install" ? t("settings_notifications_ios_install") :
                       t("settings_notifications_desc")}
                   </p>
                 </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Bell } from "lucide-react";
-import { enableNotifications } from "@/lib/notifications";
+import { enableNotifications, requiresIosHomeScreenInstall } from "@/lib/notifications";
 import { clearNotificationNudge, hasVerifiedPushSubscription, postponeNotificationNudge, readNotificationNudgePreference } from "@/lib/notification-activation";
 import { useT } from "@/lib/language-context";
 
@@ -14,10 +14,12 @@ export function NotificationActivationNudge({ supabase, memberId, userId }: Prop
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [iosInstallRequired, setIosInstallRequired] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setIosInstallRequired(requiresIosHomeScreenInstall());
       if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
       if (Notification.permission === "denied") return;
       const active = await hasVerifiedPushSubscription(supabase, memberId);
@@ -60,9 +62,10 @@ export function NotificationActivationNudge({ supabase, memberId, userId }: Prop
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-mustardBg mb-4"><Bell size={19} /></div>
         <h2 id="notification-nudge-title" className="text-lg font-semibold text-ink">{t("notification_nudge_title")}</h2>
         <p className="mt-2 text-sm leading-6 text-muted">{t("notification_nudge_text")}</p>
-        {error && <p className="mt-3 text-xs text-red-700">{t("settings_notifications_error")}</p>}
-        <button type="button" disabled={loading} onClick={() => void activate()} className="mt-5 w-full rounded-xl bg-ink px-4 py-3 text-sm font-medium text-paper disabled:opacity-50">
-          {loading ? "…" : t("notification_nudge_enable")}
+        {iosInstallRequired && <p className="mt-3 text-xs leading-5 text-ink">{t("notification_nudge_ios_install")}</p>}
+        {error && !iosInstallRequired && <p className="mt-3 text-xs text-red-700">{t("settings_notifications_error")}</p>}
+        <button type="button" disabled={loading || iosInstallRequired} onClick={() => void activate()} className="mt-5 w-full rounded-xl bg-ink px-4 py-3 text-sm font-medium text-paper disabled:opacity-50">
+          {loading ? "…" : iosInstallRequired ? t("notification_nudge_ios_button") : t("notification_nudge_enable")}
         </button>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button type="button" disabled={loading} onClick={() => postpone("later")} className="rounded-xl border border-border px-3 py-2.5 text-sm text-ink disabled:opacity-50">{t("notification_nudge_later")}</button>

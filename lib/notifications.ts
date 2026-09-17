@@ -7,7 +7,27 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+
+export function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+export function isStandaloneWebApp() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(display-mode: standalone)").matches ||
+    ("standalone" in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true);
+}
+
+export function requiresIosHomeScreenInstall() {
+  return isIosDevice() && !isStandaloneWebApp();
+}
+
 export async function enableNotifications(supabase: SupabaseClient, memberId: string) {
+  if (requiresIosHomeScreenInstall()) {
+    throw new Error("IOS_HOME_SCREEN_REQUIRED");
+  }
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     throw new Error("Les notifications ne sont pas prises en charge sur cet appareil/navigateur.");
   }
