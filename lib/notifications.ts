@@ -24,7 +24,7 @@ export async function enableNotifications(supabase: SupabaseClient, memberId: st
   });
 
   const json = subscription.toJSON();
-  await supabase.from("push_subscriptions").upsert(
+  const { error: upsertError } = await supabase.from("push_subscriptions").upsert(
     {
       member_id: memberId,
       endpoint: json.endpoint,
@@ -33,6 +33,15 @@ export async function enableNotifications(supabase: SupabaseClient, memberId: st
     },
     { onConflict: "endpoint" }
   );
+  if (upsertError) throw upsertError;
+
+  const { data: persisted, error: verifyError } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("member_id", memberId)
+    .eq("endpoint", subscription.endpoint)
+    .maybeSingle();
+  if (verifyError || !persisted) throw verifyError || new Error("Abonnement push non enregistré.");
 }
 
 export async function disableNotifications(supabase: SupabaseClient) {

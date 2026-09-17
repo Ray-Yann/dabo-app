@@ -9,6 +9,7 @@ import { Avatar } from "@/components/Avatar";
 import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { enableNotifications, disableNotifications } from "@/lib/notifications";
+import { hasVerifiedPushSubscription, stopNotificationNudge } from "@/lib/notification-activation";
 import { MEMBER_COLORS } from "@/lib/utils";
 import { useLanguage, useT } from "@/lib/language-context";
 import { countryOptions, detectIsoCountryFromDevice } from "@/lib/countries";
@@ -289,12 +290,11 @@ export default function SettingsPage() {
         setNotifStatus("idle");
         return;
       }
-      const registration = await navigator.serviceWorker.getRegistration();
-      const existingSubscription = await registration?.pushManager.getSubscription();
+      const verifiedSubscription = me ? await hasVerifiedPushSubscription(supabase, me.id) : false;
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setNotifStatus(existingSubscription ? "done" : "idle");
+      setNotifStatus(verifiedSubscription ? "done" : "idle");
     })();
-  }, []);
+  }, [me, supabase]);
 
   async function handleEnableNotifications() {
     if (!me) return;
@@ -302,6 +302,8 @@ export default function SettingsPage() {
     setNotifError("");
     try {
       await enableNotifications(supabase, me.id);
+      const verifiedSubscription = await hasVerifiedPushSubscription(supabase, me.id);
+      if (!verifiedSubscription) throw new Error("Push subscription not persisted");
       setNotifStatus("done");
     } catch {
       if ("Notification" in window && Notification.permission === "denied") {
@@ -318,6 +320,7 @@ export default function SettingsPage() {
     setNotifError("");
     try {
       await disableNotifications(supabase);
+      if (me?.user_id) stopNotificationNudge(me.user_id);
       setNotifStatus("idle");
     } catch {
       setNotifError(t("settings_notifications_error"));

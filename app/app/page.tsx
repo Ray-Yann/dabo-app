@@ -10,6 +10,7 @@ import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, Wa
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
+import { NotificationActivationNudge } from "@/components/NotificationActivationNudge";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useLanguage, useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
@@ -437,6 +438,7 @@ export default function TodayPage() {
       <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
       <IntroTip id="today" text={t("intro_today")} />
       <InstallPrompt />
+      {me.user_id && <NotificationActivationNudge supabase={supabase} memberId={me.id} userId={me.user_id} />}
       {household && (
         <InviteNudge
           householdId={household.id}
