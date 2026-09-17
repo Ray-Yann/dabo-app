@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
@@ -6,6 +6,7 @@ const tasksPage = fs.readFileSync("app/app/taches/page.tsx", "utf8");
 const completion = fs.readFileSync("lib/task-completion.ts", "utf8");
 const contributions = fs.readFileSync("lib/task-contributions.ts", "utf8");
 const migration = fs.readFileSync("supabase/migrations/20260917_task_subtasks_v1.sql", "utf8");
+const permissionsMigration = fs.readFileSync("supabase/migrations/20260917_task_subtasks_permissions_v11.sql", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 
 test("Sous-tÃ¢ches V1 persiste des Ã©tapes assignables et ordonnÃ©es avec RLS foyer", () => {
@@ -49,3 +50,14 @@ test("Sous-tÃ¢ches V1 couvre les sept catalogues DABO", () => {
   assert.equal((i18n.match(/subtasks_assignment_auto:/g) || []).length, 7);
 });
 
+
+
+test("Sous-tâches V1.2 pérennise les droits CRUD nécessaires au rôle authenticated", () => {
+  assert.match(permissionsMigration, /grant select, insert, update, delete\s+on table public\.task_subtasks\s+to authenticated/i);
+});
+
+test("Tâches V1.2 affiche des confirmations UTF-8 lisibles", () => {
+  assert.match(tasksPage, /✓ \{t\("task_added_confirmation"\)\}/);
+  assert.match(tasksPage, /✓ \{t\("task_completed_confirmation"\)\}/);
+  assert.doesNotMatch(tasksPage, /âœ/);
+});

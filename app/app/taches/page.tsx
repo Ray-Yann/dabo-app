@@ -687,12 +687,12 @@ export default function TasksPage() {
       {view === "to_do" && <IntroTip id="tasks-v2" title={t("intro_tasks_title")} text={t("intro_tasks")} />}
 
       {addedConfirmation && (
-        <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">âœ“ {t("task_added_confirmation")}</div>
+        <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>
       )}
 
       {completedConfirmation && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg" role="status" aria-live="polite">
-          âœ“ {t("task_completed_confirmation")}
+          ✓ {t("task_completed_confirmation")}
         </div>
       )}
 
