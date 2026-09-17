@@ -14,7 +14,7 @@ export function HouseholdSwitcher() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
-  const [type, setType] = useState<"couple" | "coloc" | "famille">("couple");
+  const [type, setType] = useState<"solo" | "couple" | "coloc" | "famille">("couple");
   const [code, setCode] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -152,7 +152,7 @@ export function HouseholdSwitcher() {
           <div className="border-t border-border pt-3 space-y-2">
             <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("households_name_placeholder")} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink outline-none focus:border-ink" />
             <select value={type} onChange={(event) => setType(event.target.value as typeof type)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink outline-none focus:border-ink">
-              <option value="couple">{t("household_couple")}</option><option value="coloc">{t("household_coloc")}</option><option value="famille">{t("household_famille")}</option>
+              <option value="solo">{t("household_solo")}</option><option value="couple">{t("household_couple")}</option><option value="coloc">{t("household_coloc")}</option><option value="famille">{t("household_famille")}</option>
             </select>
             <div className="flex gap-2"><button onClick={() => void createHousehold()} disabled={busy || !name.trim()} className="flex-1 bg-ink text-paper rounded-xl px-3 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "…" : t("households_create")}</button><button onClick={() => setMode("choice")} className="px-3 text-sm text-muted">{t("cancel")}</button></div>
           </div>

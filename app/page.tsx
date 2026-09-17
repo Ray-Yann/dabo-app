@@ -30,7 +30,7 @@ export default function OnboardingPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [householdName, setHouseholdName] = useState("");
-  const [householdType, setHouseholdType] = useState<"couple" | "coloc" | "famille">("couple");
+  const [householdType, setHouseholdType] = useState<"solo" | "couple" | "coloc" | "famille">("couple");
   const [memberLang, setMemberLang] = useState<Lang>("fr");
   const t = (key: string) => translate(memberLang, key);
 
@@ -419,9 +419,10 @@ export default function OnboardingPage() {
               />
               <select
                 value={householdType}
-                onChange={(e) => setHouseholdType(e.target.value as "couple" | "coloc" | "famille")}
+                onChange={(e) => setHouseholdType(e.target.value as "solo" | "couple" | "coloc" | "famille")}
                 className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
               >
+                <option value="solo">{t("onboarding_type_solo")}</option>
                 <option value="couple">{t("onboarding_type_couple")}</option>
                 <option value="coloc">{t("onboarding_type_roommates")}</option>
                 <option value="famille">{t("onboarding_type_family")}</option>
@@ -430,7 +431,7 @@ export default function OnboardingPage() {
                 <div className="text-xs font-semibold text-ink">{t(`onboarding_value_${householdType}_title`)}</div>
                 <p className="mt-1 text-xs leading-5 text-muted">{t(`onboarding_value_${householdType}_fact`)}</p>
                 <a
-                  href={householdType === "famille" ? "https://onlinelibrary.wiley.com/doi/10.1111/jomf.13057" : householdType === "coloc" ? "https://www.tandfonline.com/doi/abs/10.1111/ajpy.12238" : "https://dgs-p.eige.europa.eu/data/information/eige_care_hw__care_hw_distribution_hh"}
+                  href={householdType === "solo" ? "https://ec.europa.eu/eurostat/en/web/products-eurostat-news/w/ddn-20260513-2" : householdType === "famille" ? "https://onlinelibrary.wiley.com/doi/10.1111/jomf.13057" : householdType === "coloc" ? "https://www.tandfonline.com/doi/abs/10.1111/ajpy.12238" : "https://dgs-p.eige.europa.eu/data/information/eige_care_hw__care_hw_distribution_hh"}
                   target="_blank" rel="noreferrer"
                   className="mt-2 inline-block text-xs font-medium text-ink underline underline-offset-2"
                 >{t("onboarding_value_view_source")}</a>
@@ -466,15 +467,19 @@ export default function OnboardingPage() {
               <CheckSquare size={22} className="text-ink" />
             </div>
             <h1 className="font-serif text-2xl text-ink mb-1">{t("onboarding_created_title")}</h1>
-            <p className="text-sm text-muted mb-5">{t("onboarding_created_body")}</p>
-            <div className="rounded-xl border border-border bg-white2 px-4 py-3 mb-3">
+            <p className="text-sm text-muted mb-5">{householdType === "solo" ? t("onboarding_solo_created_body") : t("onboarding_created_body")}</p>
+            {householdType !== "solo" && <div className="rounded-xl border border-border bg-white2 px-4 py-3 mb-3">
               <div className="text-xs text-muted mb-1">{t("onboarding_invite_code_label")}</div>
               <div className="font-mono font-medium tracking-wider text-ink">{createdHousehold.invite_code}</div>
-            </div>
-            <button onClick={() => void shareCreatedHousehold()} className="w-full bg-ink text-paper rounded-xl py-3 font-medium flex items-center justify-center gap-2">
-              <Share2 size={17} /> {inviteShared ? t("onboarding_invite_shared") : t("onboarding_share_invite")}
-            </button>
-            <button className="text-sm text-muted mt-4" onClick={() => router.replace("/app")}>{t("tutorial_later")}</button>
+            </div>}
+            {householdType === "solo" ? (
+              <button onClick={() => router.replace("/app")} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{t("onboarding_solo_start")}</button>
+            ) : (<>
+              <button onClick={() => void shareCreatedHousehold()} className="w-full bg-ink text-paper rounded-xl py-3 font-medium flex items-center justify-center gap-2">
+                <Share2 size={17} /> {inviteShared ? t("onboarding_invite_shared") : t("onboarding_share_invite")}
+              </button>
+              <button className="text-sm text-muted mt-4" onClick={() => router.replace("/app")}>{t("tutorial_later")}</button>
+            </>)}
           </>
         )}
 

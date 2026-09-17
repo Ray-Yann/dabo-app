@@ -17,7 +17,7 @@ export function InviteNudge({ householdId, memberCount, householdType, text }: {
   useEffect(() => {
     let active = true;
     async function load() {
-      if (householdType === "couple" || memberCount >= 3) return;
+      if (householdType === "solo" || householdType === "couple" || memberCount >= 3) return;
       const [{ data: userData }, enabled] = await Promise.all([supabase.auth.getUser(), getTutorialEnabled(supabase)]);
       if (!enabled || !userData.user?.id) return;
       const key = tutorialInviteNudgeKey(userData.user.id, householdId);

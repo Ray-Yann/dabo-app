@@ -2,7 +2,7 @@ export type Household = {
   id: string;
   name: string;
   invite_code: string;
-  household_type: "couple" | "coloc" | "famille";
+  household_type: "solo" | "couple" | "coloc" | "famille";
   equity_score_enabled: boolean;
   country_code?: string | null;
   created_at: string;

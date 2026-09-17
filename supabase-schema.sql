@@ -200,7 +200,7 @@ alter table "public"."comments" add constraint "comments_pkey" PRIMARY KEY (id);
 alter table "public"."comments" add constraint "comments_shopping_item_id_fkey" FOREIGN KEY (shopping_item_id) REFERENCES shopping_items(id) ON DELETE CASCADE;
 alter table "public"."comments" add constraint "comments_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE;
 alter table "public"."comments" add constraint "one_target_only" CHECK (task_id IS NOT NULL AND shopping_item_id IS NULL OR task_id IS NULL AND shopping_item_id IS NOT NULL);
-alter table "public"."households" add constraint "households_household_type_check" CHECK (household_type = ANY (ARRAY['couple'::text, 'coloc'::text, 'famille'::text]));
+alter table "public"."households" add constraint "households_household_type_check" CHECK (household_type = ANY (ARRAY['solo'::text, 'couple'::text, 'coloc'::text, 'famille'::text]));
 alter table "public"."households" add constraint "households_invite_code_key" UNIQUE (invite_code);
 alter table "public"."households" add constraint "households_pkey" PRIMARY KEY (id);
 alter table "public"."members" add constraint "members_household_id_fkey" FOREIGN KEY (household_id) REFERENCES households(id) ON DELETE CASCADE;
