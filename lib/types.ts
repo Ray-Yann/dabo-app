@@ -110,6 +110,13 @@ export type CalendarEvent = {
   title: string;
   event_date: string;
   recurring: boolean;
+  recurrence_frequency?: "none" | "daily" | "weekly" | "monthly" | "yearly";
+  recurrence_interval?: number;
+  recurrence_end_date?: string | null;
+  event_time?: string | null;
+  all_day?: boolean;
+  notes?: string | null;
+  event_kind?: "event" | "reminder";
   reminder_days_before: number;
   visibility: "household" | "personal";
   private_owner_id: string | null;

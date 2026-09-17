@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { translate, translateWithParams, Lang } from "@/lib/i18n";
-import { nextOccurrence, daysUntil } from "@/lib/utils";
+import { daysUntil } from "@/lib/utils";
+import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
 import {
   billNotificationCandidate,
   buildDailyDigest,
@@ -106,10 +107,12 @@ export async function GET(req: NextRequest) {
 
   const { data: events } = await supabase
     .from("calendar_events")
-    .select("id, household_id, title, event_date, recurring, reminder_days_before, visibility, private_owner_id");
+    .select("id, household_id, title, event_date, recurring, recurrence_frequency, recurrence_interval, recurrence_end_date, reminder_days_before, visibility, private_owner_id");
 
   for (const event of events || []) {
-    const until = daysUntil(nextOccurrence(event.event_date, event.recurring));
+    const occurrence = occurrenceOnOrAfter(event);
+    if (!occurrence) continue;
+    const until = daysUntil(occurrence);
     const candidate = eventNotificationCandidate({
       id: event.id,
       title: event.title,

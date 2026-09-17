@@ -7,7 +7,8 @@ import { Header } from "@/components/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
-import { nextOccurrence, daysUntil } from "@/lib/utils";
+import { daysUntil } from "@/lib/utils";
+import { occurrenceOnOrAfter, occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users } from "lucide-react";
@@ -25,14 +26,24 @@ export default function CalendarPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
-  const [recurring, setRecurring] = useState(false);
-  const [reminderDays, setReminderDays] = useState(7);
+  const [eventKind, setEventKind] = useState<"event" | "reminder">("event");
+  const [eventTime, setEventTime] = useState("");
+  const [notes, setNotes] = useState("");
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
+  const [reminderDays, setReminderDays] = useState(0);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDate, setEditDate] = useState("");
-  const [editRecurring, setEditRecurring] = useState(false);
-  const [editReminderDays, setEditReminderDays] = useState(7);
+  const [editEventKind, setEditEventKind] = useState<"event" | "reminder">("event");
+  const [editEventTime, setEditEventTime] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editRecurrenceFrequency, setEditRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
+  const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(1);
+  const [editRecurrenceEndDate, setEditRecurrenceEndDate] = useState("");
+  const [editReminderDays, setEditReminderDays] = useState(0);
   const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -59,7 +70,14 @@ export default function CalendarPage() {
       created_by: me.id,
       title: title.trim(),
       event_date: eventDate,
-      recurring,
+      recurring: recurrenceFrequency !== "none",
+      recurrence_frequency: recurrenceFrequency,
+      recurrence_interval: recurrenceInterval,
+      recurrence_end_date: recurrenceEndDate || null,
+      event_time: eventTime || null,
+      all_day: !eventTime,
+      notes: notes.trim() || null,
+      event_kind: eventKind,
       reminder_days_before: reminderDays,
       visibility: newVisibility,
       private_owner_id: newVisibility === "personal" ? me.id : null,
@@ -72,8 +90,13 @@ export default function CalendarPage() {
     setErrorMessage("");
     setTitle("");
     setEventDate("");
-    setRecurring(false);
-    setReminderDays(7);
+    setEventKind("event");
+    setEventTime("");
+    setNotes("");
+    setRecurrenceFrequency("none");
+    setRecurrenceInterval(1);
+    setRecurrenceEndDate("");
+    setReminderDays(0);
     setShowMoreOptions(false);
     setShowAdd(false);
     if (newVisibility === "personal") setView("personal");
@@ -97,8 +120,13 @@ export default function CalendarPage() {
     setEditingId(event.id);
     setEditTitle(event.title);
     setEditDate(event.event_date);
-    setEditRecurring(event.recurring);
-    setEditReminderDays(event.reminder_days_before ?? 7);
+    setEditEventKind(event.event_kind || "event");
+    setEditEventTime(event.event_time?.slice(0, 5) || "");
+    setEditNotes(event.notes || "");
+    setEditRecurrenceFrequency(event.recurrence_frequency || (event.recurring ? "yearly" : "none"));
+    setEditRecurrenceInterval(event.recurrence_interval || 1);
+    setEditRecurrenceEndDate(event.recurrence_end_date || "");
+    setEditReminderDays(event.reminder_days_before ?? 0);
     setShowEditMoreOptions(false);
     setShowAdd(false);
     setShowMoreOptions(false);
@@ -125,7 +153,14 @@ export default function CalendarPage() {
       .update({
         title: editTitle.trim(),
         event_date: editDate,
-        recurring: editRecurring,
+        recurring: editRecurrenceFrequency !== "none",
+        recurrence_frequency: editRecurrenceFrequency,
+        recurrence_interval: editRecurrenceInterval,
+        recurrence_end_date: editRecurrenceEndDate || null,
+        event_time: editEventTime || null,
+        all_day: !editEventTime,
+        notes: editNotes.trim() || null,
+        event_kind: editEventKind,
         reminder_days_before: editReminderDays,
       })
       .eq("id", editingId);
@@ -158,6 +193,16 @@ export default function CalendarPage() {
     return `${t("event_in")} ${days} ${t("event_days")}`;
   }
 
+  function recurrenceLabel(event: CalendarEvent) {
+    const frequency = event.recurrence_frequency || (event.recurring ? "yearly" : "none");
+    const interval = event.recurrence_interval || 1;
+    if (frequency === "daily") return interval === 1 ? t("calendar_every_day") : `${t("calendar_every")} ${interval} ${t("calendar_days_unit")}`;
+    if (frequency === "weekly") return interval === 1 ? t("calendar_every_week") : `${t("calendar_every")} ${interval} ${t("calendar_weeks_unit")}`;
+    if (frequency === "monthly") return interval === 1 ? t("calendar_every_month") : `${t("calendar_every")} ${interval} ${t("calendar_months_unit")}`;
+    if (frequency === "yearly") return interval === 1 ? t("event_every_year") : `${t("calendar_every")} ${interval} ${t("calendar_years_unit")}`;
+    return t("calendar_never");
+  }
+
   const visibleEvents = events.filter((event) => {
     if (view === "personal") return event.visibility === "personal" && event.private_owner_id === me?.id;
     if (view === "month") return event.visibility === "household" || (event.visibility === "personal" && event.private_owner_id === me?.id);
@@ -165,8 +210,8 @@ export default function CalendarPage() {
   });
 
   const upcoming = visibleEvents
-    .map((e) => ({ ...e, next: nextOccurrence(e.event_date, e.recurring) }))
-    .filter((e) => e.recurring || e.next.getTime() >= new Date(new Date().setHours(0, 0, 0, 0)).getTime())
+    .map((e) => ({ ...e, next: occurrenceOnOrAfter(e) }))
+    .filter((e): e is typeof e & { next: Date } => Boolean(e.next))
     .sort((a, b) => a.next.getTime() - b.next.getTime());
 
   const todayStart = new Date();
@@ -193,15 +238,11 @@ export default function CalendarPage() {
   const daysInMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
   const monthCells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
   const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(monthDate);
-  const monthEvents = visibleEvents.flatMap((event) => {
-    const original = new Date(`${event.event_date}T00:00:00`);
-    if (!event.recurring) {
-      return original.getFullYear() === monthYear && original.getMonth() === monthIndex ? [{ ...event, monthOccurrence: original }] : [];
-    }
-    if (original.getMonth() !== monthIndex) return [];
-    const lastDay = new Date(monthYear, monthIndex + 1, 0).getDate();
-    return [{ ...event, monthOccurrence: new Date(monthYear, monthIndex, Math.min(original.getDate(), lastDay)) }];
-  });
+  const monthStart = new Date(monthYear, monthIndex, 1);
+  const monthEnd = new Date(monthYear, monthIndex + 1, 0);
+  const monthEvents = visibleEvents.flatMap((event) =>
+    occurrencesInRange(event, monthStart, monthEnd).map((monthOccurrence) => ({ ...event, monthOccurrence }))
+  );
   const householdEventDays = new Set(monthEvents.filter((event) => event.visibility === "household").map((event) => event.monthOccurrence.getDate()));
   const personalEventDays = new Set(monthEvents.filter((event) => event.visibility === "personal").map((event) => event.monthOccurrence.getDate()));
   const selectedMonthEvents = selectedMonthDay === null
@@ -315,7 +356,7 @@ export default function CalendarPage() {
                           {event.visibility === "personal" ? t("calendar_month_personal_legend") : t("calendar_month_household_legend")}
                         </span>
                       </div>
-                      {event.recurring && (
+                      {isRecurringCalendarEvent(event) && (
                         <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted"><Repeat size={12} />{t("calendar_recurring")}</div>
                       )}
                     </div>
@@ -375,10 +416,14 @@ export default function CalendarPage() {
 
             {showMoreOptions && (
               <div className="space-y-3 rounded-xl bg-paper/40 p-3">
-                <label className="flex items-center gap-2.5 text-sm text-ink">
-                  <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-                  {t("event_recurring")}
-                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setEventKind("event")} className={`rounded-xl border px-3 py-2 text-sm ${eventKind === "event" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_event")}</button>
+                  <button type="button" onClick={() => setEventKind("reminder")} className={`rounded-xl border px-3 py-2 text-sm ${eventKind === "reminder" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_reminder")}</button>
+                </div>
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat")}</label><select value={recurrenceFrequency} onChange={(e) => setRecurrenceFrequency(e.target.value as CalendarRecurrenceFrequency)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="none">{t("calendar_never")}</option><option value="daily">{t("calendar_daily")}</option><option value="weekly">{t("calendar_weekly")}</option><option value="monthly">{t("calendar_monthly")}</option><option value="yearly">{t("calendar_yearly")}</option></select></div>
+                {recurrenceFrequency !== "none" && <><div><label className="text-xs text-muted block mb-1.5">{t("calendar_interval")}</label><input type="number" min={1} max={999} value={recurrenceInterval} onChange={(e) => setRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /><div className="mt-1 text-[11px] text-muted">{recurrenceLabel({ event_date: eventDate || new Date().toISOString().slice(0,10), recurring: true, recurrence_frequency: recurrenceFrequency, recurrence_interval: recurrenceInterval } as CalendarEvent)}</div></div><div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat_end")}</label><input type="date" min={eventDate || undefined} value={recurrenceEndDate} onChange={(e) => setRecurrenceEndDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /><div className="mt-1 text-[11px] text-muted">{t("calendar_repeat_end_hint")}</div></div></>}
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_notes")}</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
                 <div>
                   <label className="text-xs text-muted block mb-1.5">{t("event_reminder_label")}</label>
                   <select
@@ -435,18 +480,18 @@ export default function CalendarPage() {
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-paper text-mustard" : "bg-mustardBg text-mustard"}`}>
-                        {e.visibility === "personal" ? <LockKeyhole size={17} /> : e.recurring ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
+                        {e.visibility === "personal" ? <LockKeyhole size={17} /> : isRecurringCalendarEvent(e) ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-ink truncate">{e.title}</div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted">
-                          <span>{formatEventDate(e.next)}</span>
+                          <span>{formatEventDate(e.next)}{e.event_time ? ` · ${e.event_time.slice(0,5)}` : ""}</span>
                           <span aria-hidden="true">·</span>
                           <span className={isToday ? "font-medium text-mustard" : ""}>{proximityLabel(e.next)}</span>
-                          {e.recurring && (
+                          {isRecurringCalendarEvent(e) && (
                             <>
                               <span aria-hidden="true">·</span>
-                              <span className="inline-flex items-center gap-1"><Repeat size={10} />{t("event_every_year")}</span>
+                              <span className="inline-flex items-center gap-1"><Repeat size={10} />{recurrenceLabel(e)}</span>
                             </>
                           )}
                         </div>
@@ -481,10 +526,11 @@ export default function CalendarPage() {
                           </button>
                           {showEditMoreOptions && (
                             <div className="space-y-3 rounded-xl bg-paper/40 p-3">
-                              <label className="flex items-center gap-2.5 text-sm text-ink">
-                                <input type="checkbox" checked={editRecurring} onChange={(event) => setEditRecurring(event.target.checked)} />
-                                {t("event_recurring")}
-                              </label>
+                              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setEditEventKind("event")} className={`rounded-xl border px-3 py-2 text-sm ${editEventKind === "event" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_event")}</button><button type="button" onClick={() => setEditEventKind("reminder")} className={`rounded-xl border px-3 py-2 text-sm ${editEventKind === "reminder" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_reminder")}</button></div>
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={editEventTime} onChange={(e) => setEditEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat")}</label><select value={editRecurrenceFrequency} onChange={(e) => setEditRecurrenceFrequency(e.target.value as CalendarRecurrenceFrequency)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="none">{t("calendar_never")}</option><option value="daily">{t("calendar_daily")}</option><option value="weekly">{t("calendar_weekly")}</option><option value="monthly">{t("calendar_monthly")}</option><option value="yearly">{t("calendar_yearly")}</option></select></div>
+                              {editRecurrenceFrequency !== "none" && <><div><label className="text-xs text-muted block mb-1.5">{t("calendar_interval")}</label><input type="number" min={1} max={999} value={editRecurrenceInterval} onChange={(e) => setEditRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div><div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat_end")}</label><input type="date" min={editDate || undefined} value={editRecurrenceEndDate} onChange={(e) => setEditRecurrenceEndDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div></>}
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_notes")}</label><textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={2} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
                               <div>
                                 <label className="text-xs text-muted block mb-1.5">{t("event_reminder_label")}</label>
                                 <select value={editReminderDays} onChange={(event) => setEditReminderDays(Number(event.target.value))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink">

@@ -30,7 +30,7 @@ test("Calendrier V2 donne une vue Mois utile avec navigation et deux portées", 
 test("Calendrier V2 ne perd pas les événements passés ni les récurrences en naviguant dans les mois", () => {
   assert.ok(calendar.includes("visibleEvents.flatMap"));
   assert.ok(calendar.includes("monthOccurrence"));
-  assert.ok(calendar.includes("Math.min(original.getDate(), lastDay)"));
+  assert.ok(calendar.includes("occurrencesInRange(event, monthStart, monthEnd)"));
   assert.ok(!calendar.includes("const monthEvents = upcoming.filter"));
 });
 
