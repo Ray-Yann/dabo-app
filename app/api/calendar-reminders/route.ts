@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
@@ -33,7 +33,7 @@ function occurrenceIso(event: CalendarEvent, onOrAfter: string) {
 }
 
 export async function GET(req: NextRequest) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Non autorisÃ©" }, { status: 401 });
   try { configureWebPush(); } catch { return NextResponse.json({ error: "Configuration push indisponible" }, { status: 503 }); }
 
   const db = createAdminClient();
@@ -73,10 +73,12 @@ export async function GET(req: NextRequest) {
       let delivered = false;
       for (const sub of subs || []) {
         try {
-          await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title: "Dabo — Rappel", body: event.title, url: "/app/calendrier" }));
+          await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title: "Dabo â€” Rappel", body: event.title, url: "/app/calendrier" }));
           sent++; delivered = true;
         } catch (e: unknown) {
-          const status = (e as {statusCode?:number}).statusCode;
+          const pushError = e as { statusCode?: number; message?: string; body?: string };
+          const status = pushError.statusCode;
+          console.error("[calendar-reminders] Web Push failed", { eventId: event.id, memberId, subscriptionId: sub.id, statusCode: status ?? null, message: pushError.message ?? null, body: pushError.body ?? null });
           if (status === 404 || status === 410) await db.from("push_subscriptions").delete().eq("id", sub.id);
         }
       }
@@ -85,3 +87,4 @@ export async function GET(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, due, sent, checked_at: now.toISOString() });
 }
+
