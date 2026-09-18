@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     .not("event_time", "is", null);
   if (error) return NextResponse.json({ error: "Lecture calendrier impossible" }, { status: 500 });
 
-  let sent = 0, due = 0;
+  let sent = 0, due = 0, membersFound = 0, subscriptionsFound = 0, claimFailures = 0, pushFailures = 0;
   for (const raw of events || []) {
     const event = raw as CalendarEvent;
     const tz = event.time_zone || "Europe/Brussels";
@@ -63,19 +63,22 @@ export async function GET(req: NextRequest) {
       memberIds = (members || []).map((m) => m.id);
     }
 
+    membersFound += memberIds.length;
     for (const memberId of memberIds) {
       const { error: claimError } = await db.from("calendar_reminder_deliveries").insert({
         event_id: event.id, member_id: memberId, occurrence_date: targetOccurrenceDate, reminder_days_before: event.reminder_days_before || 0,
       });
-      if (claimError) { if (claimError.code === "23505") continue; else continue; }
+      if (claimError) { claimFailures++; if (claimError.code === "23505") continue; else continue; }
 
       const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("member_id", memberId);
+      subscriptionsFound += (subs || []).length;
       let delivered = false;
       for (const sub of subs || []) {
         try {
           await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title: "Dabo â€” Rappel", body: event.title, url: "/app/calendrier" }));
           sent++; delivered = true;
         } catch (e: unknown) {
+          pushFailures++;
           const pushError = e as { statusCode?: number; message?: string; body?: string };
           const status = pushError.statusCode;
           console.error("[calendar-reminders] Web Push failed", { eventId: event.id, memberId, subscriptionId: sub.id, statusCode: status ?? null, message: pushError.message ?? null, body: pushError.body ?? null });
@@ -85,6 +88,7 @@ export async function GET(req: NextRequest) {
       if (!delivered) await db.from("calendar_reminder_deliveries").delete().eq("event_id", event.id).eq("member_id", memberId).eq("occurrence_date", targetOccurrenceDate).eq("reminder_days_before", event.reminder_days_before || 0);
     }
   }
-  return NextResponse.json({ ok: true, due, sent, checked_at: now.toISOString() });
+  return NextResponse.json({ ok: true, due, sent, membersFound, subscriptionsFound, claimFailures, pushFailures, checked_at: now.toISOString() });
 }
+
 
