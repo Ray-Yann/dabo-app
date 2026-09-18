@@ -75,6 +75,7 @@ export default function CalendarPage() {
       recurrence_interval: recurrenceInterval,
       recurrence_end_date: recurrenceEndDate || null,
       event_time: eventTime || null,
+      time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       all_day: !eventTime,
       notes: notes.trim() || null,
       event_kind: eventKind,
@@ -158,6 +159,7 @@ export default function CalendarPage() {
         recurrence_interval: editRecurrenceInterval,
         recurrence_end_date: editRecurrenceEndDate || null,
         event_time: editEventTime || null,
+        time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         all_day: !editEventTime,
         notes: editNotes.trim() || null,
         event_kind: editEventKind,
@@ -449,7 +451,7 @@ export default function CalendarPage() {
               disabled={!title.trim() || !eventDate}
               className="flex-1 bg-ink text-paper rounded-xl py-2.5 text-sm font-medium disabled:opacity-40"
             >
-              {t("calendar_add_event")}
+              {t(eventKind === "reminder" ? "calendar_add_reminder" : "calendar_add_event")}
             </button>
             <button
               onClick={() => { setShowAdd(false); setShowMoreOptions(false); }}

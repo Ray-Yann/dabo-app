@@ -114,6 +114,7 @@ export type CalendarEvent = {
   recurrence_interval?: number;
   recurrence_end_date?: string | null;
   event_time?: string | null;
+  time_zone?: string | null;
   all_day?: boolean;
   notes?: string | null;
   event_kind?: "event" | "reminder";
