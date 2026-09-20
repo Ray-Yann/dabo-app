@@ -23,9 +23,13 @@ Fichier :
 
 `lib/task-contributions.ts`
 
-Fonction principale :
+Fonctions principales :
 
 `computeContributionMemberPoints()`
+: calcule les points de contribution réellement accomplis par membre.
+
+`computeContributionPeriodSnapshot()`
+: construit une vue canonique d'une période donnée avec les contributions confirmées, les points par membre, les pourcentages et la part la plus élevée.
 
 Le calcul prend notamment en compte :
 
@@ -216,12 +220,15 @@ Le cycle de vie des signaux d'attention est géré séparément par :
 Chaîne canonique :
 
 `task_contributions`
+→ `computeContributionPeriodSnapshot()`
 → `computeContributionMemberPoints()`
 → `computeHouseholdInsights()`
 → interprétations de présentation.
 
+`computeContributionPeriodSnapshot()` fournit la vue de période commune utilisée par les moteurs de Bilan et d'Insights.
+
 `lib/household-weekly-report.ts`
-utilise également la primitive canonique de contribution pour construire le bilan hebdomadaire.
+utilise cette même primitive canonique de période pour construire le bilan hebdomadaire.
 
 `lib/household-recognition.ts`
 consomme les résultats du bilan et des insights.
