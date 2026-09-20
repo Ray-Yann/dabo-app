@@ -233,7 +233,7 @@ export default function TodayPage() {
     if (!household || !me) return [];
     const today = todayCivilDate();
     const insightCandidates = daboInsightAttentionCandidates(
-      todayHouseholdIntelligence ? daboInsights.filter((insight) => insight.type !== "balance") : daboInsights,
+      daboInsights,
       household.id
     );
     const candidates = [
@@ -314,18 +314,6 @@ export default function TodayPage() {
         message: t(insight.messageKey).replace("{event}", event?.title || t("calendar_title")),
         reason: t(insight.reasonKey),
         href: "/app/calendrier",
-      };
-    }
-
-    if (insight.type === "balance") {
-      return {
-        icon: Scale,
-        title: t(insight.titleKey),
-        message: t(insight.messageKey),
-        reason: t(insight.reasonKey)
-          .replace("{share}", String(insight.metadata?.highestShare ?? ""))
-          .replace("{count}", String(insight.metadata?.completedTaskCount ?? "")),
-        href: "/app/equilibre",
       };
     }
 

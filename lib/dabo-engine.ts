@@ -1,10 +1,8 @@
 import type { CalendarEvent, Member, Routine, Task } from "@/lib/types";
-import { computeMemberPercentages } from "@/lib/utils";
 
 export type DaboInsightType =
   | "overdue_task"
   | "upcoming_event"
-  | "balance"
   | "assignment";
 
 export type DaboInsightSeverity = "info" | "gentle" | "important";
@@ -37,9 +35,6 @@ export type DaboEngineInput = {
 export const DABO_ENGINE_RULES = {
   balanceWindowDays: 7,
   upcomingEventDays: 3,
-  minCompletedTasksForBalance: 4,
-  gentleBalanceShare: 60,
-  importantBalanceShare: 70,
 } as const;
 
 const MS_PER_DAY = 86_400_000;
@@ -215,39 +210,6 @@ function buildUpcomingEventInsights(events: CalendarEvent[], today: string): Dab
   });
 }
 
-function buildBalanceInsight(members: Member[], tasks: Task[], today: string): DaboInsight[] {
-  if (members.length < 2) return [];
-
-  const recent = completedTasksInBalanceWindow(tasks, today);
-  if (recent.length < DABO_ENGINE_RULES.minCompletedTasksForBalance) return [];
-
-  const points = recentPointsByMember(members, tasks, today);
-  const pointsArray = members.map((member) => ({ id: member.id, pts: points.get(member.id) ?? 0 }));
-  const percentages = computeMemberPercentages(pointsArray);
-  const highest = members
-    .map((member) => ({ member, share: percentages.get(member.id) ?? 0 }))
-    .sort((a, b) => b.share - a.share)[0];
-
-  if (!highest || highest.share < DABO_ENGINE_RULES.gentleBalanceShare) return [];
-
-  const important = highest.share >= DABO_ENGINE_RULES.importantBalanceShare;
-  return [{
-    id: `balance:${startOfBalanceWindow(today)}:${today}`,
-    type: "balance",
-    priority: important ? 65 : 55,
-    severity: important ? "important" : "gentle",
-    titleKey: important ? "dabo_insight_balance_important_title" : "dabo_insight_balance_title",
-    messageKey: important ? "dabo_insight_balance_important_message" : "dabo_insight_balance_message",
-    reasonKey: "dabo_insight_balance_reason",
-    metadata: {
-      windowDays: DABO_ENGINE_RULES.balanceWindowDays,
-      completedTaskCount: recent.length,
-      highestShare: highest.share,
-      highestMemberId: highest.member.id,
-    },
-  }];
-}
-
 function buildAssignmentInsights(
   members: Member[],
   tasks: Task[],
@@ -290,7 +252,6 @@ export function generateDaboInsights(input: DaboEngineInput): DaboInsight[] {
   return [
     ...buildOverdueInsights(input.tasks, input.today),
     ...buildUpcomingEventInsights(input.calendarEvents, input.today),
-    ...buildBalanceInsight(input.members, input.tasks, input.today),
     ...buildAssignmentInsights(input.members, input.tasks, routines, input.today),
   ].sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
 }

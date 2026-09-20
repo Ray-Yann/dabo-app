@@ -41,7 +41,3 @@ test("Aujourd’hui Intelligence V1 reste sous les urgences existantes et ouvre 
   assert.doesNotMatch(engine, /supabase|openai|anthropic|fetch\s*\(/i);
 });
 
-test("Aujourd’hui Intelligence V1 évite de dupliquer l’ancien signal balance", () => {
-  const source = readFileSync("app/app/page.tsx", "utf8");
-  assert.match(source, /daboInsights\.filter\(\(insight\) => insight\.type !== "balance"\)/);
-});

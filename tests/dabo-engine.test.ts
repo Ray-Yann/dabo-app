@@ -119,22 +119,6 @@ test("reporte au 28 février un anniversaire récurrent créé le 29 février", 
   assert.equal(upcoming?.metadata?.daysAway, 1);
 });
 
-test("détecte un déséquilibre seulement avec au moins quatre tâches récentes", () => {
-  const completed = [0, 1, 2, 3].map((index) => task({
-    id: `done-${index}`,
-    name: `Tâche ${index}`,
-    status: "done",
-    assigned_to: index < 3 ? ray.id : manga.id,
-    completed_at: `2026-09-0${index + 3}T12:00:00.000Z`,
-    weight_points: 10,
-  }));
-
-  const insights = generateDaboInsights({ members: [ray, manga], tasks: completed, calendarEvents: [], today: TODAY });
-  const balance = insights.find((insight) => insight.type === "balance");
-  assert.equal(balance?.severity, "important");
-  assert.equal(balance?.metadata?.highestShare, 75);
-});
-
 test("suggère le membre ayant le moins contribué récemment", () => {
   const pending = task({ id: "pending", name: "Aspirateur" });
   const history = [0, 1, 2, 3].map((index) => task({

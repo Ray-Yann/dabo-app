@@ -209,7 +209,7 @@ export function shoppingSessionAttentionCandidate(
 export function daboInsightAttentionCandidates(insights: DaboInsight[], householdId: string): AttentionCandidate[] {
   return insights.flatMap((insight) => {
     if (insight.type === "overdue_task") return []; // task adapter is the single source for task urgency.
-    const source: AttentionSource = insight.type === "upcoming_event" ? "calendar" : insight.type === "balance" ? "balance" : "tasks";
+    const source: AttentionSource = insight.type === "upcoming_event" ? "calendar" : "tasks";
     const level: AttentionLevel = insight.type === "upcoming_event"
       ? ((Number(insight.metadata?.daysAway ?? 99) <= 1) ? "anticipate" : "information")
       : "suggestion";
@@ -222,7 +222,7 @@ export function daboInsightAttentionCandidates(insights: DaboInsight[], househol
       priority: insight.priority,
       title: insight.titleKey,
       reason: insight.reasonKey,
-      action: insight.type === "upcoming_event" ? "open_calendar" : insight.type === "balance" ? "open_balance" : "open_tasks",
+      action: insight.type === "upcoming_event" ? "open_calendar" : "open_tasks",
       relatedEntityId: insight.relatedEntityId,
       dueAt: typeof insight.metadata?.eventDate === "string" ? insight.metadata.eventDate : null,
       dedupeKey: `${insight.type}:${insight.relatedEntityId ?? insight.id}`,
