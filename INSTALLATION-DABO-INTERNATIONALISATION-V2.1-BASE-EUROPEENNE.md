@@ -14,7 +14,7 @@ Langues ajoutées: Deutsch (DE), Español (ES), Italiano (IT), Português (PT-PT
 5. Résultat attendu: `DE 547/547 · ES 547/547 · IT 547/547 · PT 547/547`.
 6. Lancer `npm run verify`.
 7. Si tout est PASS, exécuter dans Supabase SQL Editor la migration:
-   `supabase-migrations/2026-09-10-internationalisation-v2-1-seven-languages.sql`
+   `supabase/migrations/2026-09-10-internationalisation-v2-1-seven-languages.sql`
 8. Commit/push seulement après ces validations.
 
 ## Sécurité

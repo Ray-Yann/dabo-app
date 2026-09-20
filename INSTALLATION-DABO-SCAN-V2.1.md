@@ -5,7 +5,7 @@ Décompresser le ZIP à la racine de `dabo-app` et accepter les remplacements.
 
 ## 2. Supabase — migration ciblée obligatoire
 Dans Supabase > SQL Editor, exécuter **uniquement** :
-`supabase-migrations/2026-09-09-dabo-scan-receipts.sql`
+`supabase/migrations/2026-09-09-dabo-scan-receipts.sql`
 
 Ne pas exécuter `supabase-schema.sql`.
 

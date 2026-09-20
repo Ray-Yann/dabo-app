@@ -15,7 +15,7 @@ Base de départ : `dabo-app-PROPRE-20260912-080246.zip`
 
 ### 1. Supabase
 Exécuter uniquement la migration :
-`supabase-migrations/2026-09-12-security-households-v1.sql`
+`supabase/migrations/2026-09-12-security-households-v1.sql`
 
 Ne pas relancer `supabase-schema.sql`.
 

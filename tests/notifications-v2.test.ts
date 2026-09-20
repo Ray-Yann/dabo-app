@@ -39,7 +39,7 @@ test("Notifications V2 produit un digest unique et ouvre directement le bon ongl
 test("Notifications V2 déduplique le Cron et transmet une destination au Service Worker", () => {
   const route = fs.readFileSync("app/api/daily-reminders/route.ts", "utf8");
   const sw = fs.readFileSync("public/sw.js", "utf8");
-  const migration = fs.readFileSync("supabase-migrations/2026-09-11-notifications-v2-dedup.sql", "utf8");
+  const migration = fs.readFileSync("supabase/migrations/2026-09-11-notifications-v2-dedup.sql", "utf8");
   assert.match(route, /notification_deliveries/);
   assert.match(route, /claimError\.code === "23505"/);
   assert.match(route, /JSON\.stringify\(\{ title, body, url: digest\.url \}\)/);

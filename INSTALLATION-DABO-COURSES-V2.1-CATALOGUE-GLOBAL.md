@@ -7,7 +7,7 @@ Les courses, quantités, assignations, habitudes, membres et identifiants de foy
 
 ## Installation
 1. Dans Supabase > SQL Editor > New query, exécuter intégralement :
-   `supabase-migrations/2026-09-10-courses-v2-1-global-stores.sql`
+   `supabase/migrations/2026-09-10-courses-v2-1-global-stores.sql`
 2. Vérifier : `Success. No rows returned`.
 3. Copier le patch dans `dabo-app` si ce document provient du ZIP patch.
 4. Dans PowerShell, à la racine de `dabo-app` :

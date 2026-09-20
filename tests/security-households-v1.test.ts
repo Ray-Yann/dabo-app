@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 
-const migration = readFileSync("supabase-migrations/2026-09-12-security-households-v1.sql", "utf8");
+const migration = readFileSync("supabase/migrations/2026-09-12-security-households-v1.sql", "utf8");
 const onboarding = readFileSync("app/page.tsx", "utf8");
 const switcher = readFileSync("components/HouseholdSwitcher.tsx", "utf8");
 

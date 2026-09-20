@@ -11,7 +11,7 @@
 ## Installation
 1. Copier le contenu du ZIP à la racine de `dabo-app` et accepter les remplacements.
 2. Lancer `npm run verify`.
-3. Si tout est PASS, exécuter uniquement `supabase-migrations/2026-09-10-loba-finance-v1.sql` dans Supabase SQL Editor.
+3. Si tout est PASS, exécuter uniquement `supabase/migrations/2026-09-10-loba-finance-v1.sql` dans Supabase SQL Editor.
 4. Commit/push via GitHub Desktop puis attendre Vercel Ready.
 5. Valider en production séparément : lecture, ajout dépense, ajout facture, paiement facture et absence d'écriture avant confirmation.
 

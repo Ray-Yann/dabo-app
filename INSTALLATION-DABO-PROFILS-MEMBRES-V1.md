@@ -8,7 +8,7 @@ Finaliser la fonction avatar déjà présente sans ajouter de complexité : les 
 ## Installation
 1. Copier les fichiers du patch dans `dabo-app` en conservant l'arborescence.
 2. Dans Supabase > SQL Editor, exécuter **uniquement** :
-   `supabase-migrations/2026-09-11-member-profiles-v1-private-avatars.sql`
+   `supabase/migrations/2026-09-11-member-profiles-v1-private-avatars.sql`
 3. Ne pas rejouer `supabase-schema.sql` ni les anciennes migrations.
 4. Lancer `npm run verify`.
 5. Ne pousser sur GitHub qu'après validation complète.

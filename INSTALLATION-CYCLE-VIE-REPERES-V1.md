@@ -17,5 +17,5 @@ Patch minimal à copier-coller.
 Copier `app`, `lib`, `tests` et `supabase-migrations` à la racine de `dabo-app`.
 
 IMPORTANT : avant le test production, exécuter la migration
-`supabase-migrations/2026-09-16-household-attention-lifecycle-v1.sql`
+`supabase/migrations/2026-09-16-household-attention-lifecycle-v1.sql`
 dans Supabase SQL Editor.

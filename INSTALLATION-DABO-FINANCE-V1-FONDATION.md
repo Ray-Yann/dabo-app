@@ -20,7 +20,7 @@ Première étape du chantier Factures & Budget. Cette étape pose le modèle de 
 1. Copier le contenu de ce ZIP directement à la racine de `dabo-app`.
 2. Lancer `npm run verify`.
 3. Si tout est vert, ouvrir Supabase SQL Editor.
-4. Exécuter **uniquement** `supabase-migrations/2026-09-09-finance-v1-foundation.sql`.
+4. Exécuter **uniquement** `supabase/migrations/2026-09-09-finance-v1-foundation.sql`.
 5. Attendre `Success. No rows returned` avant le commit/push.
 
 Ne jamais exécuter `supabase-schema.sql` pour cette étape.

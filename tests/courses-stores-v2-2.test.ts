@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const page = fs.readFileSync("app/app/courses/page.tsx", "utf8");
 const settings = fs.readFileSync("app/app/reglages/page.tsx", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-10-courses-v2-2-stores-by-country.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-10-courses-v2-2-stores-by-country.sql", "utf8");
 
 test("Courses V2.2 + UX Light V1.2.1 utilise uniquement le catalogue vérifié du pays dans le sélecteur", () => {
   assert.match(page, /VERIFIED_STORE_SUPPLEMENTS\[household\?\.country_code/);

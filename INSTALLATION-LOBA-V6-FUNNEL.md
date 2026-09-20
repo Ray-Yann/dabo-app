@@ -5,7 +5,7 @@ Cette version mesure les nouveaux parcours sans reconstruire artificiellement l�
 ## Ordre d’installation
 
 1. Dans Supabase > SQL Editor, exécuter uniquement :
-   `supabase-migrations/2026-09-08-acquisition-funnel.sql`
+   `supabase/migrations/2026-09-08-acquisition-funnel.sql`
 2. Copier les fichiers du correctif dans le projet DABO en conservant les dossiers.
 3. Dans PowerShell, à la racine de `dabo-app` :
    `npm run verify`

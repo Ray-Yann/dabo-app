@@ -5,7 +5,7 @@ Base: dabo-app-PROPRE-20260912-015752.zip
 ## Installation
 1. Copier le contenu du patch à la racine de `dabo-app`.
 2. Dans Supabase SQL Editor, exécuter uniquement :
-   `supabase-migrations/2026-09-12-onboarding-v3-tutorial-preferences.sql`
+   `supabase/migrations/2026-09-12-onboarding-v3-tutorial-preferences.sql`
 3. Lancer `npm run verify`.
 
 ## Comportement

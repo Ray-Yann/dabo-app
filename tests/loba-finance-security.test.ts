@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const route = fs.readFileSync("app/api/loba/household/route.ts", "utf8");
 const helper = fs.readFileSync("lib/supabase-admin.ts", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-10-loba-finance-rls-authenticated.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-10-loba-finance-rls-authenticated.sql", "utf8");
 
 test("LOBA Finance utilise un client JWT soumis aux RLS", () => {
   assert.match(helper, /export function createUserClient\(token: string\)/);

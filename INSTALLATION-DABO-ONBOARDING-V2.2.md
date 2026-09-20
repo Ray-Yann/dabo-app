@@ -2,7 +2,7 @@
 
 1. Copier le contenu de ce patch à la racine du projet DABO en remplaçant `app/page.tsx`.
 2. Dans Supabase SQL Editor, exécuter **uniquement** :
-   `supabase-migrations/2026-09-11-onboarding-v2-2-safe-join-role.sql`
+   `supabase/migrations/2026-09-11-onboarding-v2-2-safe-join-role.sql`
 3. Lancer :
    `npm run verify`
 4. Commit/Push uniquement après validation complète.

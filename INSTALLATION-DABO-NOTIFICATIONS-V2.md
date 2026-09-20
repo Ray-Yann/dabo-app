@@ -20,7 +20,7 @@ Base : dabo-app-PROPRE-20260911-005245.zip
 
 ## Migration Supabase obligatoire
 Exécuter UNE SEULE FOIS :
-`supabase-migrations/2026-09-11-notifications-v2-dedup.sql`
+`supabase/migrations/2026-09-11-notifications-v2-dedup.sql`
 
 Ne pas exécuter `supabase-schema.sql`.
 

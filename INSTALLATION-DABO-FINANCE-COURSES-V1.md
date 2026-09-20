@@ -16,7 +16,7 @@ Ce lot relie les achats réels de Courses au Budget sans demander le prix de cha
 1. Copier le contenu de ce ZIP à la racine de `dabo-app`.
 2. Lancer `npm run verify`.
 3. Si la validation locale est PASS, exécuter uniquement :
-   `supabase-migrations/2026-09-09-finance-v1-shopping-bridge.sql`
+   `supabase/migrations/2026-09-09-finance-v1-shopping-bridge.sql`
 4. Ensuite seulement : GitHub Desktop → commit → push → Vercel.
 5. Tester en production sur une petite session Courses.
 

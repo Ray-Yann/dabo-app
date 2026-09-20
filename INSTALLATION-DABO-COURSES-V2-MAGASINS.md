@@ -4,7 +4,7 @@
 Permettre d’indiquer où acheter chaque article, apprendre les nouveaux magasins du foyer et regrouper la liste par magasin.
 
 ## Installation
-1. Dans Supabase SQL Editor, exécuter uniquement `supabase-migrations/2026-09-10-courses-v2-stores.sql`.
+1. Dans Supabase SQL Editor, exécuter uniquement `supabase/migrations/2026-09-10-courses-v2-stores.sql`.
 2. Remplacer les fichiers applicatifs par ceux de ce lot.
 3. Commit / push puis attendre `Vercel Ready`.
 

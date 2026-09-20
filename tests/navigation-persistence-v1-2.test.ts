@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const nav = fs.readFileSync("components/DaboMainNav.tsx", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-11-navigation-preferences-grants.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-11-navigation-preferences-grants.sql", "utf8");
 
 test("Navigation Persistence V1.2 accorde les vrais droits SQL au rôle authentifié", () => {
   assert.match(migration, /grant select, insert, update[\s\S]*on table public\.user_navigation_preferences[\s\S]*to authenticated;/);

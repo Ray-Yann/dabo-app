@@ -6,7 +6,7 @@ Ce correctif part de DABO Finance V1 Fondation déjà validée (59/59 tests, Sup
 - `app/app/equilibre/budget/page.tsx` : vraie interface Budget reliée aux tables Finance Supabase.
 - `app/app/equilibre/page.tsx` : sélecteur Organisation / Budget sans 7e onglet principal.
 - `app/app/layout.tsx` : garde Équilibre actif dans la navigation sur la sous-page Budget.
-- `supabase-migrations/2026-09-09-finance-v1-ui.sql` : fonction atomique pour payer une facture sans double comptage.
+- `supabase/migrations/2026-09-09-finance-v1-ui.sql` : fonction atomique pour payer une facture sans double comptage.
 
 ## Fonctionnalités de ce lot
 - cockpit Déjà dépensé / Encore à payer / Engagements connus ;
@@ -24,7 +24,7 @@ Ce correctif part de DABO Finance V1 Fondation déjà validée (59/59 tests, Sup
 ## Ordre de validation
 1. Copier le contenu à la racine de `dabo-app`.
 2. `npm run verify`.
-3. Seulement si tout est vert, exécuter `supabase-migrations/2026-09-09-finance-v1-ui.sql` dans Supabase SQL Editor.
+3. Seulement si tout est vert, exécuter `supabase/migrations/2026-09-09-finance-v1-ui.sql` dans Supabase SQL Editor.
 4. GitHub Desktop : Summary `Ajoute l’interface Budget de DABO Finance V1`.
 5. Commit / Push.
 6. Attendre Vercel Ready.

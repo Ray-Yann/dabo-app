@@ -62,7 +62,7 @@ test("Cycle repères V1 utilise une temporisation déterministe de trois jours",
 });
 
 test("Cycle repères V1 persiste par utilisateur et foyer avec RLS", () => {
-  const migration = readFileSync("supabase-migrations/2026-09-16-household-attention-lifecycle-v1.sql", "utf8");
+  const migration = readFileSync("supabase/migrations/2026-09-16-household-attention-lifecycle-v1.sql", "utf8");
   assert.match(migration, /user_id = auth\.uid\(\)/);
   assert.match(migration, /m\.household_id = household_attention_receipts\.household_id/);
   assert.match(migration, /unique \(household_id, user_id, signal_key\)/);

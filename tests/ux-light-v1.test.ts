@@ -13,7 +13,7 @@ test("UX Light V1 garde Aujourd'hui et Plus fixes avec quatre onglets personnali
 });
 
 test("UX Light V1 synchronise la navigation par utilisateur", () => {
-  const migration = read("supabase-migrations/2026-09-11-ux-light-v1-navigation-preferences.sql");
+  const migration = read("supabase/migrations/2026-09-11-ux-light-v1-navigation-preferences.sql");
   assert.match(migration, /user_navigation_preferences/);
   assert.match(migration, /auth\.uid\(\) = user_id/);
   assert.match(migration, /cardinality\(pinned_tabs\) = 4/);

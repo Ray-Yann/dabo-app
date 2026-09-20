@@ -1,6 +1,6 @@
 # DABO Courses V2.2 — Magasins par pays
 
-1. Exécuter `supabase-migrations/2026-09-10-courses-v2-2-stores-by-country.sql` dans Supabase SQL Editor.
+1. Exécuter `supabase/migrations/2026-09-10-courses-v2-2-stores-by-country.sql` dans Supabase SQL Editor.
 2. Copier le patch à la racine de `dabo-app`.
 3. Lancer `npm run verify`.
 4. GitHub Desktop : Summary `Courses V2.2 - magasins adaptes au pays du foyer` puis Commit/Push.

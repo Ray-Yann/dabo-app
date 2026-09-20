@@ -5,7 +5,7 @@ import fs from "node:fs";
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
 test("Onboarding V3 persiste le choix global du tutoriel par utilisateur avec RLS", () => {
-  const sql = read("supabase-migrations/2026-09-12-onboarding-v3-tutorial-preferences.sql");
+  const sql = read("supabase/migrations/2026-09-12-onboarding-v3-tutorial-preferences.sql");
   assert.match(sql, /user_tutorial_preferences/);
   assert.match(sql, /auth\.uid\(\) = user_id/);
   assert.match(sql, /grant select, insert, update/);

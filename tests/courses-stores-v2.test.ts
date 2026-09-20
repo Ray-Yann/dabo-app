@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const page = fs.readFileSync("app/app/courses/page.tsx", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-10-courses-v2-stores.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-10-courses-v2-stores.sql", "utf8");
 
 test("Courses V2 stores: custom store is persisted for the household", () => {
   assert.match(page, /from\("household_stores"\)[\s\S]{0,120}\.insert/);

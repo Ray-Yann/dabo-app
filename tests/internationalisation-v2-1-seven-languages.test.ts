@@ -6,7 +6,7 @@ const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 const languages = fs.readFileSync("lib/languages.ts", "utf8");
 const types = fs.readFileSync("lib/types.ts", "utf8");
 const countries = fs.readFileSync("lib/countries.ts", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-10-internationalisation-v2-1-seven-languages.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-10-internationalisation-v2-1-seven-languages.sql", "utf8");
 
 function extractLanguageCatalog(lang: string): Record<string, string> {
   const startMatch = new RegExp(`\\b${lang}:\\s*\\{`).exec(i18n);

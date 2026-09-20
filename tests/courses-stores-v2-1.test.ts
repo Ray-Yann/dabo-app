@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const page = fs.readFileSync("app/app/courses/page.tsx", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-10-courses-v2-1-global-stores.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-10-courses-v2-1-global-stores.sql", "utf8");
 
 test("Courses V2.1: le catalogue partagé historique reste compatible en base", () => {
   assert.match(migration, /create table if not exists public\.global_stores/);

@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const countries = fs.readFileSync("lib/countries.ts", "utf8");
 const settings = fs.readFileSync("app/app/reglages/page.tsx", "utf8");
-const migration = fs.readFileSync("supabase-migrations/2026-09-10-internationalisation-v1-all-countries.sql", "utf8");
+const migration = fs.readFileSync("supabase/migrations/2026-09-10-internationalisation-v1-all-countries.sql", "utf8");
 
 test("Internationalisation V1 couvre un catalogue mondial ISO", () => {
   for (const code of ["BE", "FR", "NL", "GB", "CM", "US", "CA", "BR", "JP", "ZA", "AU", "IN"]) assert.match(countries, new RegExp(`\\b${code}\\b`));

@@ -1,7 +1,7 @@
 # DABO UX Light V1
 
 1. Copier le contenu du patch à la racine de `dabo-app`.
-2. Exécuter dans Supabase SQL Editor uniquement `supabase-migrations/2026-09-11-ux-light-v1-navigation-preferences.sql`.
+2. Exécuter dans Supabase SQL Editor uniquement `supabase/migrations/2026-09-11-ux-light-v1-navigation-preferences.sql`.
 3. Lancer `npm run verify`.
 4. Après validation, commit/push puis attendre Vercel Ready.
 

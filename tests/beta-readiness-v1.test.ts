@@ -34,7 +34,7 @@ test("Beta Readiness V1 protège le départ du créateur par transfert", () => {
 });
 
 test("Beta Readiness V1 conserve les garde-fous onboarding et rappels", () => {
-  const joinMigration = read("supabase-migrations/2026-09-11-onboarding-v2-2-safe-join-role.sql");
+  const joinMigration = read("supabase/migrations/2026-09-11-onboarding-v2-2-safe-join-role.sql");
   const reminders = read("app/api/daily-reminders/route.ts");
   assert.match(joinMigration, /SECURITY DEFINER/i);
   assert.match(joinMigration, /authenticated/i);

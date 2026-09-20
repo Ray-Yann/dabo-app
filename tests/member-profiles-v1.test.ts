@@ -7,7 +7,7 @@ const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("Profils membres V1 rend le bucket avatar privé sans perdre les photos historiques", () => {
-  const sql = read("supabase-migrations/2026-09-11-member-profiles-v1-private-avatars.sql");
+  const sql = read("supabase/migrations/2026-09-11-member-profiles-v1-private-avatars.sql");
   assert.match(sql, /add column if not exists avatar_path text/i);
   assert.match(sql, /split_part\(avatar_url, '\/storage\/v1\/object\/public\/member-avatars\//i);
   assert.match(sql, /set public = false/i);

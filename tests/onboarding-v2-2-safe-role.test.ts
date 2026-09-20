@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const page = readFileSync("app/page.tsx", "utf8");
-const migration = readFileSync("supabase-migrations/2026-09-11-onboarding-v2-2-safe-join-role.sql", "utf8");
+const migration = readFileSync("supabase/migrations/2026-09-11-onboarding-v2-2-safe-join-role.sql", "utf8");
 
 test("Onboarding V2.2 attribue le rôle lors de la jointure côté base et non via un count RLS client", () => {
   assert.match(page, /rpc\("join_household_by_invite"/);

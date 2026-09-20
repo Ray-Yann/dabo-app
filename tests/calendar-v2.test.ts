@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const calendar = fs.readFileSync("app/app/calendrier/page.tsx", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
-const privacy = fs.readFileSync("supabase-migrations/2026-09-07-personal-calendar.sql", "utf8");
+const privacy = fs.readFileSync("supabase/migrations/2026-09-07-personal-calendar.sql", "utf8");
 
 test("Calendrier V2 rend le partage explicite au moment de créer un événement", () => {
   assert.ok(calendar.includes('newVisibility'));
