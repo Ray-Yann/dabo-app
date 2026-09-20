@@ -81,3 +81,30 @@ test("Insights V1 respecte share_weight dans le calcul de la repartition", () =>
   assert.equal(result.currentCount, 4);
   assert.equal(result.currentHighestShare, 57);
 });
+
+
+test("Insights V1 ignore les contributions sans participant actif pour la suffisance des données", () => {
+  const rows = [
+    contribution("c1", "2026-09-08"),
+    contribution("c2", "2026-09-09"),
+    contribution("c3", "2026-09-10"),
+    contribution("orphan", "2026-09-11"),
+  ];
+  const ps = [
+    participant("c1", "a"),
+    participant("c2", "a"),
+    participant("c3", "b"),
+  ];
+
+  const result = computeHouseholdInsights(
+    members,
+    rows,
+    ps,
+    new Date("2026-09-11T12:00:00")
+  );
+
+  assert.equal(result.currentCount, 3);
+  assert.equal(result.enoughCurrentData, false);
+  assert.equal(result.currentHighestShare, null);
+  assert.equal(result.trend, "building");
+});

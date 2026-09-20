@@ -49,10 +49,10 @@ export function computeHouseholdInsights(
   });
   const currentHighestShare = current.highestShare;
   const previousHighestShare = previous.highestShare;
-  const enoughCurrentData = current.rows.length >= MIN_CONTRIBUTIONS;
+  const enoughCurrentData = current.confirmedContributions >= MIN_CONTRIBUTIONS;
   const enoughComparisonData =
     enoughCurrentData &&
-    previous.rows.length >= MIN_CONTRIBUTIONS;
+    previous.confirmedContributions >= MIN_CONTRIBUTIONS;
 
   let trend: HouseholdTrend = "building";
   if (enoughComparisonData && currentHighestShare !== null && previousHighestShare !== null) {
@@ -64,8 +64,8 @@ export function computeHouseholdInsights(
 
   return {
     trend,
-    currentCount: current.rows.length,
-    previousCount: previous.rows.length,
+    currentCount: current.confirmedContributions,
+    previousCount: previous.confirmedContributions,
     currentHighestShare,
     previousHighestShare,
     enoughCurrentData,
