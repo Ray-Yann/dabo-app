@@ -307,16 +307,6 @@ export default function TodayPage() {
       ? members.find((member) => member.id === insight.suggestedMemberId)
       : undefined;
 
-    if (insight.type === "overdue_task") {
-      return {
-        icon: Clock3,
-        title: t(insight.titleKey),
-        message: t(insight.messageKey).replace("{task}", task?.name || t("tasks_title")),
-        reason: t(insight.reasonKey),
-        href: "/app/taches",
-      };
-    }
-
     if (insight.type === "upcoming_event") {
       return {
         icon: CalendarDays,

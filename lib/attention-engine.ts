@@ -208,7 +208,6 @@ export function shoppingSessionAttentionCandidate(
 /** Converts existing deterministic DABO insights without asking AI to reprioritize them. */
 export function daboInsightAttentionCandidates(insights: DaboInsight[], householdId: string): AttentionCandidate[] {
   return insights.flatMap((insight) => {
-    if (insight.type === "overdue_task") return []; // task adapter is the single source for task urgency.
     const source: AttentionSource = insight.type === "upcoming_event" ? "calendar" : "tasks";
     const level: AttentionLevel = insight.type === "upcoming_event"
       ? ((Number(insight.metadata?.daysAway ?? 99) <= 1) ? "anticipate" : "information")

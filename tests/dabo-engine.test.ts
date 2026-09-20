@@ -62,34 +62,8 @@ function event(overrides: Partial<CalendarEvent> & Pick<CalendarEvent, "id" | "t
 const ray = member("ray", 0);
 const manga = member("manga", 1);
 
-test("signale une tâche en retard avec le bon niveau de priorité", () => {
-  const insights = generateDaboInsights({
-    members: [ray, manga],
-    tasks: [task({ id: "late", name: "Sortir les poubelles", due_date: "2026-09-04" })],
-    calendarEvents: [],
-    contributionPointsByMember: new Map([[ray.id, 0], [manga.id, 0]]),
-    today: TODAY,
-  });
 
-  const overdue = insights.find((insight) => insight.type === "overdue_task");
-  assert.equal(overdue?.severity, "important");
-  assert.equal(overdue?.metadata?.daysLate, 3);
-});
 
-test("ignore une tâche à venir et une tâche déjà terminée", () => {
-  const insights = generateDaboInsights({
-    members: [ray, manga],
-    tasks: [
-      task({ id: "future", name: "À venir", due_date: "2026-09-08" }),
-      task({ id: "done", name: "Terminée", due_date: "2026-09-01", status: "done", completed_at: "2026-09-02T10:00:00.000Z", assigned_to: ray.id }),
-    ],
-    calendarEvents: [],
-    contributionPointsByMember: new Map([[ray.id, 0], [manga.id, 0]]),
-    today: TODAY,
-  });
-
-  assert.equal(insights.some((insight) => insight.type === "overdue_task"), false);
-});
 
 test("signale uniquement les événements situés dans les trois prochains jours", () => {
   const insights = generateDaboInsights({

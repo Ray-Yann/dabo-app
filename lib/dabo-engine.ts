@@ -1,7 +1,6 @@
 import type { CalendarEvent, Member, Routine, Task } from "@/lib/types";
 
 export type DaboInsightType =
-  | "overdue_task"
   | "upcoming_event"
   | "assignment";
 
@@ -94,29 +93,6 @@ export function suggestMemberForTask(
   return [...leastLoaded].sort(
     (a, b) => a.rotation_order - b.rotation_order || a.created_at.localeCompare(b.created_at)
   )[0] ?? null;
-}
-
-function buildOverdueInsights(tasks: Task[], today: string): DaboInsight[] {
-  return tasks
-    .filter((task) => task.status === "pending" && task.due_date && task.due_date < today)
-    .map((task) => {
-      const daysLate = Math.max(1, civilDiffDays(task.due_date!, today));
-      return {
-        id: `overdue_task:${task.id}`,
-        type: "overdue_task" as const,
-        priority: 100 + Math.min(daysLate, 30),
-        severity: daysLate >= 3 || task.urgent ? ("important" as const) : ("gentle" as const),
-        titleKey: "dabo_insight_overdue_title",
-        messageKey: "dabo_insight_overdue_message",
-        reasonKey: "dabo_insight_overdue_reason",
-        relatedEntityId: task.id,
-        metadata: {
-          daysLate,
-          urgent: task.urgent,
-          dueDate: task.due_date,
-        },
-      };
-    });
 }
 
 function nextCalendarOccurrence(eventDate: string, recurring: boolean, today: string): string {
@@ -215,7 +191,6 @@ export function generateDaboInsights(input: DaboEngineInput): DaboInsight[] {
   const routines = input.routines ?? [];
 
   return [
-    ...buildOverdueInsights(input.tasks, input.today),
     ...buildUpcomingEventInsights(input.calendarEvents, input.today),
     ...buildAssignmentInsights(
       input.members,
