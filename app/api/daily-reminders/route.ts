@@ -130,6 +130,9 @@ export async function GET(req: NextRequest) {
 
   let sent = 0;
   let digests = 0;
+  let subscriptionsFound = 0;
+  let claimFailures = 0;
+  let pushFailures = 0;
 
   for (const [memberId, candidates] of candidatesByMember.entries()) {
     const digest = buildDailyDigest(candidates);
@@ -140,6 +143,7 @@ export async function GET(req: NextRequest) {
       .select("id, endpoint, p256dh, auth")
       .eq("member_id", memberId);
     if (!subs?.length) continue;
+    subscriptionsFound += subs.length;
 
     // La ligne unique sert de verrou anti-doublon, y compris si Vercel rejoue le Cron.
     const { error: claimError } = await supabase.from("notification_deliveries").insert({
@@ -149,6 +153,7 @@ export async function GET(req: NextRequest) {
     });
     if (claimError) {
       if (claimError.code === "23505") continue;
+      claimFailures++;
       console.error("notification claim failed", claimError.code);
       continue;
     }
@@ -173,6 +178,7 @@ export async function GET(req: NextRequest) {
         sent++;
         deliveredForMember++;
       } catch (e: unknown) {
+        pushFailures++;
         const statusCode = (e as { statusCode?: number })?.statusCode;
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
@@ -198,5 +204,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sent, digests });
+  return NextResponse.json({
+    ok: true,
+    sent,
+    digests,
+    membersFound: activeMembers.length,
+    subscriptionsFound,
+    claimFailures,
+    pushFailures,
+    checked_at: new Date().toISOString(),
+  });
 }
