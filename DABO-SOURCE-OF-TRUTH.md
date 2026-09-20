@@ -61,13 +61,17 @@ Le moteur DABO conserve les recommandations opérationnelles :
 - événements proches ;
 - suggestions d'attribution.
 
-Pour les evenements proches, DABO consomme le moteur canonique de recurrence `lib/calendar-recurrence.ts` au lieu de recalculer lui-meme les occurrences.
+Pour les événements proches, DABO consomme le moteur canonique de récurrence `lib/calendar-recurrence.ts` au lieu de recalculer lui-même les occurrences.
 
 Pour une suggestion d'attribution, le moteur reçoit les points de contribution déjà calculés depuis la source canonique.
 
 Il ne reconstruit pas l'historique de charge à partir des tâches terminées ou de `tasks.assigned_to`.
 
 La rotation peut servir de départage lorsque plusieurs membres présentent le même niveau de contribution.
+
+Une suggestion d'attribution ordinaire n'est jamais une action corrective de rééquilibrage.
+
+Les corrections explicites issues d'un déséquilibre observé appartiennent à `lib/household-action-suggestions.ts`. Cette couche ne s'active que lorsque le bilan recommande un rééquilibrage et elle suit séparément les actions DABO réellement acceptées.
 
 ## 4. Principe de séparation
 
