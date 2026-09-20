@@ -1,6 +1,5 @@
 import type { CalendarEvent, Member, ShoppingItem } from "@/lib/types";
-import { computeContributionMemberPoints, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
-import { computeMemberPercentages } from "@/lib/utils";
+import { computeContributionPeriodSnapshot, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
 
 export type WeeklyBalanceLevel = "building" | "healthy" | "gentle" | "marked";
 export type WeeklyMemberShare = { memberId: string; firstName: string; points: number; percentage: number };
@@ -21,19 +20,22 @@ export function computeHouseholdWeeklyReport(input: {
   const now = input.now ?? new Date();
   const end = new Date(startOfLocalDay(now).getTime() + DAY);
   const start = new Date(end.getTime() - 7 * DAY);
-  const activeIds = new Set(input.members.map(m => m.id));
-  const rows = input.contributions.filter(r => r.performer_status === "confirmed" && !r.cancelled_at && inRange(r.completed_at, start, end));
-  const participantIds = new Set(input.participants.filter(p => activeIds.has(p.member_id)).map(p => p.contribution_id));
-  const confirmedContributions = rows.filter(row => participantIds.has(row.id)).length;
-  const points = computeContributionMemberPoints(
-    input.members.map(m => m.id),
-    rows,
-    input.participants,
-    start
-  );
-  const percentages = computeMemberPercentages(input.members.map(m => ({ id: m.id, pts: points.get(m.id) || 0 })));
-  const memberShares = input.members.map(m => ({ memberId: m.id, firstName: m.first_name, points: points.get(m.id) || 0, percentage: percentages.get(m.id) || 0 }));
-  const highestShare = input.members.length >= 2 && confirmedContributions >= MIN_CONTRIBUTIONS ? Math.max(...memberShares.map(m => m.percentage)) : null;
+  const snapshot = computeContributionPeriodSnapshot({
+    memberIds: input.members.map(m => m.id),
+    contributions: input.contributions,
+    participants: input.participants,
+    start,
+    end,
+    minimumContributions: MIN_CONTRIBUTIONS,
+  });
+  const confirmedContributions = snapshot.confirmedContributions;
+  const memberShares = input.members.map(m => ({
+    memberId: m.id,
+    firstName: m.first_name,
+    points: snapshot.pointsByMember.get(m.id) || 0,
+    percentage: snapshot.percentagesByMember.get(m.id) || 0,
+  }));
+  const highestShare = snapshot.highestShare;
   const ideal = input.members.length ? 100 / input.members.length : 100;
   let balanceLevel: WeeklyBalanceLevel = "building";
   if (highestShare !== null) balanceLevel = input.members.length === 2 ? (highestShare < 60 ? "healthy" : highestShare < 70 ? "gentle" : "marked") : (highestShare <= ideal * 1.2 ? "healthy" : highestShare <= ideal * 1.5 ? "gentle" : "marked");

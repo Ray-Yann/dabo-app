@@ -1,6 +1,5 @@
 import type { Member } from "@/lib/types";
-import { computeContributionMemberPoints, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
-import { computeMemberPercentages } from "@/lib/utils";
+import { computeContributionPeriodSnapshot, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
 
 export type HouseholdTrend = "improving" | "stable" | "watch" | "building";
 
@@ -23,32 +22,6 @@ function startOfLocalDay(value: Date): Date {
   return d;
 }
 
-function contributionRowsInRange(contributions: TaskContribution[], start: Date, end: Date) {
-  const from = start.getTime();
-  const to = end.getTime();
-  return contributions.filter((row) => {
-    const at = new Date(row.completed_at).getTime();
-    return row.performer_status === "confirmed" && !row.cancelled_at && at >= from && at < to;
-  });
-}
-
-function periodHighestShare(
-  members: Member[],
-  rows: TaskContribution[],
-  participants: TaskContributionParticipant[]
-): number | null {
-  if (members.length < 2 || rows.length < MIN_CONTRIBUTIONS) return null;
-  const points = computeContributionMemberPoints(
-    members.map((member) => member.id),
-    rows,
-    participants,
-    new Date(0)
-  );
-
-  const percentages = computeMemberPercentages(members.map((member) => ({ id: member.id, pts: points.get(member.id) || 0 })));
-  return Math.max(...members.map((member) => percentages.get(member.id) || 0));
-}
-
 export function computeHouseholdInsights(
   members: Member[],
   contributions: TaskContribution[],
@@ -58,12 +31,28 @@ export function computeHouseholdInsights(
   const end = new Date(startOfLocalDay(now).getTime() + DAY);
   const currentStart = new Date(end.getTime() - 7 * DAY);
   const previousStart = new Date(currentStart.getTime() - 7 * DAY);
-  const current = contributionRowsInRange(contributions, currentStart, end);
-  const previous = contributionRowsInRange(contributions, previousStart, currentStart);
-  const currentHighestShare = periodHighestShare(members, current, participants);
-  const previousHighestShare = periodHighestShare(members, previous, participants);
-  const enoughCurrentData = current.length >= MIN_CONTRIBUTIONS;
-  const enoughComparisonData = enoughCurrentData && previous.length >= MIN_CONTRIBUTIONS;
+  const current = computeContributionPeriodSnapshot({
+    memberIds: members.map((member) => member.id),
+    contributions,
+    participants,
+    start: currentStart,
+    end,
+    minimumContributions: MIN_CONTRIBUTIONS,
+  });
+  const previous = computeContributionPeriodSnapshot({
+    memberIds: members.map((member) => member.id),
+    contributions,
+    participants,
+    start: previousStart,
+    end: currentStart,
+    minimumContributions: MIN_CONTRIBUTIONS,
+  });
+  const currentHighestShare = current.highestShare;
+  const previousHighestShare = previous.highestShare;
+  const enoughCurrentData = current.rows.length >= MIN_CONTRIBUTIONS;
+  const enoughComparisonData =
+    enoughCurrentData &&
+    previous.rows.length >= MIN_CONTRIBUTIONS;
 
   let trend: HouseholdTrend = "building";
   if (enoughComparisonData && currentHighestShare !== null && previousHighestShare !== null) {
@@ -75,8 +64,8 @@ export function computeHouseholdInsights(
 
   return {
     trend,
-    currentCount: current.length,
-    previousCount: previous.length,
+    currentCount: current.rows.length,
+    previousCount: previous.rows.length,
     currentHighestShare,
     previousHighestShare,
     enoughCurrentData,

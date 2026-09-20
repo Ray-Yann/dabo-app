@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { computeMemberPercentages } from "@/lib/utils";
 
 export type TaskContribution = {
   id: string;
@@ -112,4 +113,77 @@ export function countConfirmedContributionsSince(
       new Date(row.completed_at).getTime() >= sinceMs &&
       (participantCounts.get(row.id) || 0) > 0
   ).length;
+}
+
+
+export type ContributionPeriodSnapshot = {
+  rows: TaskContribution[];
+  confirmedContributions: number;
+  pointsByMember: Map<string, number>;
+  percentagesByMember: Map<string, number>;
+  highestShare: number | null;
+};
+
+export function computeContributionPeriodSnapshot(input: {
+  memberIds: string[];
+  contributions: TaskContribution[];
+  participants: TaskContributionParticipant[];
+  start: Date;
+  end: Date;
+  minimumContributions?: number;
+}): ContributionPeriodSnapshot {
+  const minimumContributions = input.minimumContributions ?? 4;
+  const startMs = input.start.getTime();
+  const endMs = input.end.getTime();
+  const activeIds = new Set(input.memberIds);
+
+  const rows = input.contributions.filter((row) => {
+    const at = new Date(row.completed_at).getTime();
+    return (
+      row.performer_status === "confirmed" &&
+      !row.cancelled_at &&
+      at >= startMs &&
+      at < endMs
+    );
+  });
+
+  const participantContributionIds = new Set(
+    input.participants
+      .filter((row) => activeIds.has(row.member_id))
+      .map((row) => row.contribution_id)
+  );
+
+  const confirmedContributions = rows.filter((row) =>
+    participantContributionIds.has(row.id)
+  ).length;
+
+  const pointsByMember = computeContributionMemberPoints(
+    input.memberIds,
+    rows,
+    input.participants,
+    input.start
+  );
+
+  const percentagesByMember = computeMemberPercentages(
+    input.memberIds.map((id) => ({
+      id,
+      pts: pointsByMember.get(id) || 0,
+    }))
+  );
+
+  const highestShare =
+    input.memberIds.length >= 2 &&
+    confirmedContributions >= minimumContributions
+      ? Math.max(
+          ...input.memberIds.map((id) => percentagesByMember.get(id) || 0)
+        )
+      : null;
+
+  return {
+    rows,
+    confirmedContributions,
+    pointsByMember,
+    percentagesByMember,
+    highestShare,
+  };
 }
