@@ -5,7 +5,7 @@ export type DaboInsightType =
   | "upcoming_event"
   | "assignment";
 
-export type DaboInsightSeverity = "info" | "gentle" | "important";
+export type DaboInsightSeverity = "info" | "gentle";
 
 export type DaboInsight = {
   id: string;
