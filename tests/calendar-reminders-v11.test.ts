@@ -1,7 +1,7 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-
+import { isWithinReminderWindow } from "../lib/calendar-reminder-window";
 const route = fs.readFileSync("app/api/calendar-reminders/route.ts", "utf8");
 const page = fs.readFileSync("app/app/calendrier/page.tsx", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
@@ -34,3 +34,6 @@ test("rappel calendrier tolere cinq minutes de retard sans anticiper", () => {
   assert.match(route, /elapsed <= windowMinutes/);
   assert.doesNotMatch(route, /local\.time !== event\.event_time/);
 });
+
+
+

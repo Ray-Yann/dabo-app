@@ -1,7 +1,7 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { isWithinReminderWindow } from "../lib/calendar-reminder-window.ts";
+import { isWithinReminderWindow } from "../lib/calendar-reminder-window";
 
 const route = fs.readFileSync("app/api/calendar-reminders/route.ts", "utf8");
 const page = fs.readFileSync("app/app/calendrier/page.tsx", "utf8");
@@ -46,3 +46,4 @@ test("diagnostic rappel expose chaque etape serveur sans journaliser les cles pu
   assert.doesNotMatch(route, /p256dh.*console/);
   assert.doesNotMatch(route, /auth.*console/);
 });
+

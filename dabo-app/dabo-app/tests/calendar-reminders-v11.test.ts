@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
@@ -28,8 +28,9 @@ test("UX rappel et singulier quotidien sont traduits dans les 7 langues", () => 
   assert.equal((i18n.match(/calendar_every_day:/g) || []).length, 7);
 });
 
-test("rappel dispose de diagnostics serveur ciblés", () => {
+test("rappel dispose de diagnostics serveur ciblÃ©s", () => {
   assert.match(route, /\[calendar-reminders\] Reminder due/);
   assert.match(route, /\[calendar-reminders\] Delivery target/);
   assert.match(route, /\[calendar-reminders\] Web Push failed/);
 });
+
