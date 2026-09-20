@@ -120,6 +120,13 @@ export async function POST(req: NextRequest) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
         if (statusCode === 404 || statusCode === 410) {
           await admin.from("push_subscriptions").delete().eq("id", sub.id);
+        } else {
+          console.error("[send-notification] Web Push failed", {
+            memberId: member.id,
+            subscriptionId: sub.id,
+            statusCode: statusCode ?? null,
+            message: e instanceof Error ? e.message : "Unknown Web Push error",
+          });
         }
       }
     }

@@ -176,6 +176,13 @@ export async function GET(req: NextRequest) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+        } else {
+          console.error("[daily-reminders] Web Push failed", {
+            memberId: memberId,
+            subscriptionId: sub.id,
+            statusCode: statusCode ?? null,
+            message: e instanceof Error ? e.message : "Unknown Web Push error",
+          });
         }
       }
     }
