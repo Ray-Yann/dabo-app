@@ -1,4 +1,4 @@
-export function genInviteCode(): string {
+﻿export function genInviteCode(): string {
   const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const l = Array.from({ length: 3 }, () => letters[Math.floor(Math.random() * letters.length)]).join("");
   const n = Math.floor(100 + Math.random() * 900);
@@ -50,24 +50,10 @@ export function memberColor(members: { id: string; avatar_color?: string | null 
   return MEMBER_COLORS[idx >= 0 ? idx % MEMBER_COLORS.length : 0];
 }
 
-export function computeMemberPoints(
-  members: { id: string; first_name: string }[],
-  tasks: { status: string; assigned_to: string | null; completed_at: string | null; weight_points: number }[],
-  since: Date
-) {
-  const start = since.getTime();
-  return members.map((m) => ({
-    id: m.id,
-    first_name: m.first_name,
-    pts: tasks
-      .filter((t) => t.status === "done" && t.assigned_to === m.id && t.completed_at && new Date(t.completed_at).getTime() >= start)
-      .reduce((s, t) => s + t.weight_points, 0),
-  }));
-}
 
-// Calcule la prochaine occurrence d'un événement : pour un événement
-// récurrent, avance à la même date l'année prochaine si celle de cette année
-// est déjà passée. Pour un événement ponctuel, retourne sa date telle quelle.
+// Calcule la prochaine occurrence d'un Ã©vÃ©nement : pour un Ã©vÃ©nement
+// rÃ©current, avance Ã  la mÃªme date l'annÃ©e prochaine si celle de cette annÃ©e
+// est dÃ©jÃ  passÃ©e. Pour un Ã©vÃ©nement ponctuel, retourne sa date telle quelle.
 export function nextOccurrence(eventDate: string, recurring: boolean): Date {
   const original = new Date(eventDate + "T00:00:00");
   if (!recurring) return original;
@@ -97,9 +83,9 @@ export function daysUntil(date: Date): number {
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// Convertit des points en pourcentages, avec la méthode des plus grands
-// restes : garantit que le total affiché fait toujours exactement 100%,
-// jamais 99% ou 101% à cause d'arrondis indépendants.
+// Convertit des points en pourcentages, avec la mÃ©thode des plus grands
+// restes : garantit que le total affichÃ© fait toujours exactement 100%,
+// jamais 99% ou 101% Ã  cause d'arrondis indÃ©pendants.
 export function computeMemberPercentages(
   pointsByMember: { id: string; pts: number }[]
 ): Map<string, number> {
@@ -212,3 +198,4 @@ export function computeNextDueDate(
   }
   return next;
 }
+
