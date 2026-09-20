@@ -1,0 +1,615 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/LoadingState";
+import { useHousehold } from "@/lib/use-household";
+import { Header } from "@/components/Header";
+import { EmptyState } from "@/components/EmptyState";
+import { IntroTip } from "@/components/IntroTip";
+import { CalendarEvent } from "@/lib/types";
+import { daysUntil } from "@/lib/utils";
+import { occurrenceOnOrAfter, occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
+import { useT } from "@/lib/language-context";
+import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users } from "lucide-react";
+
+type CalendarView = "upcoming" | "month" | "personal";
+
+export default function CalendarPage() {
+  const { loading, household, me, supabase } = useHousehold();
+  const t = useT();
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [view, setView] = useState<CalendarView>("upcoming");
+  const [monthCursor, setMonthCursor] = useState(() => new Date());
+  const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
+  const [newVisibility, setNewVisibility] = useState<"household" | "personal">("household");
+  const [showAdd, setShowAdd] = useState(false);
+  const [title, setTitle] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventKind, setEventKind] = useState<"event" | "reminder">("event");
+  const [eventTime, setEventTime] = useState("");
+  const [notes, setNotes] = useState("");
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
+  const [reminderDays, setReminderDays] = useState(0);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editEventKind, setEditEventKind] = useState<"event" | "reminder">("event");
+  const [editEventTime, setEditEventTime] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editRecurrenceFrequency, setEditRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
+  const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(1);
+  const [editRecurrenceEndDate, setEditRecurrenceEndDate] = useState("");
+  const [editReminderDays, setEditReminderDays] = useState(0);
+  const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function loadEvents() {
+    if (!household) return;
+    const { data, error } = await supabase.from("calendar_events").select("*").eq("household_id", household.id);
+    if (error) {
+      setErrorMessage(t("calendar_error_load"));
+      return;
+    }
+    setErrorMessage("");
+    setEvents((data as CalendarEvent[]) || []);
+  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (household) loadEvents();
+  }, [household]);
+
+  async function addEvent() {
+    if (!title.trim() || !eventDate || !household || !me) return;
+    const { error } = await supabase.from("calendar_events").insert({
+      household_id: household.id,
+      created_by: me.id,
+      title: title.trim(),
+      event_date: eventDate,
+      recurring: recurrenceFrequency !== "none",
+      recurrence_frequency: recurrenceFrequency,
+      recurrence_interval: recurrenceInterval,
+      recurrence_end_date: recurrenceEndDate || null,
+      event_time: eventTime || null,
+      time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      all_day: !eventTime,
+      notes: notes.trim() || null,
+      event_kind: eventKind,
+      reminder_days_before: reminderDays,
+      visibility: newVisibility,
+      private_owner_id: newVisibility === "personal" ? me.id : null,
+    });
+    if (error) {
+      setErrorMessage(t("calendar_error_save"));
+      return;
+    }
+    void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "calendar" });
+    setErrorMessage("");
+    setTitle("");
+    setEventDate("");
+    setEventKind("event");
+    setEventTime("");
+    setNotes("");
+    setRecurrenceFrequency("none");
+    setRecurrenceInterval(1);
+    setRecurrenceEndDate("");
+    setReminderDays(0);
+    setShowMoreOptions(false);
+    setShowAdd(false);
+    if (newVisibility === "personal") setView("personal");
+    else if (view === "personal") setView("upcoming");
+    loadEvents();
+  }
+
+  async function remove(id: string) {
+    const { error } = await supabase.from("calendar_events").delete().eq("id", id);
+    if (error) {
+      setErrorMessage(t("calendar_error_delete"));
+      return;
+    }
+    setErrorMessage("");
+    setDeleteTarget(null);
+    loadEvents();
+  }
+
+  function startEditing(event: CalendarEvent) {
+    setErrorMessage("");
+    setEditingId(event.id);
+    setEditTitle(event.title);
+    setEditDate(event.event_date);
+    setEditEventKind(event.event_kind || "event");
+    setEditEventTime(event.event_time?.slice(0, 5) || "");
+    setEditNotes(event.notes || "");
+    setEditRecurrenceFrequency(event.recurrence_frequency || (event.recurring ? "yearly" : "none"));
+    setEditRecurrenceInterval(event.recurrence_interval || 1);
+    setEditRecurrenceEndDate(event.recurrence_end_date || "");
+    setEditReminderDays(event.reminder_days_before ?? 0);
+    setShowEditMoreOptions(false);
+    setShowAdd(false);
+    setShowMoreOptions(false);
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setShowEditMoreOptions(false);
+  }
+
+  function changeView(nextView: CalendarView) {
+    setView(nextView);
+    setNewVisibility(nextView === "personal" ? "personal" : "household");
+    setShowAdd(false);
+    setShowMoreOptions(false);
+    cancelEditing();
+    setErrorMessage("");
+  }
+
+  async function saveEvent() {
+    if (!editingId || !editTitle.trim() || !editDate) return;
+    const { error } = await supabase
+      .from("calendar_events")
+      .update({
+        title: editTitle.trim(),
+        event_date: editDate,
+        recurring: editRecurrenceFrequency !== "none",
+        recurrence_frequency: editRecurrenceFrequency,
+        recurrence_interval: editRecurrenceInterval,
+        recurrence_end_date: editRecurrenceEndDate || null,
+        event_time: editEventTime || null,
+        time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        all_day: !editEventTime,
+        notes: editNotes.trim() || null,
+        event_kind: editEventKind,
+        reminder_days_before: editReminderDays,
+      })
+      .eq("id", editingId);
+    if (error) {
+      setErrorMessage(t("calendar_error_save"));
+      return;
+    }
+    setErrorMessage("");
+    cancelEditing();
+    loadEvents();
+  }
+
+  if (loading || !household) return <LoadingState />;
+
+  const locale = ({ fr: "fr-BE", nl: "nl-BE", en: "en-GB", de: "de-BE", es: "es-ES", it: "it-IT", pt: "pt-PT" } as const)[me?.language || "fr"] || "fr-BE";
+
+  function formatEventDate(date: Date) {
+    const currentYear = new Date().getFullYear();
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "long",
+      ...(date.getFullYear() !== currentYear ? { year: "numeric" as const } : {}),
+    }).format(date);
+  }
+
+  function proximityLabel(date: Date) {
+    const days = daysUntil(date);
+    if (days === 0) return t("event_today");
+    if (days === 1) return t("event_tomorrow");
+    return `${t("event_in")} ${days} ${t("event_days")}`;
+  }
+
+  function recurrenceLabel(event: CalendarEvent) {
+    const frequency = event.recurrence_frequency || (event.recurring ? "yearly" : "none");
+    const interval = event.recurrence_interval || 1;
+    if (frequency === "daily") return interval === 1 ? t("calendar_every_day") : `${t("calendar_every")} ${interval} ${t("calendar_days_unit")}`;
+    if (frequency === "weekly") return interval === 1 ? t("calendar_every_week") : `${t("calendar_every")} ${interval} ${t("calendar_weeks_unit")}`;
+    if (frequency === "monthly") return interval === 1 ? t("calendar_every_month") : `${t("calendar_every")} ${interval} ${t("calendar_months_unit")}`;
+    if (frequency === "yearly") return interval === 1 ? t("event_every_year") : `${t("calendar_every")} ${interval} ${t("calendar_years_unit")}`;
+    return t("calendar_never");
+  }
+
+  const visibleEvents = events.filter((event) => {
+    if (view === "personal") return event.visibility === "personal" && event.private_owner_id === me?.id;
+    if (view === "month") return event.visibility === "household" || (event.visibility === "personal" && event.private_owner_id === me?.id);
+    return event.visibility === "household";
+  });
+
+  const upcoming = visibleEvents
+    .map((e) => ({ ...e, next: occurrenceOnOrAfter(e) }))
+    .filter((e): e is typeof e & { next: Date } => Boolean(e.next))
+    .sort((a, b) => a.next.getTime() - b.next.getTime());
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(todayStart);
+  const daysToSunday = (7 - endOfWeek.getDay()) % 7;
+  endOfWeek.setDate(endOfWeek.getDate() + daysToSunday);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  const todayEvents = upcoming.filter((event) => daysUntil(event.next) === 0);
+  const weekEvents = upcoming.filter((event) => daysUntil(event.next) > 0 && event.next <= endOfWeek);
+  const laterEvents = upcoming.filter((event) => event.next > endOfWeek);
+
+  const sections = [
+    { key: "today", label: t("calendar_section_today"), events: todayEvents },
+    { key: "week", label: t("calendar_section_week"), events: weekEvents },
+    { key: "later", label: t("calendar_section_later"), events: laterEvents },
+  ].filter((section) => section.events.length > 0);
+
+  const monthDate = monthCursor;
+  const monthYear = monthDate.getFullYear();
+  const monthIndex = monthDate.getMonth();
+  const firstWeekday = (new Date(monthYear, monthIndex, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
+  const monthCells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(monthDate);
+  const monthStart = new Date(monthYear, monthIndex, 1);
+  const monthEnd = new Date(monthYear, monthIndex + 1, 0);
+  const monthEvents = visibleEvents.flatMap((event) =>
+    occurrencesInRange(event, monthStart, monthEnd).map((monthOccurrence) => ({ ...event, monthOccurrence }))
+  );
+  const householdEventDays = new Set(monthEvents.filter((event) => event.visibility === "household").map((event) => event.monthOccurrence.getDate()));
+  const personalEventDays = new Set(monthEvents.filter((event) => event.visibility === "personal").map((event) => event.monthOccurrence.getDate()));
+  const selectedMonthEvents = selectedMonthDay === null
+    ? []
+    : monthEvents
+        .filter((event) => event.monthOccurrence.getDate() === selectedMonthDay)
+        .sort((a, b) => a.title.localeCompare(b.title, locale));
+  const selectedMonthDate = selectedMonthDay === null ? null : new Date(monthYear, monthIndex, selectedMonthDay);
+
+  function moveMonth(delta: number) {
+    setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+    setSelectedMonthDay(null);
+  }
+
+  function openAdd() {
+    setNewVisibility(view === "personal" ? "personal" : "household");
+    setShowAdd(true);
+  }
+
+  return (
+    <div>
+      <div className="flex items-start justify-between px-5 pt-8 pb-4">
+        <Header title={t("calendar_title")} />
+        <button onClick={openAdd} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium mt-8 mr-0">
+          {t("add")}
+        </button>
+      </div>
+      <div className="px-5 mb-5">
+        <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
+        <select value={view} onChange={(e) => changeView(e.target.value as CalendarView)} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
+          <option value="upcoming">{t("ux_calendar_upcoming")}</option>
+          <option value="month">{t("ux_calendar_month")}</option>
+          <option value="personal">{t("calendar_tab_personal")}</option>
+        </select>
+      </div>
+
+      {view === "personal" && <IntroTip
+        id="calendar-personal-v1"
+        title={t("intro_calendar_personal_title")}
+        text={t("intro_calendar_personal")}
+      />}
+
+      {errorMessage && (
+        <div className="mx-5 mb-4 rounded-xl border border-mustard/30 bg-mustardBg px-3 py-2.5 text-sm text-ink" role="alert">
+          {errorMessage}
+        </div>
+      )}
+
+      {view === "month" && (
+        <section className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <button type="button" onClick={() => moveMonth(-1)} className="rounded-xl border border-border p-2 text-ink" aria-label={t("calendar_previous_month")}><ChevronLeft size={17} /></button>
+            <div className="text-center">
+              <div className="text-lg font-semibold capitalize text-ink">{monthLabel}</div>
+              <button type="button" onClick={() => { setMonthCursor(new Date()); setSelectedMonthDay(null); }} className="mt-0.5 text-xs text-mustard">{t("calendar_back_today")}</button>
+            </div>
+            <button type="button" onClick={() => moveMonth(1)} className="rounded-xl border border-border p-2 text-ink" aria-label={t("calendar_next_month")}><ChevronRight size={17} /></button>
+          </div>
+          <div className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-muted">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-mustard" />{t("calendar_month_household_legend")}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-muted bg-paper" />{t("calendar_month_personal_legend")}</span>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted">
+            {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => <div key={`${day}-${index}`} className="py-1">{day}</div>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {monthCells.map((day, index) => {
+              if (!day) return <div key={index} aria-hidden="true" />;
+              const isToday = day === new Date().getDate() && monthIndex === new Date().getMonth() && monthYear === new Date().getFullYear();
+              const isSelected = day === selectedMonthDay;
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setSelectedMonthDay(day)}
+                  aria-pressed={isSelected}
+                  className={`relative flex aspect-square min-h-11 items-center justify-center rounded-xl text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-mustard focus-visible:ring-offset-2 ${
+                    isSelected
+                      ? "border-2 border-mustard bg-mustardBg font-semibold text-ink"
+                      : isToday
+                        ? "bg-ink text-paper font-semibold"
+                        : "text-ink hover:bg-paper"
+                  }`}
+                >
+                  {day}
+                  {(householdEventDays.has(day) || personalEventDays.has(day)) && (
+                    <span className="absolute bottom-1 flex gap-0.5" aria-hidden="true">
+                      {householdEventDays.has(day) && <span className={`h-1 w-1 rounded-full ${isToday && !isSelected ? "bg-paper" : "bg-mustard"}`} />}
+                      {personalEventDays.has(day) && <span className="h-1 w-1 rounded-full border border-muted bg-paper" />}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {selectedMonthDate && (
+            <div className="mt-4 border-t border-borderLight pt-4" aria-live="polite">
+              <div className="text-sm font-semibold capitalize text-ink">
+                {new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(selectedMonthDate)}
+              </div>
+              {selectedMonthEvents.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">{t("calendar_month_no_event")}</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {selectedMonthEvents.map((event) => (
+                    <div key={`${event.id}-${event.monthOccurrence.toISOString()}`} className="rounded-2xl border border-borderLight bg-paper px-3 py-2.5">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0 text-sm font-medium text-ink">{event.title}</div>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted">
+                          {event.visibility === "personal" ? <LockKeyhole size={12} /> : <Users size={12} />}
+                          {event.visibility === "personal" ? t("calendar_month_personal_legend") : t("calendar_month_household_legend")}
+                        </span>
+                      </div>
+                      {isRecurringCalendarEvent(event) && (
+                        <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted"><Repeat size={12} />{t("calendar_recurring")}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {showAdd && (
+        <div className="mx-5 mb-5 rounded-2xl border border-borderLight bg-white2 p-4">
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-ink">{t("calendar_new_event")}</div>
+            <div className="mt-0.5 text-xs text-muted">{t("calendar_new_event_hint")}</div>
+            {newVisibility === "personal" && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+                <LockKeyhole size={12} />
+                <span>{t("calendar_personal_private_note")}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_scope_label")}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setNewVisibility("household")} className={`rounded-xl border px-3 py-2.5 text-left ${newVisibility === "household" ? "border-mustard bg-mustardBg" : "border-border bg-paper/30"}`}>
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-ink"><Users size={14} />{t("calendar_scope_household")}</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-muted">{t("calendar_scope_household_hint")}</span>
+                </button>
+                <button type="button" onClick={() => setNewVisibility("personal")} className={`rounded-xl border px-3 py-2.5 text-left ${newVisibility === "personal" ? "border-mustard bg-mustardBg" : "border-border bg-paper/30"}`}>
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-ink"><LockKeyhole size={14} />{t("calendar_scope_personal")}</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-muted">{t("calendar_scope_personal_hint")}</span>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_name")}</label>
+              <input autoFocus placeholder={t("event_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_date")}</label>
+              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions((value) => !value)}
+              className="flex w-full items-center justify-between rounded-xl py-1.5 text-sm font-medium text-ink"
+              aria-expanded={showMoreOptions}
+            >
+              <span>{t("calendar_more_options")}</span>
+              <ChevronDown size={16} className={`text-muted transition-transform ${showMoreOptions ? "rotate-180" : ""}`} />
+            </button>
+
+            {showMoreOptions && (
+              <div className="space-y-3 rounded-xl bg-paper/40 p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setEventKind("event")} className={`rounded-xl border px-3 py-2 text-sm ${eventKind === "event" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_event")}</button>
+                  <button type="button" onClick={() => setEventKind("reminder")} className={`rounded-xl border px-3 py-2 text-sm ${eventKind === "reminder" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_reminder")}</button>
+                </div>
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat")}</label><select value={recurrenceFrequency} onChange={(e) => setRecurrenceFrequency(e.target.value as CalendarRecurrenceFrequency)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="none">{t("calendar_never")}</option><option value="daily">{t("calendar_daily")}</option><option value="weekly">{t("calendar_weekly")}</option><option value="monthly">{t("calendar_monthly")}</option><option value="yearly">{t("calendar_yearly")}</option></select></div>
+                {recurrenceFrequency !== "none" && <><div><label className="text-xs text-muted block mb-1.5">{t("calendar_interval")}</label><input type="number" min={1} max={999} value={recurrenceInterval} onChange={(e) => setRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /><div className="mt-1 text-[11px] text-muted">{recurrenceLabel({ event_date: eventDate || new Date().toISOString().slice(0,10), recurring: true, recurrence_frequency: recurrenceFrequency, recurrence_interval: recurrenceInterval } as CalendarEvent)}</div></div><div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat_end")}</label><input type="date" min={eventDate || undefined} value={recurrenceEndDate} onChange={(e) => setRecurrenceEndDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /><div className="mt-1 text-[11px] text-muted">{t("calendar_repeat_end_hint")}</div></div></>}
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_notes")}</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                <div>
+                  <label className="text-xs text-muted block mb-1.5">{t("event_reminder_label")}</label>
+                  <select
+                    value={reminderDays}
+                    onChange={(e) => setReminderDays(Number(e.target.value))}
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink"
+                  >
+                    <option value={0}>{t("reminder_same_day")}</option>
+                    <option value={1}>{t("reminder_1_day")}</option>
+                    <option value={2}>{t("reminder_2_days")}</option>
+                    <option value={3}>{t("reminder_3_days")}</option>
+                    <option value={7}>{t("reminder_1_week")}</option>
+                    <option value={14}>{t("reminder_2_weeks")}</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={addEvent}
+              disabled={!title.trim() || !eventDate}
+              className="flex-1 bg-ink text-paper rounded-xl py-2.5 text-sm font-medium disabled:opacity-40"
+            >
+              {t(eventKind === "reminder" ? "calendar_add_reminder" : "calendar_add_event")}
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setShowMoreOptions(false); }}
+              className="px-4 text-sm text-muted"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view !== "month" && (<div className="px-5">
+        {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={openAdd} />}
+        <div className="space-y-6 pb-6">
+          {sections.map((section) => (
+            <section key={section.key}>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                {section.label}
+              </div>
+              <div className="space-y-2">
+                {section.events.map((e) => {
+                  const isToday = daysUntil(e.next) === 0;
+                  return (
+                    <div key={e.id}>
+                    <div
+                      className={`dabo-calendar-event flex items-center gap-3 rounded-2xl border p-3.5 ${
+                        isToday ? "dabo-calendar-event-today border-mustard/30 bg-mustardBg" : e.visibility === "personal" ? "dabo-calendar-event-personal border-borderLight bg-white2" : "dabo-calendar-event-shared border-borderLight bg-white2"
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-paper text-mustard" : "bg-mustardBg text-mustard"}`}>
+                        {e.visibility === "personal" ? <LockKeyhole size={17} /> : isRecurringCalendarEvent(e) ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-ink truncate">{e.title}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted">
+                          <span>{formatEventDate(e.next)}{e.event_time ? ` · ${e.event_time.slice(0,5)}` : ""}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className={isToday ? "font-medium text-mustard" : ""}>{proximityLabel(e.next)}</span>
+                          {isRecurringCalendarEvent(e) && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="inline-flex items-center gap-1"><Repeat size={10} />{recurrenceLabel(e)}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button onClick={() => startEditing(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("calendar_edit_event")}>
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => setDeleteTarget(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("delete")}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    {editingId === e.id && (
+                      <div className="mt-2 rounded-2xl border border-borderLight bg-white2 p-4">
+                        <div className="mb-4">
+                          <div className="text-sm font-semibold text-ink">{t("calendar_edit_event")}</div>
+                          <div className="mt-0.5 text-xs text-muted">{t("calendar_edit_event_hint")}</div>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_name")}</label>
+                            <input autoFocus value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-muted">{t("calendar_event_date")}</label>
+                            <input type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+                          </div>
+                          <button type="button" onClick={() => setShowEditMoreOptions((value) => !value)} className="flex w-full items-center justify-between rounded-xl py-1.5 text-sm font-medium text-ink" aria-expanded={showEditMoreOptions}>
+                            <span>{t("calendar_more_options")}</span>
+                            <ChevronDown size={16} className={`text-muted transition-transform ${showEditMoreOptions ? "rotate-180" : ""}`} />
+                          </button>
+                          {showEditMoreOptions && (
+                            <div className="space-y-3 rounded-xl bg-paper/40 p-3">
+                              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setEditEventKind("event")} className={`rounded-xl border px-3 py-2 text-sm ${editEventKind === "event" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_event")}</button><button type="button" onClick={() => setEditEventKind("reminder")} className={`rounded-xl border px-3 py-2 text-sm ${editEventKind === "reminder" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_reminder")}</button></div>
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={editEventTime} onChange={(e) => setEditEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat")}</label><select value={editRecurrenceFrequency} onChange={(e) => setEditRecurrenceFrequency(e.target.value as CalendarRecurrenceFrequency)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="none">{t("calendar_never")}</option><option value="daily">{t("calendar_daily")}</option><option value="weekly">{t("calendar_weekly")}</option><option value="monthly">{t("calendar_monthly")}</option><option value="yearly">{t("calendar_yearly")}</option></select></div>
+                              {editRecurrenceFrequency !== "none" && <><div><label className="text-xs text-muted block mb-1.5">{t("calendar_interval")}</label><input type="number" min={1} max={999} value={editRecurrenceInterval} onChange={(e) => setEditRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div><div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat_end")}</label><input type="date" min={editDate || undefined} value={editRecurrenceEndDate} onChange={(e) => setEditRecurrenceEndDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div></>}
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_notes")}</label><textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={2} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                              <div>
+                                <label className="text-xs text-muted block mb-1.5">{t("event_reminder_label")}</label>
+                                <select value={editReminderDays} onChange={(event) => setEditReminderDays(Number(event.target.value))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink">
+                                  <option value={0}>{t("reminder_same_day")}</option>
+                                  <option value={1}>{t("reminder_1_day")}</option>
+                                  <option value={2}>{t("reminder_2_days")}</option>
+                                  <option value={3}>{t("reminder_3_days")}</option>
+                                  <option value={7}>{t("reminder_1_week")}</option>
+                                  <option value={14}>{t("reminder_2_weeks")}</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                          <button onClick={saveEvent} disabled={!editTitle.trim() || !editDate} className="flex-1 bg-ink text-paper rounded-xl py-2.5 text-sm font-medium disabled:opacity-40">
+                            {t("calendar_save_changes")}
+                          </button>
+                          <button onClick={cancelEditing} className="px-4 text-sm text-muted">{t("cancel")}</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>)}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calendar-delete-title"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl border border-borderLight bg-white2 p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-paper text-muted">
+              <Trash2 size={18} />
+            </div>
+            <div id="calendar-delete-title" className="text-center text-base font-semibold text-ink">
+              {t("calendar_delete_title")}
+            </div>
+            <div className="mt-2 text-center text-sm leading-5 text-muted">
+              {t("calendar_delete_intro")} <span className="font-medium text-ink">“{deleteTarget.title}”</span>.
+            </div>
+            {deleteTarget.recurring && (
+              <div className="mt-3 rounded-2xl bg-paper/60 px-3 py-2.5 text-center text-xs leading-5 text-muted">
+                {t("calendar_delete_recurring_note")}
+              </div>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(deleteTarget.id)}
+                className="flex-1 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-paper"
+              >
+                {t("delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
