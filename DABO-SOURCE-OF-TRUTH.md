@@ -58,9 +58,10 @@ Les interfaces telles que Bilan, Équilibre ou Aujourd'hui peuvent présenter se
 
 Le moteur DABO conserve les recommandations opérationnelles :
 
-- tâches en retard ;
 - événements proches ;
 - suggestions d'attribution.
+
+Pour les evenements proches, DABO consomme le moteur canonique de recurrence `lib/calendar-recurrence.ts` au lieu de recalculer lui-meme les occurrences.
 
 Pour une suggestion d'attribution, le moteur reçoit les points de contribution déjà calculés depuis la source canonique.
 
