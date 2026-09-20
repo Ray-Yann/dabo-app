@@ -1,5 +1,5 @@
 import type { Member } from "@/lib/types";
-import type { TaskContribution, TaskContributionParticipant } from "@/lib/task-contributions";
+import { computeContributionMemberPoints, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
 import { computeMemberPercentages } from "@/lib/utils";
 
 export type HouseholdTrend = "improving" | "stable" | "watch" | "building";
@@ -38,22 +38,12 @@ function periodHighestShare(
   participants: TaskContributionParticipant[]
 ): number | null {
   if (members.length < 2 || rows.length < MIN_CONTRIBUTIONS) return null;
-  const ids = new Set(rows.map((row) => row.id));
-  const rowsByContribution = new Map<string, TaskContributionParticipant[]>();
-  participants.forEach((participant) => {
-    if (!ids.has(participant.contribution_id)) return;
-    const list = rowsByContribution.get(participant.contribution_id) || [];
-    list.push(participant);
-    rowsByContribution.set(participant.contribution_id, list);
-  });
-
-  const points = new Map(members.map((member) => [member.id, 0]));
-  rows.forEach((row) => {
-    const eligible = (rowsByContribution.get(row.id) || []).filter((p) => points.has(p.member_id));
-    if (!eligible.length) return;
-    const share = row.weight_points / eligible.length;
-    eligible.forEach((p) => points.set(p.member_id, (points.get(p.member_id) || 0) + share));
-  });
+  const points = computeContributionMemberPoints(
+    members.map((member) => member.id),
+    rows,
+    participants,
+    new Date(0)
+  );
 
   const percentages = computeMemberPercentages(members.map((member) => ({ id: member.id, pts: points.get(member.id) || 0 })));
   return Math.max(...members.map((member) => percentages.get(member.id) || 0));

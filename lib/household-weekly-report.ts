@@ -1,5 +1,5 @@
 import type { CalendarEvent, Member, ShoppingItem } from "@/lib/types";
-import type { TaskContribution, TaskContributionParticipant } from "@/lib/task-contributions";
+import { computeContributionMemberPoints, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
 import { computeMemberPercentages } from "@/lib/utils";
 
 export type WeeklyBalanceLevel = "building" | "healthy" | "gentle" | "marked";
@@ -23,11 +23,14 @@ export function computeHouseholdWeeklyReport(input: {
   const start = new Date(end.getTime() - 7 * DAY);
   const activeIds = new Set(input.members.map(m => m.id));
   const rows = input.contributions.filter(r => r.performer_status === "confirmed" && !r.cancelled_at && inRange(r.completed_at, start, end));
-  const participantMap = new Map<string, TaskContributionParticipant[]>();
-  input.participants.forEach(p => { if (!activeIds.has(p.member_id)) return; const list = participantMap.get(p.contribution_id) || []; list.push(p); participantMap.set(p.contribution_id, list); });
-  const points = new Map(input.members.map(m => [m.id, 0]));
-  let confirmedContributions = 0;
-  rows.forEach(row => { const ps = participantMap.get(row.id) || []; if (!ps.length) return; confirmedContributions += 1; const share = row.weight_points / ps.length; ps.forEach(p => points.set(p.member_id, (points.get(p.member_id) || 0) + share)); });
+  const participantIds = new Set(input.participants.filter(p => activeIds.has(p.member_id)).map(p => p.contribution_id));
+  const confirmedContributions = rows.filter(row => participantIds.has(row.id)).length;
+  const points = computeContributionMemberPoints(
+    input.members.map(m => m.id),
+    rows,
+    input.participants,
+    start
+  );
   const percentages = computeMemberPercentages(input.members.map(m => ({ id: m.id, pts: points.get(m.id) || 0 })));
   const memberShares = input.members.map(m => ({ memberId: m.id, firstName: m.first_name, points: points.get(m.id) || 0, percentage: percentages.get(m.id) || 0 }));
   const highestShare = input.members.length >= 2 && confirmedContributions >= MIN_CONTRIBUTIONS ? Math.max(...memberShares.map(m => m.percentage)) : null;

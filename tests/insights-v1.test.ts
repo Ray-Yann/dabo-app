@@ -54,3 +54,30 @@ test("Insights V1 s'intègre à Équilibre sans nouvelle table Supabase", () => 
   assert.match(page, /computeHouseholdInsights/);
   assert.doesNotMatch(page, /from\("household_insights"\)/);
 });
+
+
+test("Insights V1 respecte share_weight dans le calcul de la repartition", () => {
+  const rows = [
+    contribution("c1", "2026-09-08", 40),
+    contribution("c2", "2026-09-09", 10),
+    contribution("c3", "2026-09-10", 10),
+    contribution("c4", "2026-09-11", 10),
+  ];
+  const ps = [
+    { contribution_id: "c1", member_id: "a", share_weight: 3 },
+    { contribution_id: "c1", member_id: "b", share_weight: 1 },
+    participant("c2", "b"),
+    participant("c3", "b"),
+    participant("c4", "b"),
+  ];
+
+  const result = computeHouseholdInsights(
+    members,
+    rows,
+    ps,
+    new Date("2026-09-11T12:00:00")
+  );
+
+  assert.equal(result.currentCount, 4);
+  assert.equal(result.currentHighestShare, 57);
+});
