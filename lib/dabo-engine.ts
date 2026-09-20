@@ -25,6 +25,7 @@ export type DaboEngineInput = {
   tasks: Task[];
   calendarEvents: CalendarEvent[];
   routines?: Routine[];
+  contributionPointsByMember: Map<string, number>;
   /**
    * Civil date (YYYY-MM-DD). Injected so the engine stays deterministic and
    * easy to test. UI code should pass today's local civil date.
@@ -33,7 +34,6 @@ export type DaboEngineInput = {
 };
 
 export const DABO_ENGINE_RULES = {
-  balanceWindowDays: 7,
   upcomingEventDays: 3,
 } as const;
 
@@ -47,47 +47,6 @@ function parseCivilDate(value: string): Date {
 
 function civilDiffDays(from: string, to: string): number {
   return Math.round((parseCivilDate(to).getTime() - parseCivilDate(from).getTime()) / MS_PER_DAY);
-}
-
-function isoToCivilDate(value: string): string {
-  const date = new Date(value);
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function startOfBalanceWindow(today: string): string {
-  const start = parseCivilDate(today);
-  start.setUTCDate(start.getUTCDate() - (DABO_ENGINE_RULES.balanceWindowDays - 1));
-  return [
-    start.getUTCFullYear(),
-    String(start.getUTCMonth() + 1).padStart(2, "0"),
-    String(start.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function completedTasksInBalanceWindow(tasks: Task[], today: string): Task[] {
-  const start = startOfBalanceWindow(today);
-  return tasks.filter((task) => {
-    if (task.status !== "done" || !task.completed_at || !task.assigned_to) return false;
-    const completed = isoToCivilDate(task.completed_at);
-    return completed >= start && completed <= today;
-  });
-}
-
-function recentPointsByMember(members: Member[], tasks: Task[], today: string): Map<string, number> {
-  const recent = completedTasksInBalanceWindow(tasks, today);
-  const result = new Map<string, number>();
-  members.forEach((member) => result.set(member.id, 0));
-
-  recent.forEach((task) => {
-    if (!task.assigned_to || !result.has(task.assigned_to)) return;
-    result.set(task.assigned_to, (result.get(task.assigned_to) ?? 0) + task.weight_points);
-  });
-
-  return result;
 }
 
 function getNextRotationMember(members: Member[], lastMemberId: string | null | undefined): Member | null {
@@ -111,15 +70,17 @@ function getNextRotationMember(members: Member[], lastMemberId: string | null | 
 export function suggestMemberForTask(
   task: Task,
   members: Member[],
-  tasks: Task[],
-  routines: Routine[] = [],
-  today: string
+  contributionPointsByMember: Map<string, number>,
+  routines: Routine[] = []
 ): Member | null {
   if (task.status !== "pending" || task.assigned_to || members.length === 0) return null;
 
-  const points = recentPointsByMember(members, tasks, today);
-  const minimum = Math.min(...members.map((member) => points.get(member.id) ?? 0));
-  const leastLoaded = members.filter((member) => (points.get(member.id) ?? 0) === minimum);
+  const minimum = Math.min(
+    ...members.map((member) => contributionPointsByMember.get(member.id) ?? 0)
+  );
+  const leastLoaded = members.filter(
+    (member) => (contributionPointsByMember.get(member.id) ?? 0) === minimum
+  );
 
   const routine = task.routine_id
     ? routines.find((candidate) => candidate.id === task.routine_id)
@@ -214,12 +175,17 @@ function buildAssignmentInsights(
   members: Member[],
   tasks: Task[],
   routines: Routine[],
-  today: string
+  contributionPointsByMember: Map<string, number>
 ): DaboInsight[] {
   return tasks
     .filter((task) => task.status === "pending" && !task.assigned_to)
     .flatMap((task) => {
-      const suggested = suggestMemberForTask(task, members, tasks, routines, today);
+      const suggested = suggestMemberForTask(
+        task,
+        members,
+        contributionPointsByMember,
+        routines
+      );
       if (!suggested) return [];
 
       return [{
@@ -234,7 +200,6 @@ function buildAssignmentInsights(
         suggestedMemberId: suggested.id,
         metadata: {
           urgent: task.urgent,
-          balanceWindowDays: DABO_ENGINE_RULES.balanceWindowDays,
         },
       }];
     });
@@ -252,6 +217,11 @@ export function generateDaboInsights(input: DaboEngineInput): DaboInsight[] {
   return [
     ...buildOverdueInsights(input.tasks, input.today),
     ...buildUpcomingEventInsights(input.calendarEvents, input.today),
-    ...buildAssignmentInsights(input.members, input.tasks, routines, input.today),
+    ...buildAssignmentInsights(
+      input.members,
+      input.tasks,
+      routines,
+      input.contributionPointsByMember
+    ),
   ].sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
 }

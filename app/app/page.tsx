@@ -16,7 +16,7 @@ import { useLanguage, useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
 import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
 import { completeHouseholdTask } from "@/lib/task-completion";
-import { ContributionBalanceData, countConfirmedContributionsSince, fetchContributionBalanceData } from "@/lib/task-contributions";
+import { ContributionBalanceData, computeContributionMemberPoints, countConfirmedContributionsSince, fetchContributionBalanceData } from "@/lib/task-contributions";
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
 import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
@@ -173,11 +173,21 @@ export default function TodayPage() {
 
   const daboInsights = useMemo(() => {
     if (!household) return [];
+    const assignmentSince = new Date();
+    assignmentSince.setDate(assignmentSince.getDate() - 7);
+    const contributionPointsByMember = computeContributionMemberPoints(
+      members.map((member) => member.id),
+      balanceData.contributions,
+      balanceData.participants,
+      assignmentSince
+    );
+
     const insights = generateDaboInsights({
       members,
       tasks: allTasksForBalance,
       calendarEvents,
       routines,
+      contributionPointsByMember,
       today: todayCivilDate(),
     });
 

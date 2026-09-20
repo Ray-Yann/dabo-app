@@ -67,6 +67,7 @@ test("signale une tâche en retard avec le bon niveau de priorité", () => {
     members: [ray, manga],
     tasks: [task({ id: "late", name: "Sortir les poubelles", due_date: "2026-09-04" })],
     calendarEvents: [],
+    contributionPointsByMember: new Map([[ray.id, 0], [manga.id, 0]]),
     today: TODAY,
   });
 
@@ -83,6 +84,7 @@ test("ignore une tâche à venir et une tâche déjà terminée", () => {
       task({ id: "done", name: "Terminée", due_date: "2026-09-01", status: "done", completed_at: "2026-09-02T10:00:00.000Z", assigned_to: ray.id }),
     ],
     calendarEvents: [],
+    contributionPointsByMember: new Map([[ray.id, 0], [manga.id, 0]]),
     today: TODAY,
   });
 
@@ -97,6 +99,7 @@ test("signale uniquement les événements situés dans les trois prochains jours
       event({ id: "soon", title: "Permis", event_date: "2026-09-10" }),
       event({ id: "later", title: "Vacances", event_date: "2026-09-11" }),
     ],
+    contributionPointsByMember: new Map([[ray.id, 0], [manga.id, 0]]),
     today: TODAY,
   });
 
@@ -111,6 +114,7 @@ test("reporte au 28 février un anniversaire récurrent créé le 29 février", 
     members: [ray, manga],
     tasks: [],
     calendarEvents: [event({ id: "leap", title: "Anniversaire", event_date: "2024-02-29", recurring: true })],
+    contributionPointsByMember: new Map([[ray.id, 0], [manga.id, 0]]),
     today: "2027-02-27",
   });
 
@@ -121,15 +125,15 @@ test("reporte au 28 février un anniversaire récurrent créé le 29 février", 
 
 test("suggère le membre ayant le moins contribué récemment", () => {
   const pending = task({ id: "pending", name: "Aspirateur" });
-  const history = [0, 1, 2, 3].map((index) => task({
-    id: `ray-${index}`,
-    name: `Historique ${index}`,
-    status: "done",
-    assigned_to: ray.id,
-    completed_at: "2026-09-06T12:00:00.000Z",
-  }));
+  const contributionPointsByMember = new Map([
+    [ray.id, 40],
+    [manga.id, 10],
+  ]);
 
-  assert.equal(suggestMemberForTask(pending, [ray, manga], [...history, pending], [], TODAY)?.id, manga.id);
+  assert.equal(
+    suggestMemberForTask(pending, [ray, manga], contributionPointsByMember)?.id,
+    manga.id
+  );
 });
 
 test("utilise la rotation comme départage sans modifier la tâche", () => {
@@ -150,6 +154,6 @@ test("utilise la rotation comme départage sans modifier la tâche", () => {
     created_at: "2026-01-01T00:00:00.000Z",
   };
 
-  assert.equal(suggestMemberForTask(pending, [ray, manga], [pending], [routine], TODAY)?.id, manga.id);
+  assert.equal(suggestMemberForTask(pending, [ray, manga], new Map([[ray.id, 0], [manga.id, 0]]), [routine])?.id, manga.id);
   assert.equal(pending.assigned_to, null);
 });
