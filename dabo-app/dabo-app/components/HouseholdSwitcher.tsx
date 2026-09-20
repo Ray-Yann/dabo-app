@@ -1,0 +1,169 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Bot, Check, Home, Plus, Users } from "lucide-react";
+import { useHousehold } from "@/lib/use-household";
+import { useT } from "@/lib/language-context";
+
+type Mode = "closed" | "choice" | "create" | "join";
+
+export function HouseholdSwitcher() {
+  const { household, me, memberships, switchHousehold, supabase } = useHousehold();
+  const t = useT();
+  const [mode, setMode] = useState<Mode>("closed");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [name, setName] = useState("");
+  const [type, setType] = useState<"solo" | "couple" | "coloc" | "famille">("couple");
+  const [code, setCode] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAdminAccess() {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+
+      try {
+        const response = await fetch("/api/admin/status", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!cancelled) setIsAdmin(Boolean(result.isAdmin));
+      } catch {
+        // L'absence d'accès admin ne doit jamais gêner l'usage normal de DABO.
+      }
+    }
+
+    void checkAdminAccess();
+    return () => { cancelled = true; };
+  }, [supabase]);
+
+  async function activate(householdId: string) {
+    if (householdId === household?.id) return;
+    setBusy(true);
+    await switchHousehold(householdId);
+    setBusy(false);
+  }
+
+  async function createHousehold() {
+    if (!me || !name.trim()) return;
+    setBusy(true);
+    setError("");
+    const { data: result, error: createError } = await supabase.rpc("create_household_with_creator", {
+      p_name: name.trim(),
+      p_household_type: type,
+      p_first_name: me.first_name,
+      p_language: me.language,
+    });
+    const created = result?.[0];
+    if (createError || !created?.household_id) {
+      setError(t("households_error_create"));
+      setBusy(false);
+      return;
+    }
+
+    setMode("closed");
+    await switchHousehold(created.household_id);
+    setBusy(false);
+  }
+
+  async function joinHousehold() {
+    if (!me || !code.trim()) return;
+    setBusy(true);
+    setError("");
+
+    // Le code d'invitation n'est jamais recherché directement dans households.
+    // Le RPC SECURITY DEFINER valide le code, attribue le rôle et gère les
+    // jointures simultanées sans exposer les autres foyers au client.
+    const { data: result, error: joinError } = await supabase.rpc("join_household_by_invite", {
+      p_invite_code: code.trim().toUpperCase(),
+      p_first_name: me.first_name,
+      p_language: me.language,
+    });
+    const joined = result?.[0];
+    if (joinError || !joined?.household_id) {
+      const message = joinError?.message || "";
+      setError(message.includes("INVITE_NOT_FOUND") ? t("households_error_code") : t("households_error_join"));
+      setBusy(false);
+      return;
+    }
+
+    setMode("closed");
+    await switchHousehold(joined.household_id);
+    setBusy(false);
+  }
+
+  return (
+    <section>
+      <div className="mb-3">
+        <h2 className="text-base font-semibold text-ink">{t("households_title")}</h2>
+        <p className="text-xs text-muted mt-0.5">{t("households_desc")}</p>
+      </div>
+      <div className="bg-white2 rounded-2xl p-4 space-y-2">
+        {memberships.map((membership) => {
+          const active = membership.household.id === household?.id;
+          return (
+            <button
+              key={membership.household.id}
+              type="button"
+              onClick={() => void activate(membership.household.id)}
+              disabled={busy || active}
+              className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${active ? "border-gold bg-gold/10" : "border-border"}`}
+            >
+              <span className="w-9 h-9 rounded-full bg-paper flex items-center justify-center text-ink shrink-0"><Home size={17} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-ink truncate">{membership.household.name}</span>
+                <span className="block text-xs text-muted">{membership.member.role === "creator" ? t("settings_household_creator") : t("settings_member")}</span>
+              </span>
+              {active && <Check size={17} className="text-gold shrink-0" aria-label={t("households_active")} />}
+            </button>
+          );
+        })}
+
+        {isAdmin && (
+          <a
+            href="/admin"
+            className="w-full flex items-center gap-3 rounded-xl border border-mustard/50 bg-mustardBg/60 p-3 text-left transition-colors hover:bg-mustardBg"
+          >
+            <span className="w-9 h-9 rounded-full bg-ink text-paper flex items-center justify-center shrink-0"><Bot size={17} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-ink truncate">Administration DABO</span>
+              <span className="block text-xs text-muted">LOBA · Centre de commandement</span>
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-mustard">Admin</span>
+          </a>
+        )}
+
+        {mode === "closed" ? (
+          <button type="button" onClick={() => setMode("choice")} className="w-full border border-border rounded-xl p-3 text-sm font-medium text-ink flex items-center justify-center gap-2">
+            <Plus size={16} /> {t("households_add")}
+          </button>
+        ) : mode === "choice" ? (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button onClick={() => setMode("create")} className="border border-border rounded-xl p-3 text-xs text-ink flex flex-col items-center gap-2"><Home size={18} />{t("households_create")}</button>
+            <button onClick={() => setMode("join")} className="border border-border rounded-xl p-3 text-xs text-ink flex flex-col items-center gap-2"><Users size={18} />{t("households_join")}</button>
+            <button onClick={() => setMode("closed")} className="col-span-2 text-xs text-muted py-1">{t("cancel")}</button>
+          </div>
+        ) : mode === "create" ? (
+          <div className="border-t border-border pt-3 space-y-2">
+            <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("households_name_placeholder")} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink outline-none focus:border-ink" />
+            <select value={type} onChange={(event) => setType(event.target.value as typeof type)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink outline-none focus:border-ink">
+              <option value="solo">{t("household_solo")}</option><option value="couple">{t("household_couple")}</option><option value="coloc">{t("household_coloc")}</option><option value="famille">{t("household_famille")}</option>
+            </select>
+            <div className="flex gap-2"><button onClick={() => void createHousehold()} disabled={busy || !name.trim()} className="flex-1 bg-ink text-paper rounded-xl px-3 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "…" : t("households_create")}</button><button onClick={() => setMode("choice")} className="px-3 text-sm text-muted">{t("cancel")}</button></div>
+          </div>
+        ) : (
+          <div className="border-t border-border pt-3 space-y-2">
+            <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder={t("households_code_placeholder")} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm font-mono bg-white2 text-ink outline-none focus:border-ink uppercase" />
+            <div className="flex gap-2"><button onClick={() => void joinHousehold()} disabled={busy || !code.trim()} className="flex-1 bg-ink text-paper rounded-xl px-3 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "…" : t("households_join")}</button><button onClick={() => setMode("choice")} className="px-3 text-sm text-muted">{t("cancel")}</button></div>
+          </div>
+        )}
+        {error && <p className="text-xs text-red-700">{error}</p>}
+      </div>
+    </section>
+  );
+}

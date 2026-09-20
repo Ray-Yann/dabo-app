@@ -3,7 +3,6 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
 import type { CalendarEvent } from "@/lib/types";
-import { isWithinReminderWindow } from "@/lib/calendar-reminder-window";
 
 function configureWebPush() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -27,6 +26,18 @@ function addCivilDays(iso: string, days: number) {
 }
 
 function civilNoon(iso: string) { return new Date(`${iso}T12:00:00Z`); }
+const REMINDER_LOOKBACK_MINUTES = 5;
+
+function dueLocalSlot(now: Date, timeZone: string, eventTime?: string | null) {
+  const expected = eventTime?.slice(0, 5);
+  if (!expected) return null;
+  for (let minutesAgo = 0; minutesAgo <= REMINDER_LOOKBACK_MINUTES; minutesAgo++) {
+    const candidate = new Date(now.getTime() - minutesAgo * 60_000);
+    const local = localParts(candidate, timeZone);
+    if (local.time === expected) return { ...local, minutesAgo };
+  }
+  return null;
+}
 function occurrenceIso(event: CalendarEvent, onOrAfter: string) {
   const out = occurrenceOnOrAfter(event, civilNoon(onOrAfter));
   if (!out) return null;
@@ -48,20 +59,24 @@ export async function GET(req: NextRequest) {
   for (const raw of events || []) {
     const event = raw as CalendarEvent;
     const tz = event.time_zone || "Europe/Brussels";
-    let local;
-    try { local = localParts(now, tz); } catch { local = localParts(now, "UTC"); }
-    if (!event.event_time || !isWithinReminderWindow(local.time, event.event_time.slice(0,5))) continue;
+    let slot;
+    try { slot = dueLocalSlot(now, tz, event.event_time); } catch { slot = dueLocalSlot(now, "UTC", event.event_time); }
+    if (!slot) continue;
 
-    console.info("[calendar-reminders] Time window matched", { eventId: event.id, title: event.title, localDate: local.date, localTime: local.time, eventTime: event.event_time, timeZone: tz, reminderDaysBefore: event.reminder_days_before ?? 0 });
-
-    const targetOccurrenceDate = addCivilDays(local.date, Math.max(0, event.reminder_days_before || 0));
-    const resolvedOccurrenceDate = occurrenceIso(event, targetOccurrenceDate);
-    if (resolvedOccurrenceDate !== targetOccurrenceDate) {
-      console.info("[calendar-reminders] Occurrence skipped", { eventId: event.id, targetOccurrenceDate, resolvedOccurrenceDate });
-      continue;
-    }
+    const targetOccurrenceDate = addCivilDays(slot.date, Math.max(0, event.reminder_days_before || 0));
+    if (occurrenceIso(event, targetOccurrenceDate) !== targetOccurrenceDate) continue;
     due++;
-    console.info("[calendar-reminders] Reminder due", { eventId: event.id, targetOccurrenceDate, visibility: event.visibility, privateOwnerId: event.private_owner_id });
+    console.info("[calendar-reminders] Reminder due", {
+      eventId: event.id,
+      title: event.title,
+      timeZone: tz,
+      eventTime: event.event_time,
+      matchedLocalDate: slot.date,
+      matchedLocalTime: slot.time,
+      minutesAgo: slot.minutesAgo,
+      occurrenceDate: targetOccurrenceDate,
+      visibility: event.visibility,
+    });
 
     let memberIds: string[] = [];
     if (event.visibility === "personal") {
@@ -72,27 +87,24 @@ export async function GET(req: NextRequest) {
     }
 
     membersFound += memberIds.length;
-    console.info("[calendar-reminders] Delivery targets", { eventId: event.id, memberIds });
     for (const memberId of memberIds) {
       const { error: claimError } = await db.from("calendar_reminder_deliveries").insert({
         event_id: event.id, member_id: memberId, occurrence_date: targetOccurrenceDate, reminder_days_before: event.reminder_days_before || 0,
       });
       if (claimError) {
         claimFailures++;
-        console.error("[calendar-reminders] Claim failed", { eventId: event.id, memberId, code: claimError.code ?? null, message: claimError.message ?? null });
+        if (claimError.code !== "23505") console.error("[calendar-reminders] Delivery claim failed", { eventId: event.id, memberId, code: claimError.code, message: claimError.message });
         continue;
       }
-      console.info("[calendar-reminders] Claim created", { eventId: event.id, memberId, targetOccurrenceDate });
 
       const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("member_id", memberId);
       subscriptionsFound += (subs || []).length;
-      console.info("[calendar-reminders] Subscriptions loaded", { eventId: event.id, memberId, count: (subs || []).length });
+      console.info("[calendar-reminders] Delivery target", { eventId: event.id, memberId, subscriptions: (subs || []).length });
       let delivered = false;
       for (const sub of subs || []) {
         try {
           await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title: "Dabo â€” Rappel", body: event.title, url: "/app/calendrier" }));
           sent++; delivered = true;
-          console.info("[calendar-reminders] Web Push sent", { eventId: event.id, memberId, subscriptionId: sub.id });
         } catch (e: unknown) {
           pushFailures++;
           const pushError = e as { statusCode?: number; message?: string; body?: string };
@@ -101,10 +113,7 @@ export async function GET(req: NextRequest) {
           if (status === 404 || status === 410) await db.from("push_subscriptions").delete().eq("id", sub.id);
         }
       }
-      if (!delivered) {
-        console.warn("[calendar-reminders] No Push delivered; releasing claim", { eventId: event.id, memberId, subscriptions: (subs || []).length });
-        await db.from("calendar_reminder_deliveries").delete().eq("event_id", event.id).eq("member_id", memberId).eq("occurrence_date", targetOccurrenceDate).eq("reminder_days_before", event.reminder_days_before || 0);
-      }
+      if (!delivered) await db.from("calendar_reminder_deliveries").delete().eq("event_id", event.id).eq("member_id", memberId).eq("occurrence_date", targetOccurrenceDate).eq("reminder_days_before", event.reminder_days_before || 0);
     }
   }
   return NextResponse.json({ ok: true, due, sent, membersFound, subscriptionsFound, claimFailures, pushFailures, checked_at: now.toISOString() });
