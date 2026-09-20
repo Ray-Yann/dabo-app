@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
@@ -17,6 +17,16 @@ function localParts(now: Date, timeZone: string) {
   }).formatToParts(now);
   const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value || "";
   return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
+}
+
+function minutesSinceMidnight(hhmm: string) {
+  const [hour, minute] = hhmm.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function isWithinReminderWindow(localTime: string, eventTime: string, windowMinutes = 5) {
+  const elapsed = minutesSinceMidnight(localTime) - minutesSinceMidnight(eventTime);
+  return elapsed >= 0 && elapsed <= windowMinutes;
 }
 
 function addCivilDays(iso: string, days: number) {
@@ -49,7 +59,7 @@ export async function GET(req: NextRequest) {
     const tz = event.time_zone || "Europe/Brussels";
     let local;
     try { local = localParts(now, tz); } catch { local = localParts(now, "UTC"); }
-    if (local.time !== event.event_time?.slice(0,5)) continue;
+    if (!event.event_time || !isWithinReminderWindow(local.time, event.event_time.slice(0,5))) continue;
 
     const targetOccurrenceDate = addCivilDays(local.date, Math.max(0, event.reminder_days_before || 0));
     if (occurrenceIso(event, targetOccurrenceDate) !== targetOccurrenceDate) continue;

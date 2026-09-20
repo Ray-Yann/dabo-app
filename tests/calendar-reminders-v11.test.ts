@@ -9,7 +9,8 @@ const migration = fs.readFileSync("supabase/migrations/20260918_calendar_reminde
 
 test("rappel horaire lit heure, fuseau et recurrence", () => {
   assert.match(route, /event_time,time_zone/);
-  assert.match(route, /local\.time !== event\.event_time/);
+  assert.match(route, /isWithinReminderWindow\(local\.time, event\.event_time\.slice\(0,5\)\)/);
+  assert.match(route, /elapsed >= 0 && elapsed <= windowMinutes/);
   assert.match(route, /occurrenceIso/);
   assert.match(route, /reminder_days_before/);
 });
@@ -24,4 +25,12 @@ test("UX rappel et singulier quotidien sont traduits dans les 7 langues", () => 
   assert.match(page, /calendar_add_reminder/);
   assert.equal((i18n.match(/calendar_add_reminder:/g) || []).length, 7);
   assert.equal((i18n.match(/calendar_every_day:/g) || []).length, 7);
+});
+
+
+test("rappel calendrier tolere cinq minutes de retard sans anticiper", () => {
+  assert.match(route, /windowMinutes = 5/);
+  assert.match(route, /elapsed >= 0/);
+  assert.match(route, /elapsed <= windowMinutes/);
+  assert.doesNotMatch(route, /local\.time !== event\.event_time/);
 });
