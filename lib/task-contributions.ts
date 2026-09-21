@@ -124,6 +124,8 @@ export type ContributionPeriodSnapshot = {
   highestShare: number | null;
 };
 
+export const DEFAULT_MINIMUM_CONTRIBUTIONS = 4;
+
 export function computeContributionPeriodSnapshot(input: {
   memberIds: string[];
   contributions: TaskContribution[];
@@ -132,7 +134,7 @@ export function computeContributionPeriodSnapshot(input: {
   end: Date;
   minimumContributions?: number;
 }): ContributionPeriodSnapshot {
-  const minimumContributions = input.minimumContributions ?? 4;
+  const minimumContributions = input.minimumContributions ?? DEFAULT_MINIMUM_CONTRIBUTIONS;
   const startMs = input.start.getTime();
   const endMs = input.end.getTime();
   const activeIds = new Set(input.memberIds);

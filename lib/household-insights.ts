@@ -1,5 +1,5 @@
 import type { Member } from "@/lib/types";
-import { computeContributionPeriodSnapshot, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
+import { DEFAULT_MINIMUM_CONTRIBUTIONS, computeContributionPeriodSnapshot, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
 
 export type HouseholdTrend = "improving" | "stable" | "watch" | "building";
 
@@ -14,7 +14,6 @@ export type HouseholdInsights = {
 };
 
 const DAY = 86_400_000;
-const MIN_CONTRIBUTIONS = 4;
 
 function startOfLocalDay(value: Date): Date {
   const d = new Date(value);
@@ -37,7 +36,7 @@ export function computeHouseholdInsights(
     participants,
     start: currentStart,
     end,
-    minimumContributions: MIN_CONTRIBUTIONS,
+    minimumContributions: DEFAULT_MINIMUM_CONTRIBUTIONS,
   });
   const previous = computeContributionPeriodSnapshot({
     memberIds: members.map((member) => member.id),
@@ -45,14 +44,14 @@ export function computeHouseholdInsights(
     participants,
     start: previousStart,
     end: currentStart,
-    minimumContributions: MIN_CONTRIBUTIONS,
+    minimumContributions: DEFAULT_MINIMUM_CONTRIBUTIONS,
   });
   const currentHighestShare = current.highestShare;
   const previousHighestShare = previous.highestShare;
-  const enoughCurrentData = current.confirmedContributions >= MIN_CONTRIBUTIONS;
+  const enoughCurrentData = current.confirmedContributions >= DEFAULT_MINIMUM_CONTRIBUTIONS;
   const enoughComparisonData =
     enoughCurrentData &&
-    previous.confirmedContributions >= MIN_CONTRIBUTIONS;
+    previous.confirmedContributions >= DEFAULT_MINIMUM_CONTRIBUTIONS;
 
   let trend: HouseholdTrend = "building";
   if (enoughComparisonData && currentHighestShare !== null && previousHighestShare !== null) {
