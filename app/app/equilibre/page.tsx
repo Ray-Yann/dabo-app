@@ -8,15 +8,14 @@ import { BalanceBar } from "@/components/BalanceBar";
 import { IntroTip } from "@/components/IntroTip";
 import { Task, DURATION_OPTIONS, EFFORT_OPTIONS } from "@/lib/types";
 import { useT } from "@/lib/language-context";
-import { computeMemberPercentages } from "@/lib/utils";
 import {
   ContributionBalanceData,
-  computeContributionMemberPoints,
-  countConfirmedContributionsSince,
+  computeContributionPeriodSnapshot,
   fetchContributionBalanceData,
 } from "@/lib/task-contributions";
 import { Avatar } from "@/components/Avatar";
 import { computeHouseholdInsights } from "@/lib/household-insights";
+import { classifyHouseholdBalance } from "@/lib/household-weekly-report";
 import Link from "next/link";
 
 type Period = "week" | "month" | "quarter";
@@ -124,38 +123,26 @@ export default function BalancePage() {
 
   if (loading || !household) return <LoadingState />;
 
-  const pointsByMember = computeContributionMemberPoints(
-    periodMembers.map((member) => member.id),
-    balanceData.contributions,
-    balanceData.participants,
-    since
-  );
+  const periodSnapshot = computeContributionPeriodSnapshot({
+    memberIds: periodMembers.map((member) => member.id),
+    contributions: balanceData.contributions,
+    participants: balanceData.participants,
+    start: since,
+    end: new Date(referenceNow + 1),
+  });
+  const pointsByMember = periodSnapshot.pointsByMember;
   const totals = periodMembers.map((member) => ({
     id: member.id,
     first_name: member.first_name,
     pts: pointsByMember.get(member.id) || 0,
   }));
-  const confirmedContributionCount = countConfirmedContributionsSince(
-    balanceData.contributions,
-    balanceData.participants,
-    since
+  const confirmedContributionCount = periodSnapshot.confirmedContributions;
+  const percentages = periodSnapshot.percentagesByMember;
+  const highestShare = periodSnapshot.highestShare;
+  const balanceLevel = classifyHouseholdBalance(
+    highestShare,
+    periodMembers.length
   );
-  const percentages = computeMemberPercentages(totals.map((member) => ({ id: member.id, pts: member.pts })));
-  const memberShares = totals.map((member) => percentages.get(member.id) ?? 0);
-  const highestShare = memberShares.length ? Math.max(...memberShares) : 0;
-  const idealShare = periodMembers.length > 0 ? 100 / periodMembers.length : 100;
-  const balanceLevel: "healthy" | "gentle" | "marked" =
-    periodMembers.length === 2
-      ? highestShare < 60
-        ? "healthy"
-        : highestShare < 70
-          ? "gentle"
-          : "marked"
-      : highestShare <= idealShare * 1.2
-        ? "healthy"
-        : highestShare <= idealShare * 1.5
-          ? "gentle"
-          : "marked";
   const sinceMs = since.getTime();
   const taskById = new Map(tasks.map((task) => [task.id, task]));
   const participantsByContribution = new Map<string, string[]>();
@@ -192,7 +179,7 @@ export default function BalancePage() {
 
   const balanceSuggestedMember = (() => {
     if (
-      confirmedContributionCount < 4 ||
+      balanceLevel === "building" ||
       (memberJoinedDuringPeriod || memberLeftDuringPeriod) ||
       balanceLevel === "healthy" ||
       members.length < 2
@@ -504,7 +491,7 @@ export default function BalancePage() {
           <p className="text-sm text-muted italic text-center py-4">{t("balance_disabled")}</p>
         ) : detailContributions.length === 0 ? (
           <p className="text-sm text-muted italic text-center py-4">{t("balance_empty_period")}</p>
-        ) : confirmedContributionCount < 4 ? (
+        ) : balanceLevel === "building" ? (
           <div>
             <div className="text-center mb-4">
               <p className="text-base text-ink font-medium">{t("balance_building_title")}</p>
@@ -571,7 +558,7 @@ export default function BalancePage() {
               <div>
                 <p className="text-sm font-medium text-ink">{t("balance_redistribute_preview_title")}</p>
                 <p className="mt-1 text-xs leading-5 text-muted">
-                  {confirmedContributionCount < 4
+                  {balanceLevel === "building"
                     ? t("balance_redistribute_preview_partial")
                     : t("balance_redistribute_preview_ready")}
                 </p>

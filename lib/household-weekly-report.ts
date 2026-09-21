@@ -2,6 +2,27 @@ import type { CalendarEvent, Member, ShoppingItem } from "@/lib/types";
 import { DEFAULT_MINIMUM_CONTRIBUTIONS, computeContributionPeriodSnapshot, type TaskContribution, type TaskContributionParticipant } from "@/lib/task-contributions";
 
 export type WeeklyBalanceLevel = "building" | "healthy" | "gentle" | "marked";
+
+export function classifyHouseholdBalance(
+  highestShare: number | null,
+  memberCount: number
+): WeeklyBalanceLevel {
+  if (highestShare === null) return "building";
+
+  const idealShare = memberCount > 0 ? 100 / memberCount : 100;
+
+  return memberCount === 2
+    ? highestShare < 60
+      ? "healthy"
+      : highestShare < 70
+        ? "gentle"
+        : "marked"
+    : highestShare <= idealShare * 1.2
+      ? "healthy"
+      : highestShare <= idealShare * 1.5
+        ? "gentle"
+        : "marked";
+}
 export type WeeklyMemberShare = { memberId: string; firstName: string; points: number; percentage: number };
 export type HouseholdWeeklyReport = {
   start: Date; end: Date; confirmedContributions: number; boughtItems: number; householdEvents: number;
@@ -35,9 +56,10 @@ export function computeHouseholdWeeklyReport(input: {
     percentage: snapshot.percentagesByMember.get(m.id) || 0,
   }));
   const highestShare = snapshot.highestShare;
-  const ideal = input.members.length ? 100 / input.members.length : 100;
-  let balanceLevel: WeeklyBalanceLevel = "building";
-  if (highestShare !== null) balanceLevel = input.members.length === 2 ? (highestShare < 60 ? "healthy" : highestShare < 70 ? "gentle" : "marked") : (highestShare <= ideal * 1.2 ? "healthy" : highestShare <= ideal * 1.5 ? "gentle" : "marked");
+  const balanceLevel = classifyHouseholdBalance(
+    highestShare,
+    input.members.length
+  );
   return {
     start, end, confirmedContributions,
     boughtItems: (input.shoppingItems || []).filter(i => i.status === "bought" && inRange(i.bought_at, start, end)).length,
