@@ -8,7 +8,7 @@ export function computeHouseholdBaseState(
   report: HouseholdWeeklyReport,
   insights: HouseholdInsights
 ): HouseholdBaseState {
-  if (report.confirmedContributions < 4) return "building";
+  if (report.balanceLevel === "building") return "building";
   if (insights.enoughComparisonData && insights.trend === "improving") return "improving";
   return null;
 }

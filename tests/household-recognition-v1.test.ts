@@ -7,7 +7,7 @@ const report=(overrides:any={})=>({confirmedContributions:8,balanceLevel:"gentle
 const insights=(overrides:any={})=>({trend:"stable",enoughComparisonData:true,...overrides} as any);
 
 test("Reconnaissance V1 attend assez de données avant de valoriser une dynamique",()=>{
-  assert.equal(computeHouseholdRecognition(report({confirmedContributions:3}),insights()),"building");
+  assert.equal(computeHouseholdRecognition(report({confirmedContributions:3,balanceLevel:"building"}),insights()),"building");
 });
 
 test("Reconnaissance V1 valorise une amélioration observée avant tout autre signal positif",()=>{

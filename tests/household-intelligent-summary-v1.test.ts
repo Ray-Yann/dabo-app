@@ -7,7 +7,7 @@ const report = (overrides: any = {}) => ({ confirmedContributions: 10, balanceLe
 const insights = (overrides: any = {}) => ({ trend: "stable", enoughComparisonData: true, enoughCurrentData: true, currentCount: 10, previousCount: 8, currentHighestShare: 62, previousHighestShare: 60, ...overrides });
 
 test("Synthèse V1 reste prudente quand les données sont insuffisantes", () => {
-  assert.equal(computeHouseholdIntelligentSummary(report({ confirmedContributions: 3 }), insights({ enoughComparisonData: false }), "building"), "building");
+  assert.equal(computeHouseholdIntelligentSummary(report({ confirmedContributions: 3, balanceLevel: "building" }), insights({ enoughComparisonData: false }), "building"), "building");
 });
 
 test("Synthèse V1 met une amélioration observée au premier plan sans causalité", () => {
