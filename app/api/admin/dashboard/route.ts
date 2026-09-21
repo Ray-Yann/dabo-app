@@ -1,3 +1,4 @@
+import { computeActivationFunnel } from "@/lib/activation-funnel";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireDaboAdmin } from "@/lib/admin-auth";
@@ -103,13 +104,29 @@ export async function GET(req: NextRequest) {
   let acquisitionRows: { event_name: string; visitor_id: string; referral_token: string | null; user_id: string | null; household_id: string | null; value_type: string | null; created_at: string }[] = [];
   let acquisitionAvailable = true;
   try {
-    const acquisition = await db.from("acquisition_events").select("event_name,visitor_id,referral_token,user_id,household_id,value_type,created_at");
-    if (acquisition.error) {
-      acquisitionAvailable = false;
-      console.error("[admin/dashboard] Acquisition funnel unavailable", acquisition.error);
-    } else acquisitionRows = acquisition.data || [];
+    const pageSize = 1000;
+    let from = 0;
+
+    while (true) {
+      const acquisition = await db
+        .from("acquisition_events")
+        .select("event_name,visitor_id,referral_token,user_id,household_id,value_type,created_at")
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (acquisition.error) {
+        throw acquisition.error;
+      }
+
+      const page = (acquisition.data || []) as typeof acquisitionRows;
+      acquisitionRows.push(...page);
+
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
   } catch (error) {
     acquisitionAvailable = false;
+    acquisitionRows = [];
     console.error("[admin/dashboard] Acquisition funnel failed", error);
   }
 
@@ -303,6 +320,8 @@ export async function GET(req: NextRequest) {
   const signupShareTokens = new Set(A.filter((item) => item.event_name === "signup_completed" && item.referral_token && shareTokens.has(item.referral_token)).map((item) => item.referral_token!));
   const firstAcquisitionEventAt = A.map((item) => item.created_at).sort()[0] || null;
   const pct = (num: number, den: number) => den ? Math.round((num / den) * 100) : 0;
+  const activation = computeActivationFunnel(A);
+
   const acquisitionSummary = {
     instrumentedSince: firstAcquisitionEventAt,
     measuredVisitors: landingVisitors, measuredSignups, measuredHouseholds, measuredFirstValue,
@@ -310,6 +329,18 @@ export async function GET(req: NextRequest) {
     unattributedVisits, unattributedSignups,
     shareLinksCreated: shareTokens.size, shareLinksVisited: visitedShareTokens.size, shareLinksWithSignup: signupShareTokens.size,
     visitToSignupRate: pct(measuredSignups, landingVisitors),
+    activation: {
+      eligibleVisitors: activation.eligibleVisitors,
+      activatedVisitors: activation.activatedVisitors,
+      activatedWithin5Minutes: activation.activatedWithin5Minutes,
+      activationRate: activation.activationRate,
+      activationWithin5MinutesRate: activation.activationWithin5MinutesRate,
+      medianActivationSeconds: activation.medianActivationSeconds,
+      householdReachedVisitors: activation.householdReachedVisitors,
+      funnelActivatedVisitors: activation.funnelActivatedVisitors,
+      signupToHouseholdRate: activation.signupToHouseholdRate,
+      householdToFirstValueRate: activation.householdToFirstValueRate,
+    },
     attributedVisitToSignupRate: pct(attributedSignups, attributedVisits),
     sources: [
       { id: "dabo-share", label: "Partage DABO attribué", visits: attributedVisits, signups: attributedSignups, households: attributedHouseholds, firstValue: attributedFirstValue },
