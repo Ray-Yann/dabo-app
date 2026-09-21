@@ -124,3 +124,58 @@ test("LOBA P0.3 persiste le snapshot tarifaire et les coûts", () => {
   assert.match(migration, /output_cost_usd numeric/);
   assert.match(migration, /total_cost_usd numeric/);
 });
+
+
+test("LOBA P0.3 expose une observabilite fiable dans le cockpit Admin", () => {
+  const dashboardRoute = fs.readFileSync(
+    "app/api/admin/dashboard/route.ts",
+    "utf8"
+  );
+  const adminPage = fs.readFileSync("app/admin/page.tsx", "utf8");
+
+  assert.match(dashboardRoute, /\.from\("loba_ai_usage"\)/);
+  assert.match(dashboardRoute, /\.gte\("created_at", since30\)/);
+  assert.match(dashboardRoute, /\.range\(from, from \+ pageSize - 1\)/);
+  assert.match(dashboardRoute, /if \(page\.length < pageSize\) break/);
+  assert.match(dashboardRoute, /lobaUsageRows\.push\(\.\.\.page\)/);
+
+  assert.match(dashboardRoute, /lobaUsageRows = \[\]/);
+  assert.match(dashboardRoute, /available: false/);
+  assert.match(dashboardRoute, /surfacesLast30Days/);
+
+  assert.match(
+    dashboardRoute,
+    /row\.total_tokens \?\?[\s\S]*?row\.prompt_tokens \?\? 0[\s\S]*?row\.completion_tokens \?\? 0/
+  );
+
+  assert.match(adminPage, /usage\?:LobaUsageData/);
+  assert.match(adminPage, /data\.loba\?\.usage\?\.available/);
+  assert.match(adminPage, /surfacesLast30Days\.admin/);
+  assert.match(adminPage, /surfacesLast30Days\.household/);
+  assert.match(adminPage, /pricedCalls<data\.loba\.usage\.last30Days\.calls/);
+});
+
+test("LOBA P0.3 ne lit aucun contenu conversationnel pour le cockpit Admin", () => {
+  const dashboardRoute = fs.readFileSync(
+    "app/api/admin/dashboard/route.ts",
+    "utf8"
+  );
+
+  const sourceStart = dashboardRoute.indexOf('.from("loba_ai_usage")');
+  assert.notEqual(sourceStart, -1);
+
+  const sourceEnd = dashboardRoute.indexOf(
+    'const H = sourceAvailability.households',
+    sourceStart
+  );
+  assert.notEqual(sourceEnd, -1);
+
+  const usageQuery = dashboardRoute.slice(sourceStart, sourceEnd);
+
+  assert.doesNotMatch(usageQuery, /question/i);
+  assert.doesNotMatch(usageQuery, /answer/i);
+  assert.doesNotMatch(usageQuery, /context/i);
+  assert.doesNotMatch(usageQuery, /history/i);
+  assert.doesNotMatch(usageQuery, /message/i);
+  assert.doesNotMatch(usageQuery, /prompt(?!_tokens)/i);
+});

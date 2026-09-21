@@ -113,6 +113,51 @@ export async function GET(req: NextRequest) {
     console.error("[admin/dashboard] Acquisition funnel failed", error);
   }
 
+  // LOBA AI observability: optional and isolated from the rest of the cockpit.
+  // Only operational metadata is read here; no prompt, question, answer or context is stored.
+  type LobaUsageRow = {
+    surface: "admin" | "household";
+    status: "success" | "provider_error" | "empty_response" | "request_error";
+    prompt_tokens: number | null;
+    completion_tokens: number | null;
+    total_tokens: number | null;
+    total_cost_usd: number | string | null;
+    created_at: string;
+  };
+
+  let lobaUsageRows: LobaUsageRow[] = [];
+  let lobaUsageAvailable = true;
+
+  try {
+    const pageSize = 1000;
+    let from = 0;
+
+    while (true) {
+      const usage = await db
+        .from("loba_ai_usage")
+        .select(
+          "surface,status,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,created_at"
+        )
+        .gte("created_at", since30)
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (usage.error) {
+        throw usage.error;
+      }
+
+      const page = (usage.data || []) as LobaUsageRow[];
+      lobaUsageRows.push(...page);
+
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+  } catch (error) {
+    lobaUsageAvailable = false;
+    lobaUsageRows = [];
+    console.error("[admin/dashboard] LOBA usage failed", error);
+  }
+
   const H = sourceAvailability.households ? households.data || [] : [];
   const M = sourceAvailability.members ? members.data || [] : [];
   const T = sourceAvailability.tasks ? tasks.data || [] : [];
@@ -464,6 +509,69 @@ export async function GET(req: NextRequest) {
       tagline: "L’assistant DABO",
       intelligence: intelligence.slice(0, 4),
       periods: { current30, previous30 },
+      usage: (() => {
+        if (!lobaUsageAvailable) return { available: false };
+
+        const todayStart = new Date();
+        todayStart.setUTCHours(0, 0, 0, 0);
+        const todayIso = todayStart.toISOString();
+
+        const summarize = (rows: LobaUsageRow[]) => {
+          const calls = rows.length;
+          const successfulCalls = rows.filter((row) => row.status === "success").length;
+          const promptTokens = rows.reduce(
+            (sum, row) => sum + (row.prompt_tokens ?? 0),
+            0
+          );
+          const completionTokens = rows.reduce(
+            (sum, row) => sum + (row.completion_tokens ?? 0),
+            0
+          );
+          const totalTokens = rows.reduce(
+            (sum, row) =>
+              sum +
+              (row.total_tokens ??
+                (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0)),
+            0
+          );
+          const pricedCalls = rows.filter(
+            (row) => row.total_cost_usd !== null
+          ).length;
+          const estimatedCostUsd = rows.reduce(
+            (sum, row) => sum + Number(row.total_cost_usd ?? 0),
+            0
+          );
+
+          return {
+            calls,
+            successfulCalls,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            pricedCalls,
+            estimatedCostUsd,
+          };
+        };
+
+        const todayRows = lobaUsageRows.filter(
+          (row) => row.created_at >= todayIso
+        );
+
+        return {
+          available: true,
+          today: summarize(todayRows),
+          last30Days: summarize(lobaUsageRows),
+          surfacesLast30Days: {
+            admin: summarize(
+              lobaUsageRows.filter((row) => row.surface === "admin")
+            ),
+            household: summarize(
+              lobaUsageRows.filter((row) => row.surface === "household")
+            ),
+          },
+        };
+      })(),
+
       growthEngine: {
         objective: "Transformer les utilisateurs satisfaits en croissance durable, sans pression ni dark patterns.",
         funnel: acquisitionAvailable ? [
@@ -553,3 +661,4 @@ export async function GET(req: NextRequest) {
     households: householdDetails,
   });
 }
+
