@@ -18,6 +18,7 @@ import { LANGUAGE_OPTIONS, isAvailableLang } from "@/lib/languages";
 import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
 import { setTutorialEnabled } from "@/lib/tutorial-preferences";
 import { clearTutorialLocalStateForUser } from "@/lib/tutorial-local-storage";
+import type { LifeContextImpact, LifeContextType, MemberLifeContext } from "@/lib/life-context";
 
 type SettingsConfirmation =
   | { kind: "promote"; memberId: string; name: string }
@@ -46,6 +47,13 @@ export default function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [editingFirstName, setEditingFirstName] = useState(false);
+  const [lifeContexts, setLifeContexts] = useState<MemberLifeContext[]>([]);
+  const [lifeContextType, setLifeContextType] = useState<LifeContextType>("busy_period");
+  const [lifeContextImpact, setLifeContextImpact] = useState<LifeContextImpact>("reduced");
+  const [lifeContextStart, setLifeContextStart] = useState("");
+  const [lifeContextEnd, setLifeContextEnd] = useState("");
+  const [editingLifeContextId, setEditingLifeContextId] = useState<string | null>(null);
+  const [savingLifeContext, setSavingLifeContext] = useState(false);
   const [householdName, setHouseholdName] = useState(household?.name || "");
   const [savingHouseholdName, setSavingHouseholdName] = useState(false);
   const [householdNameSaved, setHouseholdNameSaved] = useState(false);
@@ -101,6 +109,31 @@ export default function SettingsPage() {
   }, [me?.id]);
 
   useEffect(() => {
+    if (!household || !me) return;
+
+    let cancelled = false;
+
+    void supabase
+      .from("member_life_contexts")
+      .select("*")
+      .eq("household_id", household.id)
+      .eq("member_id", me.id)
+      .order("starts_on", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("DABO life context load failed", error);
+          return;
+        }
+        setLifeContexts((data as MemberLifeContext[]) || []);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [household?.id, me?.id, supabase]);
+
+  useEffect(() => {
     if (household) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHouseholdName(household.name);
@@ -120,6 +153,111 @@ export default function SettingsPage() {
     }
     setEditingFirstName(false);
     refresh();
+  }
+
+  async function saveLifeContext() {
+    if (
+      !household ||
+      !me ||
+      !lifeContextStart ||
+      !lifeContextEnd ||
+      lifeContextEnd < lifeContextStart ||
+      savingLifeContext
+    ) {
+      return;
+    }
+
+    setSavingLifeContext(true);
+
+    try {
+      const { data, error } = await supabase.rpc("save_member_life_context", {
+        p_household_id: household.id,
+        p_context_type: lifeContextType,
+        p_impact: lifeContextImpact,
+        p_starts_on: lifeContextStart,
+        p_ends_on: lifeContextEnd,
+        p_context_id: editingLifeContextId,
+      });
+
+      if (error) throw error;
+
+      const contextId = String(data);
+      const now = new Date().toISOString();
+
+      const saved: MemberLifeContext = {
+        id: contextId,
+        household_id: household.id,
+        member_id: me.id,
+        context_type: lifeContextType,
+        impact: lifeContextImpact,
+        starts_on: lifeContextStart,
+        ends_on: lifeContextEnd,
+        created_at:
+          lifeContexts.find((context) => context.id === contextId)?.created_at ??
+          now,
+        updated_at: now,
+      };
+
+      setLifeContexts((current) =>
+        [...current.filter((context) => context.id !== contextId), saved].sort(
+          (a, b) => a.starts_on.localeCompare(b.starts_on)
+        )
+      );
+
+      setEditingLifeContextId(null);
+      setLifeContextStart("");
+      setLifeContextEnd("");
+      setLifeContextType("busy_period");
+      setLifeContextImpact("reduced");
+      showFeedback("success", t("settings_life_context_saved"));
+    } catch (error) {
+      console.error("DABO life context save failed", error);
+      showFeedback("error", t("settings_life_context_error"));
+    } finally {
+      setSavingLifeContext(false);
+    }
+  }
+
+  async function deleteLifeContext(contextId: string) {
+    if (!household || savingLifeContext) return;
+
+    setSavingLifeContext(true);
+
+    try {
+      const { error } = await supabase.rpc("delete_member_life_context", {
+        p_household_id: household.id,
+        p_context_id: contextId,
+      });
+
+      if (error) throw error;
+
+      setLifeContexts((current) =>
+        current.filter((context) => context.id !== contextId)
+      );
+
+      if (editingLifeContextId === contextId) {
+        setEditingLifeContextId(null);
+        setLifeContextStart("");
+        setLifeContextEnd("");
+        setLifeContextType("busy_period");
+        setLifeContextImpact("reduced");
+      }
+
+      showFeedback("success", t("settings_life_context_deleted"));
+    } catch (error) {
+      console.error("DABO life context delete failed", error);
+      showFeedback("error", t("settings_life_context_error"));
+    } finally {
+      setSavingLifeContext(false);
+    }
+  }
+
+  function editLifeContext(context: MemberLifeContext) {
+    setEditingLifeContextId(context.id);
+    setLifeContextType(context.context_type);
+    setLifeContextImpact(context.impact);
+    setLifeContextStart(context.starts_on);
+    setLifeContextEnd(context.ends_on);
   }
 
   async function chooseColor(color: string) {
@@ -665,6 +803,204 @@ export default function SettingsPage() {
               ))}
             </select>
             <div className="text-[11px] leading-4 text-muted mb-4">{t("settings_language_hint")}</div>
+
+            <div className="border-t border-border pt-4 mt-4">
+              <div className="text-sm font-semibold text-ink">
+                {t("settings_life_context_title")}
+              </div>
+              <p className="text-xs leading-5 text-muted mt-1 mb-4">
+                {t("settings_life_context_desc")}
+              </p>
+
+              {lifeContexts.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {lifeContexts.map((context) => {
+                    const today = new Date();
+                    const localToday =
+                      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                    const isActive =
+                      context.starts_on <= localToday &&
+                      context.ends_on >= localToday;
+                    const isUpcoming = context.starts_on > localToday;
+
+                    return (
+                      <div
+                        key={context.id}
+                        className="rounded-xl border border-border bg-paper/60 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            {(isActive || isUpcoming) && (
+                              <div className="text-[10px] uppercase tracking-wide text-muted mb-1">
+                                {isActive
+                                  ? t("settings_life_context_active")
+                                  : t("settings_life_context_upcoming")}
+                              </div>
+                            )}
+                            <div className="text-sm font-medium text-ink">
+                              {t(
+                                `settings_life_context_${context.context_type}`
+                              )}
+                            </div>
+                            <div className="text-xs text-muted mt-1">
+                              {t(
+                                `settings_life_context_impact_${context.impact}`
+                              )}
+                              {" · "}
+                              {context.starts_on}
+                              {" → "}
+                              {context.ends_on}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => editLifeContext(context)}
+                              disabled={savingLifeContext}
+                              className="text-xs text-muted hover:text-ink disabled:opacity-50"
+                            >
+                              {t("edit")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteLifeContext(context.id)}
+                              disabled={savingLifeContext}
+                              className="text-xs text-muted hover:text-ink disabled:opacity-50"
+                            >
+                              {t("settings_life_context_delete")}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="life-context-type"
+                    className="text-xs text-muted mb-1 block"
+                  >
+                    {t("settings_life_context_title")}
+                  </label>
+                  <select
+                    id="life-context-type"
+                    value={lifeContextType}
+                    onChange={(event) =>
+                      setLifeContextType(event.target.value as LifeContextType)
+                    }
+                    disabled={savingLifeContext}
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink disabled:opacity-50"
+                  >
+                    <option value="busy_period">
+                      {t("settings_life_context_busy_period")}
+                    </option>
+                    <option value="studies">
+                      {t("settings_life_context_studies")}
+                    </option>
+                    <option value="travel">
+                      {t("settings_life_context_travel")}
+                    </option>
+                    <option value="away">
+                      {t("settings_life_context_away")}
+                    </option>
+                    <option value="reduced_availability">
+                      {t("settings_life_context_reduced_availability")}
+                    </option>
+                    <option value="other">
+                      {t("settings_life_context_other")}
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="life-context-impact"
+                    className="text-xs text-muted mb-1 block"
+                  >
+                    {t("settings_life_context_impact")}
+                  </label>
+                  <select
+                    id="life-context-impact"
+                    value={lifeContextImpact}
+                    onChange={(event) =>
+                      setLifeContextImpact(
+                        event.target.value as LifeContextImpact
+                      )
+                    }
+                    disabled={savingLifeContext}
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink disabled:opacity-50"
+                  >
+                    <option value="reduced">
+                      {t("settings_life_context_impact_reduced")}
+                    </option>
+                    <option value="very_reduced">
+                      {t("settings_life_context_impact_very_reduced")}
+                    </option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label
+                      htmlFor="life-context-start"
+                      className="text-xs text-muted mb-1 block"
+                    >
+                      {t("settings_life_context_start")}
+                    </label>
+                    <input
+                      id="life-context-start"
+                      type="date"
+                      value={lifeContextStart}
+                      onChange={(event) =>
+                        setLifeContextStart(event.target.value)
+                      }
+                      disabled={savingLifeContext}
+                      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="life-context-end"
+                      className="text-xs text-muted mb-1 block"
+                    >
+                      {t("settings_life_context_end")}
+                    </label>
+                    <input
+                      id="life-context-end"
+                      type="date"
+                      min={lifeContextStart || undefined}
+                      value={lifeContextEnd}
+                      onChange={(event) =>
+                        setLifeContextEnd(event.target.value)
+                      }
+                      disabled={savingLifeContext}
+                      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void saveLifeContext()}
+                  disabled={
+                    savingLifeContext ||
+                    !lifeContextStart ||
+                    !lifeContextEnd ||
+                    lifeContextEnd < lifeContextStart
+                  }
+                  className="w-full rounded-xl bg-ink text-paper px-3 py-2.5 text-sm font-medium disabled:opacity-50"
+                >
+                  {savingLifeContext
+                    ? "..."
+                    : t("settings_life_context_save")}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 

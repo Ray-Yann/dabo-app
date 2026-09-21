@@ -90,3 +90,101 @@ test("Suggestions V1.2 libere le moteur si la tache acceptee est reattribuee ou 
  assert.equal(getRebalanceActionState({report:baseReport,members,tasks:[moved],acceptedActions:[accepted()]}),"released");
  assert.equal(getRebalanceActionState({report:baseReport,members,tasks:[],acceptedActions:[accepted()]}),"released");
 });
+
+
+test("Life Context bloque une suggestion vers le membre temporairement moins disponible",()=>{
+ const lifeContexts=[{
+  id:"lc1",
+  household_id:"h",
+  member_id:"a",
+  context_type:"studies",
+  impact:"reduced",
+  starts_on:"2026-09-15",
+  ends_on:"2026-09-30",
+  created_at:"2026-09-15T08:00:00Z",
+  updated_at:"2026-09-15T08:00:00Z",
+ }] as any;
+
+ assert.equal(
+  buildHouseholdActionSuggestion({
+   report:baseReport,
+   members,
+   tasks:[task()],
+   today:"2026-09-16",
+   lifeContexts,
+  }),
+  null
+ );
+});
+
+test("Life Context expire ne bloque pas une suggestion actuelle",()=>{
+ const lifeContexts=[{
+  id:"lc1",
+  household_id:"h",
+  member_id:"a",
+  context_type:"busy_period",
+  impact:"reduced",
+  starts_on:"2026-09-01",
+  ends_on:"2026-09-15",
+  created_at:"2026-09-01T08:00:00Z",
+  updated_at:"2026-09-01T08:00:00Z",
+ }] as any;
+
+ const result=buildHouseholdActionSuggestion({
+  report:baseReport,
+  members,
+  tasks:[task()],
+  today:"2026-09-16",
+  lifeContexts,
+ });
+
+ assert.equal(result?.suggestedMemberId,"a");
+});
+
+test("Life Context futur ne bloque pas une suggestion actuelle",()=>{
+ const lifeContexts=[{
+  id:"lc1",
+  household_id:"h",
+  member_id:"a",
+  context_type:"travel",
+  impact:"very_reduced",
+  starts_on:"2026-09-17",
+  ends_on:"2026-09-20",
+  created_at:"2026-09-16T08:00:00Z",
+  updated_at:"2026-09-16T08:00:00Z",
+ }] as any;
+
+ const result=buildHouseholdActionSuggestion({
+  report:baseReport,
+  members,
+  tasks:[task()],
+  today:"2026-09-16",
+  lifeContexts,
+ });
+
+ assert.equal(result?.suggestedMemberId,"a");
+});
+
+test("Life Context d un autre membre ne modifie pas la cible factuelle",()=>{
+ const lifeContexts=[{
+  id:"lc1",
+  household_id:"h",
+  member_id:"b",
+  context_type:"away",
+  impact:"very_reduced",
+  starts_on:"2026-09-15",
+  ends_on:"2026-09-20",
+  created_at:"2026-09-15T08:00:00Z",
+  updated_at:"2026-09-15T08:00:00Z",
+ }] as any;
+
+ const result=buildHouseholdActionSuggestion({
+  report:baseReport,
+  members,
+  tasks:[task()],
+  today:"2026-09-16",
+  lifeContexts,
+ });
+
+ assert.equal(result?.suggestedMemberId,"a");
+});

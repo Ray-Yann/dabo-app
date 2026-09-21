@@ -1,6 +1,7 @@
 import type { Member, Task } from "@/lib/types";
 import type { HouseholdWeeklyReport } from "@/lib/household-weekly-report";
 import type { TaskContribution } from "@/lib/task-contributions";
+import { hasReducedAvailability, type MemberLifeContext } from "@/lib/life-context";
 
 export type HouseholdActionSuggestion = {
   taskId: string;
@@ -155,6 +156,7 @@ export function buildHouseholdActionSuggestion(input: {
   today: string;
   acceptedActions?: HouseholdAcceptedAction[];
   contributions?: TaskContribution[];
+  lifeContexts?: MemberLifeContext[];
 }): HouseholdActionSuggestion | null {
   if (input.report.suggestion !== "rebalance" || input.members.length < 2) return null;
 
@@ -163,6 +165,18 @@ export function buildHouseholdActionSuggestion(input: {
     memberShares: input.report.memberShares,
   });
   if (!target) return null;
+
+  // P2.2: Life Context qualifies the action layer only.
+  // It never changes contribution shares, points, or historical facts.
+  if (
+    hasReducedAvailability(
+      input.lifeContexts || [],
+      target.id,
+      input.today
+    )
+  ) {
+    return null;
+  }
 
   // V1.2: only an action explicitly accepted through DABO can pause another
   // redistribution. Ordinary household assignments must never be mistaken for
