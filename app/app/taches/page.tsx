@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
@@ -15,7 +15,24 @@ import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { NativeNameInput } from "@/components/NativeNameInput";
+import { detectAdaptiveRoutineSuggestion, realignPendingRoutineDueDate, type AdaptiveRoutineSuggestion } from "@/lib/adaptive-routines";
 
+
+type RoutineAdaptationPreference = {
+  id: string;
+  routine_id: string;
+  suggested_frequency: RoutineFrequency;
+  suggested_custom_days: number[] | null;
+  suggested_anchor_weekday: number | null;
+  status: "pending" | "accepted" | "dismissed" | "snoozed";
+  snoozed_until: string | null;
+};
+
+type ActiveRoutineSuggestion = {
+  routineId: string;
+  suggestion: AdaptiveRoutineSuggestion;
+  preference: RoutineAdaptationPreference | null;
+};
 
 type SubtaskDraft = { id?: string; name: string; assignedTo: string };
 type TaskForm = { name: string; subtasks: SubtaskDraft[]; durationKey: string; effortKey: string; assignedTo: string; recurrence: "none" | RoutineFrequency; customDays: number[]; urgent: boolean; dueDate: string };
@@ -136,6 +153,9 @@ export default function TasksPage() {
   const [subtasks, setSubtasks] = useState<TaskSubtask[]>([]);
   const [view, setView] = useState<"to_do" | "routines" | "done">("to_do");
   const [routines, setRoutines] = useState<Routine[]>([]);
+  const [routineAdaptationPreferences, setRoutineAdaptationPreferences] = useState<RoutineAdaptationPreference[]>([]);
+  const [routineAdaptationBusyId, setRoutineAdaptationBusyId] = useState<string | null>(null);
+  const [routineAdaptationNow, setRoutineAdaptationNow] = useState<number>(0);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -160,16 +180,19 @@ export default function TasksPage() {
   const topAddRef = useRef<HTMLButtonElement | null>(null);
 
   async function loadTasks() {
+    setRoutineAdaptationNow(Date.now());
     if (!household) return;
-    const [{ data }, { data: routineData }, { data: contributionData }, { data: subtaskData }] = await Promise.all([
+    const [{ data }, { data: routineData }, { data: contributionData }, { data: subtaskData }, { data: adaptationData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
       supabase.from("routines").select("*").eq("household_id", household.id),
       supabase.from("task_contributions").select("id, task_id, hidden_from_task_history, cancelled_at").eq("household_id", household.id),
       supabase.from("task_subtasks").select("*").eq("household_id", household.id).order("position", { ascending: true }),
+      supabase.from("routine_adaptation_preferences").select("id, routine_id, suggested_frequency, suggested_custom_days, suggested_anchor_weekday, status, snoozed_until").eq("household_id", household.id),
     ]);
     setTasks((data as Task[]) || []);
     setRoutines((routineData as Routine[]) || []);
     setSubtasks((subtaskData as TaskSubtask[]) || []);
+    setRoutineAdaptationPreferences((adaptationData as RoutineAdaptationPreference[]) || []);
     const contributionMap: Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }> = {};
     for (const row of contributionData || []) {
       contributionMap[row.task_id] = {
@@ -179,6 +202,159 @@ export default function TasksPage() {
       };
     }
     setTaskContributions(contributionMap);
+  }
+
+  const activeRoutineSuggestions = useMemo<ActiveRoutineSuggestion[]>(() => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const now = routineAdaptationNow;
+
+    return routines
+      .filter((routine) => routine.active)
+      .map((routine) => {
+        const occurrences = tasks
+          .filter((task) =>
+            task.routine_id === routine.id &&
+            task.status === "done" &&
+            Boolean(task.due_date) &&
+            Boolean(task.completed_at) &&
+            !taskContributions[task.id]?.cancelled_at
+          )
+          .map((task) => ({
+            dueDate: task.due_date as string,
+            completedAt: task.completed_at as string,
+          }));
+
+        const suggestion = detectAdaptiveRoutineSuggestion({
+          timeZone,
+          frequency: routine.frequency,
+          customDays: routine.custom_days,
+          anchorDate: routine.anchor_date,
+          occurrences,
+        });
+
+        if (!suggestion) return null;
+
+        const preference =
+          routineAdaptationPreferences.find((candidate) =>
+            candidate.routine_id === routine.id &&
+            candidate.suggested_frequency === suggestion.frequency &&
+            candidate.suggested_anchor_weekday === suggestion.anchorWeekday &&
+            JSON.stringify(candidate.suggested_custom_days ?? []) ===
+              JSON.stringify(suggestion.customDays ?? [])
+          ) ?? null;
+
+        if (preference?.status === "accepted" || preference?.status === "dismissed") {
+          return null;
+        }
+
+        if (
+          preference?.status === "snoozed" &&
+          preference.snoozed_until &&
+          new Date(preference.snoozed_until).getTime() > now
+        ) {
+          return null;
+        }
+
+        return {
+          routineId: routine.id,
+          suggestion,
+          preference,
+        };
+      })
+      .filter((item): item is ActiveRoutineSuggestion => item !== null);
+  }, [routines, tasks, taskContributions, routineAdaptationPreferences, routineAdaptationNow]);
+
+  async function saveRoutineAdaptationPreference(
+    item: ActiveRoutineSuggestion,
+    status: "dismissed" | "snoozed"
+  ) {
+    if (
+      !household ||
+      item.suggestion.anchorWeekday === null ||
+      routineAdaptationBusyId !== null
+    ) return;
+
+    setRoutineAdaptationBusyId(item.routineId);
+
+    try {
+    const snoozedUntil =
+      status === "snoozed"
+        ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
+    const { error } = await supabase.rpc(
+      "save_routine_adaptation_preference",
+      {
+        p_household_id: household.id,
+        p_routine_id: item.routineId,
+        p_suggested_frequency: item.suggestion.frequency,
+        p_suggested_custom_days: item.suggestion.customDays,
+        p_suggested_anchor_weekday: item.suggestion.anchorWeekday,
+        p_status: status,
+        p_snoozed_until: snoozedUntil,
+      }
+    );
+
+    if (error) {
+      console.error("Failed to save routine adaptation preference", error);
+      return;
+    }
+
+    await loadTasks();
+    } finally {
+      setRoutineAdaptationBusyId(null);
+    }
+  }
+
+  async function acceptRoutineAdaptation(item: ActiveRoutineSuggestion) {
+    const { routineId, suggestion } = item;
+
+    if (
+      suggestion.anchorWeekday === null ||
+      routineAdaptationBusyId !== null
+    ) return;
+
+    const pendingTask = tasks
+      .filter(
+        (task) =>
+          task.routine_id === routineId &&
+          task.status === "pending" &&
+          Boolean(task.due_date)
+      )
+      .sort((a, b) =>
+        (a.due_date as string).localeCompare(b.due_date as string)
+      )[0];
+
+    if (!pendingTask?.due_date) {
+      console.error("No pending occurrence found for adaptive routine", routineId);
+      return;
+    }
+
+    setRoutineAdaptationBusyId(routineId);
+
+    try {
+    const newDueDate = realignPendingRoutineDueDate(
+      pendingTask.due_date,
+      suggestion.anchorWeekday
+    );
+
+    const { error } = await supabase.rpc("accept_routine_adaptation", {
+      p_routine_id: routineId,
+      p_suggested_frequency: suggestion.frequency,
+      p_suggested_custom_days: suggestion.customDays,
+      p_suggested_anchor_weekday: suggestion.anchorWeekday,
+      p_new_due_date: newDueDate,
+    });
+
+    if (error) {
+      console.error("Failed to accept routine adaptation", error);
+      return;
+    }
+
+    await loadTasks();
+    } finally {
+      setRoutineAdaptationBusyId(null);
+    }
   }
 
   useEffect(() => {
@@ -802,17 +978,84 @@ export default function TasksPage() {
         <div className="px-5 space-y-2">
           {routines.filter((routine) => routine.active).length === 0 ? (
             <EmptyState message={t("tasks_empty")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowAdd(true); }} />
-          ) : routines.filter((routine) => routine.active).map((routine) => (
-            <div key={routine.id} className="rounded-2xl border border-borderLight bg-white2 p-4">
-              <div className="flex items-center gap-3">
-                <Repeat size={17} className="text-mustard" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-ink">{routine.name}</div>
-                  <div className="mt-1 text-xs text-muted">{t(`recurrence_${routine.frequency}`)}</div>
+          ) : routines.filter((routine) => routine.active).map((routine) => {
+            const adaptation = activeRoutineSuggestions.find(
+              (item) => item.routineId === routine.id
+            );
+
+            const weekdayKeys = [
+              "weekday_long_sun",
+              "weekday_long_mon",
+              "weekday_long_tue",
+              "weekday_long_wed",
+              "weekday_long_thu",
+              "weekday_long_fri",
+              "weekday_long_sat",
+            ] as const;
+
+            const weekdayLabel =
+              adaptation?.suggestion.anchorWeekday !== null &&
+              adaptation?.suggestion.anchorWeekday !== undefined
+                ? t(weekdayKeys[adaptation.suggestion.anchorWeekday])
+                : null;
+
+            return (
+              <div key={routine.id} className="rounded-2xl border border-borderLight bg-white2 p-4">
+                <div className="flex items-center gap-3">
+                  <Repeat size={17} className="text-mustard" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-ink">{routine.name}</div>
+                    <div className="mt-1 text-xs text-muted">{t(`recurrence_${routine.frequency}`)}</div>
+                  </div>
                 </div>
+
+                {adaptation && weekdayLabel && (
+                  <div className="mt-4 rounded-xl border border-borderLight bg-paper p-3">
+                    <div className="text-xs font-semibold text-ink">
+                      {t("routine_adaptation_title")}
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-muted">
+                      {t("routine_adaptation_message").replace("{weekday}", weekdayLabel)}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={routineAdaptationBusyId !== null}
+                        onClick={() => acceptRoutineAdaptation(adaptation)}
+                        className="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {t("routine_adaptation_accept")}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={routineAdaptationBusyId !== null}
+                        onClick={() =>
+                          saveRoutineAdaptationPreference(adaptation, "snoozed")
+                        }
+                        className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {t("routine_adaptation_snooze")}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={routineAdaptationBusyId !== null}
+                        onClick={() =>
+                          saveRoutineAdaptationPreference(adaptation, "dismissed")
+                        }
+                        className="px-2 py-1.5 text-xs font-medium text-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {t("routine_adaptation_dismiss")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
