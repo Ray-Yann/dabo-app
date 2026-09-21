@@ -16,6 +16,7 @@ import {
 import { Avatar } from "@/components/Avatar";
 import { computeHouseholdInsights } from "@/lib/household-insights";
 import { classifyHouseholdBalance } from "@/lib/household-weekly-report";
+import { selectRebalanceTarget, selectRebalanceTaskCandidates } from "@/lib/household-action-suggestions";
 import Link from "next/link";
 
 type Period = "week" | "month" | "quarter";
@@ -177,24 +178,19 @@ export default function BalancePage() {
     !selectedMemberId &&
     detailContributions.some((contribution) => contribution.performer_status === "unknown");
 
-  const balanceSuggestedMember = (() => {
-    if (
-      balanceLevel === "building" ||
-      (memberJoinedDuringPeriod || memberLeftDuringPeriod) ||
-      balanceLevel === "healthy" ||
-      members.length < 2
-    ) return null;
-
-    const shares = members.map((member) => ({
-      member,
-      share: percentages.get(member.id) ?? 0,
-    }));
-    const lowestShare = Math.min(...shares.map((item) => item.share));
-    const lowestMembers = shares.filter((item) => item.share === lowestShare);
-
-    // No personal recommendation when the signal does not identify one member clearly.
-    return lowestMembers.length === 1 ? lowestMembers[0].member : null;
-  })();
+  const balanceSuggestedMember =
+    balanceLevel === "gentle" || balanceLevel === "marked"
+      ? memberJoinedDuringPeriod || memberLeftDuringPeriod
+        ? null
+        : selectRebalanceTarget({
+            members,
+            memberShares: members.map((member) => ({
+              memberId: member.id,
+              points: pointsByMember.get(member.id) || 0,
+              percentage: percentages.get(member.id) ?? 0,
+            })),
+          })
+      : null;
 
   const householdInsights = computeHouseholdInsights(
     members,
@@ -204,35 +200,12 @@ export default function BalancePage() {
   );
 
   const todayKey = new Date().toISOString().slice(0, 10);
-  const redistributionSuggestions = tasks
-    .filter((task) => task.status === "pending" && (!task.due_date || task.due_date >= todayKey))
-    .sort((a, b) => {
-      // Unassigned tasks remain the clearest household decision, so they always come first.
-      const aUnassigned = a.assigned_to ? 1 : 0;
-      const bUnassigned = b.assigned_to ? 1 : 0;
-      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned;
-
-      // When DABO has a meaningful balance signal, surface tasks whose current
-      // assignment could actually be reconsidered before tasks already assigned
-      // to the suggested member. This changes visibility only, never assignment.
-      if (balanceSuggestedMember && a.assigned_to && b.assigned_to) {
-        const aAlreadySuggested = a.assigned_to === balanceSuggestedMember.id ? 1 : 0;
-        const bAlreadySuggested = b.assigned_to === balanceSuggestedMember.id ? 1 : 0;
-        if (aAlreadySuggested !== bAlreadySuggested) return aAlreadySuggested - bAlreadySuggested;
-      }
-
-      const dueComparison = (a.due_date || "9999-12-31").localeCompare(
-        b.due_date || "9999-12-31"
-      );
-      if (dueComparison !== 0) return dueComparison;
-
-      // For an otherwise equal choice, show the more substantial task first.
-      const weightComparison = (b.weight_points ?? 0) - (a.weight_points ?? 0);
-      if (weightComparison !== 0) return weightComparison;
-
-      return a.id.localeCompare(b.id);
-    })
-    .slice(0, 3);
+  const redistributionSuggestions = selectRebalanceTaskCandidates({
+    tasks,
+    today: todayKey,
+    targetMemberId: balanceSuggestedMember?.id ?? null,
+    excludeTargetAssignments: false,
+  }).slice(0, 3);
 
   const redistributionTask = redistributionTaskId
     ? tasks.find((task) => task.id === redistributionTaskId) || null
@@ -244,15 +217,30 @@ export default function BalancePage() {
       : null;
 
   async function assignRedistributionTask(memberId: string | null) {
-    if (!redistributionTask || savingRedistribution) return;
+    if (!redistributionTask || savingRedistribution || !household) return;
     setSavingRedistribution(true);
     try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ assigned_to: memberId })
-        .eq("id", redistributionTask.id)
-        .eq("household_id", household?.id ?? "");
-      if (error) throw error;
+      const acceptingDaboSuggestion =
+        memberId !== null &&
+        suggestedRedistributionMember?.id === memberId;
+
+      if (acceptingDaboSuggestion) {
+        const { error } = await supabase.rpc("accept_household_action_suggestion", {
+          p_household_id: household.id,
+          p_task_id: redistributionTask.id,
+          p_suggested_member_id: memberId,
+          p_reason: "rebalance",
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ assigned_to: memberId })
+          .eq("id", redistributionTask.id)
+          .eq("household_id", household.id);
+        if (error) throw error;
+      }
+
       setTasks((current) =>
         current.map((task) =>
           task.id === redistributionTask.id ? { ...task, assigned_to: memberId } : task

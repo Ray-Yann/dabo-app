@@ -24,6 +24,88 @@ export type HouseholdAcceptedAction = {
 
 export type RebalanceActionState = "none" | "in_progress" | "awaiting_confirmation" | "measured" | "released";
 
+export type HouseholdMemberShare = {
+  memberId: string;
+  points: number;
+  percentage: number;
+};
+
+export function selectRebalanceTarget(input: {
+  members: Member[];
+  memberShares: HouseholdMemberShare[];
+}): Member | null {
+  if (input.members.length < 2) return null;
+
+  const shares = input.memberShares
+    .filter((share) => input.members.some((member) => member.id === share.memberId))
+    .sort(
+      (a, b) =>
+        a.percentage - b.percentage ||
+        a.points - b.points ||
+        a.memberId.localeCompare(b.memberId)
+    );
+
+  if (shares.length < 2) return null;
+
+  const lowestPercentage = shares[0].percentage;
+  const lowestShares = shares.filter(
+    (share) => share.percentage === lowestPercentage
+  );
+
+  // A personal rebalance suggestion requires one clearly identified member.
+  // When several members share the lowest contribution, DABO stays neutral.
+  if (lowestShares.length !== 1) return null;
+
+  return (
+    input.members.find((member) => member.id === lowestShares[0].memberId) ?? null
+  );
+}
+
+export function selectRebalanceTaskCandidates(input: {
+  tasks: Task[];
+  today: string;
+  targetMemberId?: string | null;
+  excludeTargetAssignments?: boolean;
+}): Task[] {
+  const targetMemberId = input.targetMemberId ?? null;
+
+  return input.tasks
+    .filter(
+      (task) =>
+        task.status === "pending" &&
+        (!task.due_date || task.due_date >= input.today)
+    )
+    .filter(
+      (task) =>
+        !input.excludeTargetAssignments ||
+        !targetMemberId ||
+        task.assigned_to !== targetMemberId
+    )
+    .sort((a, b) => {
+      const aUnassigned = a.assigned_to ? 1 : 0;
+      const bUnassigned = b.assigned_to ? 1 : 0;
+      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned;
+
+      if (targetMemberId && a.assigned_to && b.assigned_to) {
+        const aAlreadyTarget = a.assigned_to === targetMemberId ? 1 : 0;
+        const bAlreadyTarget = b.assigned_to === targetMemberId ? 1 : 0;
+        if (aAlreadyTarget !== bAlreadyTarget) {
+          return aAlreadyTarget - bAlreadyTarget;
+        }
+      }
+
+      const due = (a.due_date || "9999-12-31").localeCompare(
+        b.due_date || "9999-12-31"
+      );
+      if (due !== 0) return due;
+
+      const weight = (b.weight_points ?? 0) - (a.weight_points ?? 0);
+      if (weight !== 0) return weight;
+
+      return a.id.localeCompare(b.id);
+    });
+}
+
 export function getRebalanceActionState(input: {
   report: HouseholdWeeklyReport;
   members: Member[];
@@ -32,11 +114,12 @@ export function getRebalanceActionState(input: {
   contributions?: TaskContribution[];
 }): RebalanceActionState {
   if (input.report.suggestion !== "rebalance" || input.members.length < 2) return "none";
-  const shares = input.report.memberShares
-    .filter((share) => input.members.some((member) => member.id === share.memberId))
-    .sort((a, b) => a.percentage - b.percentage || a.points - b.points || a.memberId.localeCompare(b.memberId));
-  if (shares.length < 2 || shares[0].percentage === shares[shares.length - 1].percentage) return "none";
-  const targetId = shares[0].memberId;
+  const target = selectRebalanceTarget({
+    members: input.members,
+    memberShares: input.report.memberShares,
+  });
+  if (!target) return "none";
+  const targetId = target.id;
   const action = [...(input.acceptedActions || [])]
     .filter((row) => row.reason === "rebalance" && row.suggested_member_id === targetId)
     .sort((a, b) => b.accepted_at.localeCompare(a.accepted_at))[0];
@@ -75,12 +158,10 @@ export function buildHouseholdActionSuggestion(input: {
 }): HouseholdActionSuggestion | null {
   if (input.report.suggestion !== "rebalance" || input.members.length < 2) return null;
 
-  const shares = input.report.memberShares
-    .filter((share) => input.members.some((member) => member.id === share.memberId))
-    .sort((a, b) => a.percentage - b.percentage || a.points - b.points || a.memberId.localeCompare(b.memberId));
-  if (shares.length < 2 || shares[0].percentage === shares[shares.length - 1].percentage) return null;
-
-  const target = input.members.find((member) => member.id === shares[0].memberId);
+  const target = selectRebalanceTarget({
+    members: input.members,
+    memberShares: input.report.memberShares,
+  });
   if (!target) return null;
 
   // V1.2: only an action explicitly accepted through DABO can pause another
@@ -88,19 +169,12 @@ export function buildHouseholdActionSuggestion(input: {
   // a DABO correction. Completed actions wait for confirmed contribution data.
   if (hasRebalanceInProgress(input)) return null;
 
-  const candidates = input.tasks
-    .filter((task) => task.status === "pending")
-    .filter((task) => !task.due_date || task.due_date >= input.today)
-    .filter((task) => task.assigned_to !== target.id)
-    .sort((a, b) => {
-      const aUnassigned = a.assigned_to ? 1 : 0;
-      const bUnassigned = b.assigned_to ? 1 : 0;
-      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned;
-      const due = (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31");
-      if (due !== 0) return due;
-      if (b.weight_points !== a.weight_points) return b.weight_points - a.weight_points;
-      return a.id.localeCompare(b.id);
-    });
+  const candidates = selectRebalanceTaskCandidates({
+    tasks: input.tasks,
+    today: input.today,
+    targetMemberId: target.id,
+    excludeTargetAssignments: true,
+  });
 
   const task = candidates[0];
   if (!task) return null;

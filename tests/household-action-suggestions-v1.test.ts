@@ -30,6 +30,30 @@ test("Suggestions V1 privilÃ©gie une tÃ¢che non attribuÃ©e avant une rÃ©
 
 
 
+test("Suggestions V1 reste neutre lorsque plusieurs membres partagent la contribution la plus faible",()=>{
+ const tiedMembers=[
+  ...members,
+  { id:"c", first_name:"C", rotation_order:2, created_at:"2026-01-01" },
+ ] as Member[];
+ const tiedReport={
+  ...baseReport,
+  memberShares:[
+   {memberId:"a",firstName:"A",points:20,percentage:20},
+   {memberId:"b",firstName:"B",points:60,percentage:60},
+   {memberId:"c",firstName:"C",points:20,percentage:20},
+  ],
+ } as HouseholdWeeklyReport;
+ assert.equal(
+  buildHouseholdActionSuggestion({
+   report:tiedReport,
+   members:tiedMembers,
+   tasks:[task()],
+   today:"2026-09-16",
+  }),
+  null
+ );
+});
+
 const accepted=(patch:Record<string,unknown>={})=>({id:"s1",household_id:"h",task_id:"planned",suggested_member_id:"a",previous_assigned_to:"b",reason:"rebalance",accepted_at:"2026-09-16T08:00:00Z",...patch} as any);
 
 test("Suggestions V1.2 ne confond pas une attribution ordinaire avec une correction DABO",()=>{
