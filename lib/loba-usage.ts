@@ -45,9 +45,17 @@ export const LOBA_DEFAULT_DAILY_LIMITS: Record<LobaUsageSurface, number> = {
   household: 20,
 };
 
+export const LOBA_DEFAULT_GLOBAL_DAILY_LIMIT = 500;
+
+export type LobaQuotaBlockReason =
+  | "owner_exhausted"
+  | "global_exhausted";
+
 export type LobaQuotaReservation = {
   allowed: boolean;
   limit: number;
+  globalLimit: number;
+  reason: LobaQuotaBlockReason | null;
 };
 
 function readPositiveIntegerEnv(
@@ -83,18 +91,27 @@ export function getLobaDailyLimit(
       );
 }
 
+export function getLobaGlobalDailyLimit(): number {
+  return readPositiveIntegerEnv(
+    "LOBA_GLOBAL_DAILY_LIMIT",
+    LOBA_DEFAULT_GLOBAL_DAILY_LIMIT
+  );
+}
+
 export async function reserveLobaDailyQuota(
   surface: LobaUsageSurface,
   ownerId: string
 ): Promise<LobaQuotaReservation> {
   const limit = getLobaDailyLimit(surface);
+  const globalLimit = getLobaGlobalDailyLimit();
 
   const { data, error } = await createAdminClient().rpc(
-    "reserve_loba_ai_daily_quota",
+    "reserve_loba_ai_daily_budget",
     {
       p_surface: surface,
       p_owner_id: ownerId,
-      p_daily_limit: limit,
+      p_owner_daily_limit: limit,
+      p_global_daily_limit: globalLimit,
     }
   );
 
@@ -108,9 +125,23 @@ export async function reserveLobaDailyQuota(
     throw new Error("LOBA_QUOTA_RESERVATION_FAILED");
   }
 
+  if (
+    data !== "allowed" &&
+    data !== "owner_exhausted" &&
+    data !== "global_exhausted"
+  ) {
+    console.error("[loba/quota] unexpected reservation result", {
+      surface,
+      result: data,
+    });
+    throw new Error("LOBA_QUOTA_RESERVATION_FAILED");
+  }
+
   return {
-    allowed: data === true,
+    allowed: data === "allowed",
     limit,
+    globalLimit,
+    reason: data === "allowed" ? null : data,
   };
 }
 
