@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDaboAdmin } from "@/lib/admin-auth";
+import { recordLobaUsage, reserveLobaDailyQuota } from "@/lib/loba-usage";
 import {
   buildLobaSystemPrompt,
   detectLobaIntent,
@@ -47,6 +48,31 @@ export async function POST(req: NextRequest) {
   const model = process.env.LOBA_AI_MODEL?.trim() || LOBA_DEFAULT_MODEL;
   const intent = detectLobaIntent(question);
 
+  let quota;
+  try {
+    quota = await reserveLobaDailyQuota("admin", admin.id);
+  } catch (error) {
+    console.error("[admin/loba] quota reservation failed", error);
+    return NextResponse.json(
+      {
+        error: "Le contrôle d’usage de LOBA est momentanément indisponible.",
+        code: "LOBA_AI_BUDGET_UNAVAILABLE",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        error: "LOBA a atteint sa limite quotidienne pour cet espace.",
+        code: "LOBA_AI_BUDGET_EXCEEDED",
+        limit: quota.limit,
+      },
+      { status: 429 },
+    );
+  }
+
   try {
     const response = await fetch(GROQ_ENDPOINT, {
       method: "POST",
@@ -70,6 +96,15 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const providerText = (await response.text()).slice(0, 800);
       console.error("[admin/loba] Groq error", response.status, providerText);
+      await recordLobaUsage({
+        surface: "admin",
+        provider: "Groq",
+        model,
+        userId: admin.id,
+        intent,
+        status: "provider_error",
+        providerStatus: response.status,
+      });
       return NextResponse.json(
         { error: response.status === 429 ? "LOBA a atteint sa limite gratuite temporaire. Réessaie un peu plus tard." : "Le moteur IA de LOBA est momentanément indisponible.", code: "LOBA_AI_PROVIDER_ERROR" },
         { status: response.status === 429 ? 429 : 502 },
@@ -81,7 +116,28 @@ export async function POST(req: NextRequest) {
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
     };
     const answer = data.choices?.[0]?.message?.content?.trim();
-    if (!answer) return NextResponse.json({ error: "LOBA n'a pas produit de réponse." }, { status: 502 });
+    if (!answer) {
+      await recordLobaUsage({
+        surface: "admin",
+        provider: "Groq",
+        model,
+        userId: admin.id,
+        intent,
+        status: "empty_response",
+        usage: data.usage,
+      });
+      return NextResponse.json({ error: "LOBA n'a pas produit de réponse." }, { status: 502 });
+    }
+
+    await recordLobaUsage({
+      surface: "admin",
+      provider: "Groq",
+      model,
+      userId: admin.id,
+      intent,
+      status: "success",
+      usage: data.usage,
+    });
 
     return NextResponse.json({
       answer,
@@ -92,6 +148,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[admin/loba] AI request failed", error);
+    await recordLobaUsage({
+      surface: "admin",
+      provider: "Groq",
+      model,
+      userId: admin.id,
+      intent,
+      status: "request_error",
+    });
     return NextResponse.json({ error: "Le moteur IA de LOBA est momentanément indisponible.", code: "LOBA_AI_PROVIDER_ERROR" }, { status: 502 });
   }
 }
