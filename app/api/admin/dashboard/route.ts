@@ -308,6 +308,8 @@ export async function GET(req: NextRequest) {
   const attributedHouseholds = uniqueVisitors(attributed.filter((item) => item.event_name === "household_created" || item.event_name === "household_joined"));
   const attributedFirstValue = uniqueVisitors(attributed.filter((item) => item.event_name === "first_value"));
   const landingVisitors = uniqueVisitors(A.filter((item) => item.event_name === "landing_view"));
+  const productPreviewViewed = uniqueVisitors(A.filter((item) => item.event_name === "product_preview_viewed"));
+  const productPreviewEngaged = uniqueVisitors(A.filter((item) => item.event_name === "product_preview_engaged"));
 
   // Acquisition V1 : on attribue uniquement ce que le signal technique prouve.
   const measuredSignups = uniqueVisitors(A.filter((item) => item.event_name === "signup_completed"));
@@ -324,7 +326,7 @@ export async function GET(req: NextRequest) {
 
   const acquisitionSummary = {
     instrumentedSince: firstAcquisitionEventAt,
-    measuredVisitors: landingVisitors, measuredSignups, measuredHouseholds, measuredFirstValue,
+    measuredVisitors: landingVisitors, productPreviewViewed, productPreviewEngaged, measuredSignups, measuredHouseholds, measuredFirstValue,
     attributedVisits, attributedSignups, attributedHouseholds, attributedFirstValue,
     unattributedVisits, unattributedSignups,
     shareLinksCreated: shareTokens.size, shareLinksVisited: visitedShareTokens.size, shareLinksWithSignup: signupShareTokens.size,

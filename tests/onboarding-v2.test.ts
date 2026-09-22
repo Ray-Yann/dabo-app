@@ -12,7 +12,7 @@ test("Onboarding V2 transforme le code partagé en lien d'invitation", () => {
 });
 
 test("Onboarding V2 reconnaît automatiquement une invitation ouverte", () => {
-  assert.match(onboarding, /URLSearchParams\(window\.location\.search\)\.get\("invite"\)/);
+  assert.match(onboarding, /searchParams\.get\("invite"\)/);
   assert.match(onboarding, /setSetupMode\("join"\)/);
   assert.match(onboarding, /readOnly=\{inviteFromLink\}/);
 });

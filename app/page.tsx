@@ -6,7 +6,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
-import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2 } from "lucide-react";
+import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2, ShoppingBasket, Scale, CalendarDays } from "lucide-react";
 import { translate, type Lang } from "@/lib/i18n";
 import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
@@ -23,6 +23,7 @@ export default function OnboardingPage() {
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [valueStep, setValueStep] = useState<0 | 1>(0);
+  const [previewTracked, setPreviewTracked] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
   const [setupMode, setSetupMode] = useState<SetupMode>("choice");
 
@@ -101,8 +102,12 @@ export default function OnboardingPage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
+      const searchParams = new URLSearchParams(window.location.search);
+      const incomingInvite = searchParams.get("invite")?.trim().toUpperCase();
+      const forgot = searchParams.get("forgot") === "1";
+
       if (!data.session) {
-        setPhase(new URLSearchParams(window.location.search).get("forgot") === "1" ? "auth" : "value");
+        setPhase(forgot || incomingInvite ? "auth" : "value");
         return;
       }
       const { data: members } = await supabase
@@ -111,7 +116,6 @@ export default function OnboardingPage() {
         .eq("user_id", data.session.user.id)
         .is("left_at", null)
         .limit(1);
-      const incomingInvite = new URLSearchParams(window.location.search).get("invite")?.trim().toUpperCase();
       if (members && members.length > 0 && !incomingInvite) {
         router.replace("/app");
         return;
@@ -125,6 +129,19 @@ export default function OnboardingPage() {
       setPhase("setup");
     })();
   }, []);
+
+  function openProductPreview() {
+    setValueStep(1);
+    if (!previewTracked) {
+      setPreviewTracked(true);
+      void trackAcquisitionEvent("product_preview_viewed");
+    }
+  }
+
+  function finishProductPreview() {
+    void trackAcquisitionEvent("product_preview_engaged");
+    setPhase("auth");
+  }
 
   async function handleAuth() {
     setBusy(true);
@@ -267,19 +284,42 @@ export default function OnboardingPage() {
                   <p className="mt-1 text-xs leading-5 text-muted">{t("onboarding_value_eige_fact")}</p>
                   <a href="https://eige.europa.eu/publications-resources/publications/sharing-care-closing-gender-gaps-care-survey-2024" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-medium text-ink underline underline-offset-2">{t("onboarding_value_source_eige")}</a>
                 </div>
-                <button type="button" onClick={() => setValueStep(1)} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{t("onboarding_value_continue")}</button>
+                <button type="button" onClick={openProductPreview} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{t("onboarding_value_continue")}</button>
               </>
             ) : (
               <>
+                <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted mb-3">{t("onboarding_discovery_preview_title")}</div>
                 <h1 className="font-serif text-2xl text-ink mb-3">{t("onboarding_value_dabo_title")}</h1>
                 <p className="text-sm leading-6 text-muted mb-5">{t("onboarding_value_dabo_body")}</p>
-                <div className="space-y-2 text-left mb-5">
-                  {["onboarding_value_point_visible", "onboarding_value_point_shared", "onboarding_value_point_decide"].map((key) => (
-                    <div key={key} className="flex gap-3 rounded-xl bg-white2 px-3 py-3 text-sm text-ink"><CheckSquare size={17} className="mt-0.5 shrink-0" />{t(key)}</div>
-                  ))}
+
+                <div className="grid grid-cols-2 gap-2 text-left mb-5">
+                  <div className="rounded-2xl border border-border bg-white2 p-3">
+                    <CheckSquare size={18} className="mb-2 text-ink" />
+                    <div className="text-sm font-medium text-ink">{t("onboarding_discovery_tasks")}</div>
+                    <div className="mt-1 text-xs leading-5 text-muted">{t("onboarding_discovery_tasks_body")}</div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-white2 p-3">
+                    <ShoppingBasket size={18} className="mb-2 text-ink" />
+                    <div className="text-sm font-medium text-ink">{t("onboarding_discovery_shopping")}</div>
+                    <div className="mt-1 text-xs leading-5 text-muted">{t("onboarding_discovery_shopping_body")}</div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-white2 p-3">
+                    <Scale size={18} className="mb-2 text-ink" />
+                    <div className="text-sm font-medium text-ink">{t("onboarding_discovery_balance")}</div>
+                    <div className="mt-1 text-xs leading-5 text-muted">{t("onboarding_discovery_balance_body")}</div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-white2 p-3">
+                    <CalendarDays size={18} className="mb-2 text-ink" />
+                    <div className="text-sm font-medium text-ink">{t("onboarding_discovery_calendar")}</div>
+                    <div className="mt-1 text-xs leading-5 text-muted">{t("onboarding_discovery_calendar_body")}</div>
+                  </div>
                 </div>
+
                 <p className="text-sm font-medium text-ink mb-5">{t("onboarding_value_signature")}</p>
-                <button type="button" onClick={() => setPhase("auth")} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{inviteFromLink ? t("onboarding_value_join_invite") : t("onboarding_value_start")}</button>
+                <button type="button" onClick={finishProductPreview} className="w-full bg-ink text-paper rounded-xl py-3 font-medium">{inviteFromLink ? t("onboarding_value_join_invite") : t("onboarding_value_start")}</button>
                 <button type="button" onClick={() => setValueStep(0)} className="text-sm text-muted mt-4">{t("onboarding_back")}</button>
               </>
             )}

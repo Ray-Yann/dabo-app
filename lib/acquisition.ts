@@ -8,6 +8,8 @@ const QUEUE_KEY = "dabo_acquisition_queue_v1";
 
 export type AcquisitionEventName =
   | "landing_view"
+  | "product_preview_viewed"
+  | "product_preview_engaged"
   | "app_open"
   | "signup_completed"
   | "household_created"

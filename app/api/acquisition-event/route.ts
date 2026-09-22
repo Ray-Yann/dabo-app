@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 
 const allowedEvents = new Set([
   "landing_view",
+  "product_preview_viewed",
+  "product_preview_engaged",
   "app_open",
   "signup_completed",
   "household_created",
