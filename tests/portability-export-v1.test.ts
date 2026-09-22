@@ -47,3 +47,23 @@ test("P3.3 respecte le schéma canonique des perceptions et versionne les droits
     );
   }
 });
+
+
+test("P3.3 respecte le schéma canonique des événements calendrier personnels", () => {
+  const route = fs.readFileSync("app/api/export-data/route.ts", "utf8");
+
+  assert.match(
+    route,
+    /from\("calendar_events"\)[\s\S]*?select\("id, household_id, title, event_date, event_time, recurring, recurrence_frequency, recurrence_interval, recurrence_end_date, reminder_days_before, time_zone, created_at"\)/
+  );
+
+  assert.doesNotMatch(
+    route,
+    /from\("calendar_events"\)[\s\S]*?select\("[^"]*recurrence_type[^"]*"\)/
+  );
+
+  assert.doesNotMatch(
+    route,
+    /from\("calendar_events"\)[\s\S]*?select\("[^"]*recurrence_days[^"]*"\)/
+  );
+});

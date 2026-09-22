@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
     memberIds.length
       ? admin
           .from("calendar_events")
-          .select("id, household_id, title, event_date, event_time, recurring, recurrence_type, recurrence_interval, recurrence_days, recurrence_end_date, reminder_days_before, time_zone, created_at")
+          .select("id, household_id, title, event_date, event_time, recurring, recurrence_frequency, recurrence_interval, recurrence_end_date, reminder_days_before, time_zone, created_at")
           .eq("visibility", "personal")
           .in("private_owner_id", memberIds)
       : Promise.resolve({ data: [], error: null }),
