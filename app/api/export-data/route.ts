@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
     admin
       .from("user_navigation_preferences")
-      .select("primary_nav_keys, updated_at")
+      .select("pinned_tabs, updated_at")
       .eq("user_id", userId)
       .maybeSingle(),
     admin
