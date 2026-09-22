@@ -11,6 +11,7 @@ import { daysUntil } from "@/lib/utils";
 import { occurrenceOnOrAfter, occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users } from "lucide-react";
 
 type CalendarView = "upcoming" | "month" | "personal";
@@ -47,6 +48,24 @@ export default function CalendarPage() {
   const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [firstValueConfirmation, setFirstValueConfirmation] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("first") !== "1") return;
+
+    url.searchParams.delete("first");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.pathname + url.search + url.hash
+    );
+
+    setView("upcoming");
+    setNewVisibility("household");
+    setEditingId(null);
+    setShowAdd(true);
+  }, []);
+
 
   async function loadEvents() {
     if (!household) return;
@@ -88,6 +107,10 @@ export default function CalendarPage() {
       return;
     }
     void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "calendar" });
+    if (completeFirstValueGuidance("calendar")) {
+      setFirstValueConfirmation(true);
+      window.setTimeout(() => setFirstValueConfirmation(false), 3200);
+    }
     setErrorMessage("");
     setTitle("");
     setEventDate("");
@@ -368,6 +391,16 @@ export default function CalendarPage() {
             </div>
           )}
         </section>
+      )}
+
+      {firstValueConfirmation && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 bottom-24 z-40 max-w-[calc(100%-2rem)] rounded-2xl bg-ink px-4 py-3 text-center text-xs font-medium text-paper shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          ✓ {t("onboarding_first_value_confirmation")}
+        </div>
       )}
 
       {showAdd && (

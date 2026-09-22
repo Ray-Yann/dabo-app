@@ -14,6 +14,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { NativeNameInput } from "@/components/NativeNameInput";
 import { detectAdaptiveRoutineSuggestion, realignPendingRoutineDueDate, type AdaptiveRoutineSuggestion } from "@/lib/adaptive-routines";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
@@ -159,6 +160,22 @@ export default function TasksPage() {
   const [routineAdaptationBusyId, setRoutineAdaptationBusyId] = useState<string | null>(null);
   const [routineAdaptationNow, setRoutineAdaptationNow] = useState<number>(0);
   const [showAdd, setShowAdd] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("first") !== "1") return;
+
+    url.searchParams.delete("first");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.pathname + url.search + url.hash
+    );
+
+    setView("to_do");
+    setEditingId(null);
+    setShowAdd(true);
+  }, []);
+
   const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<TaskForm>(EMPTY_FORM);
@@ -177,6 +194,7 @@ export default function TasksPage() {
   const [historyActionTask, setHistoryActionTask] = useState<Task | null>(null);
   const [activeActionTask, setActiveActionTask] = useState<Task | null>(null);
   const [addedConfirmation, setAddedConfirmation] = useState(false);
+  const [firstValueConfirmation, setFirstValueConfirmation] = useState(false);
   const [completedConfirmation, setCompletedConfirmation] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const topAddRef = useRef<HTMLButtonElement | null>(null);
@@ -419,7 +437,13 @@ export default function TasksPage() {
         household_id: household.id, task_id: insertedTask.id, name: item.name.trim(), assigned_to: item.assignedTo || null, position,
       })));
     }
-    if (!taskInsertError) void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "task" });
+    if (!taskInsertError) {
+      void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "task" });
+      if (completeFirstValueGuidance("task")) {
+        setFirstValueConfirmation(true);
+        window.setTimeout(() => setFirstValueConfirmation(false), 3200);
+      }
+    }
     if (addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: addForm.name.trim() });
     }
@@ -868,6 +892,16 @@ export default function TasksPage() {
       </div>
 
       {view === "to_do" && <IntroTip id="tasks-v2" title={t("intro_tasks_title")} text={t("intro_tasks")} />}
+
+      {firstValueConfirmation && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 bottom-24 z-40 max-w-[calc(100%-2rem)] rounded-2xl bg-ink px-4 py-3 text-center text-xs font-medium text-paper shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          ✓ {t("onboarding_first_value_confirmation")}
+        </div>
+      )}
 
       {addedConfirmation && (
         <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>

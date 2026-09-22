@@ -6,10 +6,11 @@ import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { createClient as createRecoveryClient } from "@supabase/supabase-js";
-import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2, ShoppingBasket, Scale, CalendarDays } from "lucide-react";
+import { CheckSquare, Home as HomeIcon, KeyRound, Eye, EyeOff, Share2, ShoppingBasket, Scale, CalendarDays, ListTodo } from "lucide-react";
 import { translate, type Lang } from "@/lib/i18n";
 import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvailableLang } from "@/lib/languages";
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
+import { startFirstValueGuidance } from "@/lib/first-value-guidance";
 import { notifyHousehold } from "@/lib/notifications";
 
 type Phase = "loading" | "value" | "auth" | "setup";
@@ -508,6 +509,45 @@ export default function OnboardingPage() {
             </div>
             <h1 className="font-serif text-2xl text-ink mb-1">{t("onboarding_created_title")}</h1>
             <p className="text-sm text-muted mb-5">{householdType === "solo" ? t("onboarding_solo_created_body") : t("onboarding_created_body")}</p>
+            <div className="rounded-2xl border border-border bg-white2 p-4 mb-4 text-left">
+              <div className="text-sm font-semibold text-ink">{t("onboarding_first_value_title")}</div>
+              <p className="mt-1 text-xs leading-5 text-muted">{t("onboarding_first_value_body")}</p>
+              <div className="mt-3 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                  startFirstValueGuidance("task");
+                  router.replace("/app/taches?first=1");
+                }}
+                  className="w-full rounded-xl border border-border bg-paper px-3 py-3 text-left flex items-center gap-3"
+                >
+                  <ListTodo size={18} className="shrink-0 text-ink" />
+                  <span className="text-sm font-medium text-ink">{t("onboarding_first_value_task")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                  startFirstValueGuidance("shopping");
+                  router.replace("/app/courses?first=1");
+                }}
+                  className="w-full rounded-xl border border-border bg-paper px-3 py-3 text-left flex items-center gap-3"
+                >
+                  <ShoppingBasket size={18} className="shrink-0 text-ink" />
+                  <span className="text-sm font-medium text-ink">{t("onboarding_first_value_shopping")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                  startFirstValueGuidance("calendar");
+                  router.replace("/app/calendrier?first=1");
+                }}
+                  className="w-full rounded-xl border border-border bg-paper px-3 py-3 text-left flex items-center gap-3"
+                >
+                  <CalendarDays size={18} className="shrink-0 text-ink" />
+                  <span className="text-sm font-medium text-ink">{t("onboarding_first_value_calendar")}</span>
+                </button>
+              </div>
+            </div>
             {householdType !== "solo" && <div className="rounded-xl border border-border bg-white2 px-4 py-3 mb-3">
               <div className="text-xs text-muted mb-1">{t("onboarding_invite_code_label")}</div>
               <div className="font-mono font-medium tracking-wider text-ink">{createdHousehold.invite_code}</div>

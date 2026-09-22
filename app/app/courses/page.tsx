@@ -12,6 +12,7 @@ import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { NativeNameInput } from "@/components/NativeNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
@@ -79,6 +80,22 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("first") !== "1") return;
+
+    url.searchParams.delete("first");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.pathname + url.search + url.hash
+    );
+
+    setView("to_buy");
+    setEditingId(null);
+    setShowAdd(true);
+  }, []);
+
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ItemForm>(EMPTY_FORM);
@@ -92,6 +109,7 @@ export default function CoursesPage() {
   const deferredBoughtSearch = useDeferredValue(boughtSearch);
   const [showAllBought, setShowAllBought] = useState(false);
   const [addConfirmation, setAddConfirmation] = useState(false);
+  const [firstValueConfirmation, setFirstValueConfirmation] = useState(false);
   const [boughtConfirmation, setBoughtConfirmation] = useState(false);
   const [suggestionPreferences, setSuggestionPreferences] = useState<ShoppingSuggestionPreference[]>([]);
   const [handledSuggestionKeys, setHandledSuggestionKeys] = useState<string[]>([]);
@@ -261,7 +279,13 @@ export default function CoursesPage() {
       due_date: addForm.dueDate || null,
       store_name: storeName || null,
     });
-    if (!shoppingInsertError) void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "shopping" });
+    if (!shoppingInsertError) {
+      void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "shopping" });
+      if (completeFirstValueGuidance("shopping")) {
+        setFirstValueConfirmation(true);
+        window.setTimeout(() => setFirstValueConfirmation(false), 3200);
+      }
+    }
     if (addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: addForm.name.trim() });
     }
@@ -876,6 +900,16 @@ export default function CoursesPage() {
           </div>
         );
       })()}
+
+      {firstValueConfirmation && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 bottom-24 z-40 max-w-[calc(100%-2rem)] rounded-2xl bg-ink px-4 py-3 text-center text-xs font-medium text-paper shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          ✓ {t("onboarding_first_value_confirmation")}
+        </div>
+      )}
 
       {addConfirmation && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg">
