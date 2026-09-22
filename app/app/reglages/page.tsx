@@ -578,7 +578,7 @@ export default function SettingsPage() {
     return true;
   }
 
-  async function exportMyData() {
+  async function exportMyData(format: "readable" | "json") {
     if (exportingData) return;
 
     setExportingData(true);
@@ -591,7 +591,12 @@ export default function SettingsPage() {
         return;
       }
 
-      const res = await fetch("/api/export-data", {
+      const endpoint =
+        format === "readable"
+          ? `/api/export-data?format=readable&lang=${encodeURIComponent(lang)}`
+          : "/api/export-data";
+
+      const res = await fetch(endpoint, {
         method: "GET",
         headers: {
           Authorization: "Bearer " + data.session.access_token,
@@ -607,7 +612,9 @@ export default function SettingsPage() {
       const blob = await res.blob();
       const disposition = res.headers.get("content-disposition");
       const filenameMatch = disposition?.match(/filename="([^"]+)"/i);
-      const filename = filenameMatch?.[1] || "dabo-data.json";
+      const fallbackFilename =
+        format === "readable" ? "dabo-data.html" : "dabo-data.json";
+      const filename = filenameMatch?.[1] || fallbackFilename;
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1273,15 +1280,31 @@ export default function SettingsPage() {
               <p className="text-xs text-muted mt-1 leading-relaxed">
                 {t("settings_export_desc")}
               </p>
-              <button
-                type="button"
-                onClick={() => void exportMyData()}
-                disabled={exportingData}
-                className="mt-3 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-ink flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <Download size={16} />
-                <span>{exportingData ? "…" : t("settings_export_action")}</span>
-              </button>
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void exportMyData("readable")}
+                  disabled={exportingData}
+                  className="w-full rounded-xl bg-ink px-3 py-2.5 text-sm font-medium text-paper flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Download size={16} />
+                  <span>
+                    {exportingData ? "…" : t("settings_export_readable_action")}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void exportMyData("json")}
+                  disabled={exportingData}
+                  className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-ink flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Download size={16} />
+                  <span>
+                    {exportingData ? "…" : t("settings_export_action")}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <button onClick={signOut} className="w-full text-sm text-ink py-1 flex items-center justify-between">

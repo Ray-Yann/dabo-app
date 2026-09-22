@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
+import { buildReadableDaboExport } from "@/lib/readable-data-export";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -45,6 +46,11 @@ export async function GET(req: NextRequest) {
     lifeContextsResult,
     perceptionsResult,
     personalEventsResult,
+    pendingTasksResult,
+    contributionParticipantsResult,
+    subtasksResult,
+    shoppingToBuyResult,
+    shoppingBoughtResult,
   ] = await Promise.all([
     householdIds.length
       ? admin
@@ -81,6 +87,44 @@ export async function GET(req: NextRequest) {
           .eq("visibility", "personal")
           .in("private_owner_id", memberIds)
       : Promise.resolve({ data: [], error: null }),
+
+    memberIds.length
+      ? admin
+          .from("tasks")
+          .select("id, household_id, routine_id, name, weight_points, assigned_to, status, due_date, urgent, duration_key, effort_level, created_at")
+          .eq("status", "pending")
+          .in("assigned_to", memberIds)
+      : Promise.resolve({ data: [], error: null }),
+
+    memberIds.length
+      ? admin
+          .from("task_contribution_participants")
+          .select("contribution_id, member_id, share_weight")
+          .in("member_id", memberIds)
+      : Promise.resolve({ data: [], error: null }),
+
+    memberIds.length
+      ? admin
+          .from("task_subtasks")
+          .select("id, household_id, task_id, name, assigned_to, position, completed_at, completed_by, created_at")
+          .or(`assigned_to.in.(${memberIds.join(",")}),completed_by.in.(${memberIds.join(",")})`)
+      : Promise.resolve({ data: [], error: null }),
+
+    memberIds.length
+      ? admin
+          .from("shopping_items")
+          .select("id, household_id, name, quantity, assigned_to, status, urgent, due_date, store_name, created_at")
+          .eq("status", "to_buy")
+          .in("assigned_to", memberIds)
+      : Promise.resolve({ data: [], error: null }),
+
+    memberIds.length
+      ? admin
+          .from("shopping_items")
+          .select("id, household_id, name, quantity, status, bought_at, bought_by_member_id, store_name, created_at")
+          .eq("status", "bought")
+          .in("bought_by_member_id", memberIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const queryError =
@@ -89,7 +133,12 @@ export async function GET(req: NextRequest) {
     tutorialResult.error ||
     lifeContextsResult.error ||
     perceptionsResult.error ||
-    personalEventsResult.error;
+    personalEventsResult.error ||
+    pendingTasksResult.error ||
+    contributionParticipantsResult.error ||
+    subtasksResult.error ||
+    shoppingToBuyResult.error ||
+    shoppingBoughtResult.error;
 
   if (queryError) {
     console.error("DABO portability export failed", queryError);
@@ -97,6 +146,77 @@ export async function GET(req: NextRequest) {
   }
 
   const exportedAt = new Date().toISOString();
+
+  const personalParticipantRows = contributionParticipantsResult.data || [];
+  const personalContributionIds = [
+    ...new Set(personalParticipantRows.map((row) => row.contribution_id)),
+  ];
+
+  const contributionsResult = personalContributionIds.length
+    ? await admin
+        .from("task_contributions")
+        .select("id, task_id, household_id, completed_at, duration_key, effort_level, weight_points, performer_status, cancelled_at")
+        .in("id", personalContributionIds)
+        .eq("performer_status", "confirmed")
+        .is("cancelled_at", null)
+    : { data: [], error: null };
+
+  if (contributionsResult.error) {
+    console.error(
+      "DABO portability contribution export failed",
+      contributionsResult.error
+    );
+    return NextResponse.json(
+      { error: "Impossible de préparer l'export" },
+      { status: 500 }
+    );
+  }
+
+  const personalTaskIds = [
+    ...new Set(
+      (contributionsResult.data || [])
+        .map((row) => row.task_id)
+        .filter((taskId): taskId is string => Boolean(taskId))
+    ),
+  ];
+
+  const contributionTasksResult = personalTaskIds.length
+    ? await admin
+        .from("tasks")
+        .select("id, household_id, name")
+        .in("id", personalTaskIds)
+    : { data: [], error: null };
+
+  if (contributionTasksResult.error) {
+    console.error(
+      "DABO portability task-name export failed",
+      contributionTasksResult.error
+    );
+    return NextResponse.json(
+      { error: "Impossible de préparer l'export" },
+      { status: 500 }
+    );
+  }
+
+  const personalContributions = (contributionsResult.data || []).map((row) => ({
+    ...row,
+    task_name:
+      (contributionTasksResult.data || []).find(
+        (task) => task.id === row.task_id
+      )?.name ?? null,
+    participation: personalParticipantRows
+      .filter((participant) => participant.contribution_id === row.id)
+      .map((participant) => ({
+        member_id: participant.member_id,
+        share_weight: participant.share_weight,
+      })),
+  }));
+
+  const personalSubtasks = (subtasksResult.data || []).filter(
+    (row) =>
+      (row.completed_by && memberIds.includes(row.completed_by)) ||
+      (row.assigned_to && memberIds.includes(row.assigned_to))
+  );
 
   const payload = {
     format: "dabo-portability-v1",
@@ -136,10 +256,41 @@ export async function GET(req: NextRequest) {
       lifeContexts: lifeContextsResult.data || [],
       loadPerceptions: perceptionsResult.data || [],
       personalCalendarEvents: personalEventsResult.data || [],
+      tasks: {
+        assignedPending: pendingTasksResult.data || [],
+        completedContributions: personalContributions,
+        subtasks: personalSubtasks,
+      },
+      shopping: {
+        assignedToBuy: shoppingToBuyResult.data || [],
+        boughtByMe: shoppingBoughtResult.data || [],
+      },
     },
   };
 
   const date = exportedAt.slice(0, 10);
+  const requestedFormat = req.nextUrl.searchParams.get("format");
+  const requestedLang = req.nextUrl.searchParams.get("lang");
+  const readableLanguages = ["fr", "nl", "en", "de", "es", "it", "pt"] as const;
+  const readableLang = readableLanguages.includes(
+    requestedLang as (typeof readableLanguages)[number]
+  )
+    ? (requestedLang as (typeof readableLanguages)[number])
+    : "fr";
+
+  if (requestedFormat === "readable") {
+    const html = buildReadableDaboExport(payload, readableLang);
+
+    return new NextResponse(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Disposition": `attachment; filename="dabo-data-${date}.html"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
 
   return new NextResponse(JSON.stringify(payload, null, 2), {
     status: 200,
@@ -147,6 +298,7 @@ export async function GET(req: NextRequest) {
       "Content-Type": "application/json; charset=utf-8",
       "Content-Disposition": `attachment; filename="dabo-data-${date}.json"`,
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
