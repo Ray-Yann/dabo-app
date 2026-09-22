@@ -241,6 +241,63 @@ test("P3.3.1 readable export renders life context and load perception", () => {
   assert.match(html, /J’ai l’impression d’en porter davantage/);
 });
 
+test("P3.3.1 enriches personal subtasks with their parent task name without broadening household scope", () => {
+  assert.match(
+    route,
+    /personalSubtaskTaskIds[\s\S]*personalSubtaskRows[\s\S]*task_id/
+  );
+  assert.match(
+    route,
+    /from\("tasks"\)[\s\S]*select\("id, household_id, name"\)[\s\S]*\.in\("id", personalSubtaskTaskIds\)/
+  );
+  assert.match(
+    route,
+    /parent_task_name:[\s\S]*task\.id === row\.task_id/
+  );
+});
+
+test("P3.3.1 readable export shows the parent task for a personal subtask", () => {
+  const html = buildReadableDaboExport(
+    {
+      exportedAt: "2026-09-22T12:00:00.000Z",
+      account: { email: "test@example.com" },
+      households: [],
+      personalData: {
+        lifeContexts: [],
+        loadPerceptions: [],
+        personalCalendarEvents: [],
+        tasks: {
+          assignedPending: [],
+          completedContributions: [],
+          subtasks: [
+            {
+              id: "subtask-1",
+              household_id: "household-1",
+              task_id: "task-1",
+              name: "Nettoyer le frigo",
+              assigned_to: "member-1",
+              position: 0,
+              completed_at: "2026-09-22T10:00:00.000Z",
+              completed_by: "member-1",
+              created_at: "2026-09-22T09:00:00.000Z",
+              parent_task_name: "Nettoyer la cuisine",
+            },
+          ],
+        },
+        shopping: {
+          assignedToBuy: [],
+          boughtByMe: [],
+        },
+      },
+    },
+    "fr"
+  );
+
+  assert.match(html, /Nettoyer le frigo/);
+  assert.match(html, /Tâche principale/);
+  assert.match(html, /Nettoyer la cuisine/);
+});
+
 test("P3.3.1 readable export translates life context and perception in every supported language", () => {
   const expectations = [
     ["fr", "Études ou examens", "Très réduite", "J’ai l’impression d’en porter davantage"],

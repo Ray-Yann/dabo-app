@@ -103,6 +103,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "Mes sous-tâches",
     subtaskDone: "Étape terminée",
     subtaskTodo: "Étape à faire",
+    parentTask: "Tâche principale",
     noSubtask: "Aucune sous-tâche personnelle enregistrée.",
     shoppingTodo: "Mes courses à acheter",
     quantityUnknown: "Quantité non précisée",
@@ -143,6 +144,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "Mijn subtaken",
     subtaskDone: "Stap voltooid",
     subtaskTodo: "Stap te doen",
+    parentTask: "Hoofdtaak",
     noSubtask: "Geen persoonlijke subtaken geregistreerd.",
     shoppingTodo: "Mijn boodschappen",
     quantityUnknown: "Hoeveelheid niet opgegeven",
@@ -183,6 +185,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "My subtasks",
     subtaskDone: "Step completed",
     subtaskTodo: "Step to do",
+    parentTask: "Main task",
     noSubtask: "No personal subtask recorded.",
     shoppingTodo: "My shopping to buy",
     quantityUnknown: "Quantity not specified",
@@ -223,6 +226,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "Meine Teilaufgaben",
     subtaskDone: "Schritt erledigt",
     subtaskTodo: "Schritt zu erledigen",
+    parentTask: "Hauptaufgabe",
     noSubtask: "Keine persönliche Teilaufgabe gespeichert.",
     shoppingTodo: "Meine Einkäufe",
     quantityUnknown: "Menge nicht angegeben",
@@ -263,6 +267,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "Mis subtareas",
     subtaskDone: "Paso completado",
     subtaskTodo: "Paso pendiente",
+    parentTask: "Tarea principal",
     noSubtask: "No hay subtareas personales registradas.",
     shoppingTodo: "Mis compras pendientes",
     quantityUnknown: "Cantidad no especificada",
@@ -303,6 +308,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "Le mie sottoattività",
     subtaskDone: "Passaggio completato",
     subtaskTodo: "Passaggio da fare",
+    parentTask: "Attività principale",
     noSubtask: "Nessuna sottoattività personale registrata.",
     shoppingTodo: "La mia spesa da fare",
     quantityUnknown: "Quantità non specificata",
@@ -343,6 +349,7 @@ const READABLE_EXPORT_COPY = {
     subtasks: "As minhas subtarefas",
     subtaskDone: "Etapa concluída",
     subtaskTodo: "Etapa por fazer",
+    parentTask: "Tarefa principal",
     noSubtask: "Nenhuma subtarefa pessoal registada.",
     shoppingTodo: "As minhas compras por fazer",
     quantityUnknown: "Quantidade não especificada",
@@ -416,6 +423,7 @@ export function buildReadableDaboExport(
       <article class="row">
         <strong>${text(item.name)}</strong>
         <span>${escapeHtml(item.completed_at ? copy.subtaskDone : copy.subtaskTodo)}</span>
+        ${item.parent_task_name ? `<small>${escapeHtml(copy.parentTask)} : ${text(item.parent_task_name)}</small>` : ""}
       </article>
     `,
     copy.noSubtask

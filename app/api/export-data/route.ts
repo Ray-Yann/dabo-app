@@ -212,11 +212,45 @@ export async function GET(req: NextRequest) {
       })),
   }));
 
-  const personalSubtasks = (subtasksResult.data || []).filter(
+  const personalSubtaskRows = (subtasksResult.data || []).filter(
     (row) =>
       (row.completed_by && memberIds.includes(row.completed_by)) ||
       (row.assigned_to && memberIds.includes(row.assigned_to))
   );
+
+  const personalSubtaskTaskIds = [
+    ...new Set(
+      personalSubtaskRows
+        .map((row) => row.task_id)
+        .filter((taskId): taskId is string => Boolean(taskId))
+    ),
+  ];
+
+  const subtaskParentTasksResult = personalSubtaskTaskIds.length
+    ? await admin
+        .from("tasks")
+        .select("id, household_id, name")
+        .in("id", personalSubtaskTaskIds)
+    : { data: [], error: null };
+
+  if (subtaskParentTasksResult.error) {
+    console.error(
+      "DABO portability subtask parent export failed",
+      subtaskParentTasksResult.error
+    );
+    return NextResponse.json(
+      { error: "Impossible de préparer l'export" },
+      { status: 500 }
+    );
+  }
+
+  const personalSubtasks = personalSubtaskRows.map((row) => ({
+    ...row,
+    parent_task_name:
+      (subtaskParentTasksResult.data || []).find(
+        (task) => task.id === row.task_id
+      )?.name ?? null,
+  }));
 
   const payload = {
     format: "dabo-portability-v1",
