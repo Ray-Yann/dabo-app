@@ -31,5 +31,5 @@ test("UX Light V1 allège Équilibre et Finances avec une seule vue sélectionn�
   const finances = read("app/app/finances/page.tsx");
   assert.match(balance, /<select[\s\S]*balanceSection/);
   assert.match(finances, /financeSection/);
-  assert.match(finances, /title="Finances"/);
+  assert.match(finances, /title=\{t\("tab_finances"\)\}/);
 });
