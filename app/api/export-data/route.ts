@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     memberIds.length
       ? admin
           .from("member_load_perceptions")
-          .select("id, household_id, member_id, perception, declared_at, created_at, updated_at")
+          .select("id, household_id, member_id, perception, declared_at, created_at")
           .in("member_id", memberIds)
       : Promise.resolve({ data: [], error: null }),
     memberIds.length
