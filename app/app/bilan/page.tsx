@@ -14,9 +14,17 @@ import { buildHouseholdActionSuggestion, getRebalanceActionState, type Household
 import { computeFullLoadMap } from "@/lib/full-load-map";
 import type { MemberLifeContext } from "@/lib/life-context";
 import { computePerceptionGap, type LoadPerception } from "@/lib/perception-gap";
+import { simulateHouseholdScenario, type ScenarioSnapshot } from "@/lib/household-scenario";
 export default function HouseholdReportPage(){
  const {loading,household,me,members,supabase}=useHousehold(); const t=useT();
  const [balance,setBalance]=useState<ContributionBalanceData>({contributions:[],participants:[]}); const [shopping,setShopping]=useState<ShoppingItem[]>([]); const [events,setEvents]=useState<CalendarEvent[]>([]); const [tasks,setTasks]=useState<Task[]>([]); const [subtasks,setSubtasks]=useState<TaskSubtask[]>([]); const [acceptedActions,setAcceptedActions]=useState<HouseholdAcceptedAction[]>([]); const [lifeContexts,setLifeContexts]=useState<MemberLifeContext[]>([]); const [loadPerception,setLoadPerception]=useState<LoadPerception|null>(null); const [savingPerception,setSavingPerception]=useState(false); const [ready,setReady]=useState(false); const [confirming,setConfirming]=useState(false); const [saving,setSaving]=useState(false); const [applied,setApplied]=useState(false);
+ const [scenarioOpen,setScenarioOpen]=useState(false);
+ const [scenarioFrom,setScenarioFrom]=useState<string>("");
+ const [scenarioTo,setScenarioTo]=useState<string>("");
+ const [scenarioPoints,setScenarioPoints]=useState<number>(0);
+ const [scenarioMode,setScenarioMode]=useState<"reassign"|"capacity">("reassign");
+ const [scenarioCapacityMember,setScenarioCapacityMember]=useState<string>("");
+ const [scenarioCapacityLevel,setScenarioCapacityLevel]=useState<"reduced"|"very_reduced">("reduced");
  useEffect(()=>{if(!household)return;(async()=>{const [b,s,e,taskResult,subtaskResult,actionResult,lifeContextResult,perceptionResult]=await Promise.all([fetchContributionBalanceData(supabase,household.id),supabase.from("shopping_items").select("*").eq("household_id",household.id).eq("status","bought"),supabase.from("calendar_events").select("*").eq("household_id",household.id).eq("visibility","household"),supabase.from("tasks").select("*").eq("household_id",household.id),supabase.from("task_subtasks").select("*").eq("household_id",household.id).order("position",{ascending:true}),supabase.from("household_action_suggestions").select("id, household_id, task_id, suggested_member_id, previous_assigned_to, reason, accepted_at").eq("household_id",household.id).order("accepted_at",{ascending:false}).limit(20),supabase.from("member_life_contexts").select("*").eq("household_id",household.id),supabase.from("member_load_perceptions").select("perception, declared_at").eq("household_id",household.id).eq("member_id",me?.id||"").order("declared_at",{ascending:false}).limit(1)]);if(actionResult.error)throw actionResult.error;if(lifeContextResult.error)throw lifeContextResult.error;if(perceptionResult.error)throw perceptionResult.error;setBalance(b);setShopping((s.data as ShoppingItem[])||[]);setEvents((e.data as CalendarEvent[])||[]);setTasks((taskResult.data as Task[])||[]);setSubtasks((subtaskResult.data as TaskSubtask[])||[]);setAcceptedActions((actionResult.data as HouseholdAcceptedAction[])||[]);setLifeContexts((lifeContextResult.data as MemberLifeContext[])||[]);setLoadPerception(((perceptionResult.data?.[0]?.perception as LoadPerception|undefined)??null));setReady(true)})().catch(err=>{console.error("DABO weekly report load failed",err);setReady(true)});},[household,me?.id,supabase]);
  const report=useMemo(()=>computeHouseholdWeeklyReport({members,contributions:balance.contributions,participants:balance.participants,shoppingItems:shopping,calendarEvents:events}),[members,balance,shopping,events]);
  const insights=useMemo(()=>computeHouseholdInsights(members,balance.contributions,balance.participants),[members,balance]);
@@ -38,6 +46,103 @@ export default function HouseholdReportPage(){
     completedSince:report.start,
     today,
   }),[members,tasks,subtasks,balance,report.start,today]);
+  const scenarioSnapshot=useMemo<ScenarioSnapshot>(()=>({
+   members:fullLoadMap.members.map(member=>({
+    memberId:member.memberId,
+    weightPoints:member.carriedPoints,
+   })),
+   unassignedWeightPoints:fullLoadMap.unassignedPoints,
+  }),[fullLoadMap]);
+  const scenarioBaseline=useMemo(
+   ()=>simulateHouseholdScenario(scenarioSnapshot,[]),
+   [scenarioSnapshot],
+  );
+  const scenarioResult=useMemo(()=>{
+   if(!scenarioOpen){
+    return scenarioBaseline;
+   }
+
+   if(scenarioMode==="capacity"){
+    const capacityMemberExists=scenarioSnapshot.members.some(
+     member=>member.memberId===scenarioCapacityMember
+    );
+
+    if(!scenarioCapacityMember||!capacityMemberExists){
+     return scenarioBaseline;
+    }
+
+    return simulateHouseholdScenario(scenarioSnapshot,[{
+     type:"reduce_capacity",
+     memberId:scenarioCapacityMember,
+     capacityReduction:scenarioCapacityLevel,
+    }]);
+   }
+
+   if(!scenarioFrom||!scenarioTo||scenarioFrom===scenarioTo||scenarioPoints<=0){
+    return scenarioBaseline;
+   }
+
+   const fromMemberId=scenarioFrom==="unassigned"?null:scenarioFrom;
+   const toMemberId=scenarioTo==="unassigned"?null:scenarioTo;
+
+   const fromMemberExists=
+    fromMemberId===null||
+    scenarioSnapshot.members.some(member=>member.memberId===fromMemberId);
+
+   const toMemberExists=
+    toMemberId===null||
+    scenarioSnapshot.members.some(member=>member.memberId===toMemberId);
+
+   if(!fromMemberExists||!toMemberExists){
+    return scenarioBaseline;
+   }
+
+   const availablePoints=
+    fromMemberId===null
+     ? scenarioSnapshot.unassignedWeightPoints
+     : scenarioSnapshot.members.find(member=>member.memberId===fromMemberId)?.weightPoints??0;
+
+   if(scenarioPoints>availablePoints){
+    return scenarioBaseline;
+   }
+
+   return simulateHouseholdScenario(scenarioSnapshot,[{
+    type:"reassign_load",
+    fromMemberId,
+    toMemberId,
+    weightPoints:scenarioPoints,
+   }]);
+  },[
+   scenarioOpen,
+   scenarioMode,
+   scenarioCapacityMember,
+   scenarioCapacityLevel,
+   scenarioFrom,
+   scenarioTo,
+   scenarioPoints,
+   scenarioSnapshot,
+   scenarioBaseline,
+  ]);
+
+  const scenarioIsValid=
+   scenarioOpen&&(
+    scenarioMode==="capacity"
+     ? scenarioCapacityMember!==""&&scenarioSnapshot.members.some(
+       member=>member.memberId===scenarioCapacityMember
+      )
+     : scenarioFrom!==""&&
+       scenarioTo!==""&&
+       scenarioFrom!==scenarioTo&&
+       scenarioPoints>0&&
+       (
+        scenarioFrom==="unassigned"
+         ? scenarioPoints<=scenarioSnapshot.unassignedWeightPoints
+         : scenarioPoints<=(
+           scenarioSnapshot.members.find(member=>member.memberId===scenarioFrom)?.weightPoints??0
+          )
+       )
+   );
+
   const actionState=useMemo(()=>getRebalanceActionState({report,members,tasks,acceptedActions,contributions:balance.contributions}),[report,members,tasks,acceptedActions,balance.contributions]);
  const rebalanceInProgress=actionState==="in_progress"||actionState==="awaiting_confirmation";
  const actionSuggestion=useMemo(()=>buildHouseholdActionSuggestion({report,members,tasks,today,acceptedActions,contributions:balance.contributions,lifeContexts}),[report,members,tasks,today,acceptedActions,balance.contributions,lifeContexts]);
@@ -77,6 +182,214 @@ export default function HouseholdReportPage(){
    <p className="mt-4 text-xs text-muted">{t("full_load_map_note")}</p>
   </section>
   <section className="rounded-2xl border border-borderLight/70 bg-paper p-5"><p className="text-[11px] uppercase tracking-wide text-muted">{t("weekly_report_balance")}</p><h2 className="mt-1 font-serif text-xl text-ink">{t(`weekly_report_balance_${report.balanceLevel}`)}</h2>{report.balanceLevel!=="building"&&<div className="mt-4 space-y-3">{report.memberShares.map(m=><div key={m.memberId}><div className="flex justify-between text-sm"><span>{m.firstName}</span><span>{m.percentage}%</span></div><div className="mt-1 h-2 rounded-full bg-white2 overflow-hidden"><div className="h-full rounded-full bg-mustard" style={{width:`${m.percentage}%`}}/></div></div>)}</div>}<p className="mt-4 text-xs text-muted">{t("weekly_report_balance_note")}</p></section>
+  {members.length>=2&&<section className="rounded-2xl border border-borderLight/70 bg-paper p-5">
+   <div className="flex items-start justify-between gap-4">
+    <div>
+     <p className="text-[11px] uppercase tracking-wide text-muted">{t("household_scenario_title")}</p>
+     <p className="mt-2 text-sm text-ink">{t("household_scenario_description")}</p>
+    </div>
+    {!scenarioOpen&&<button
+     type="button"
+     className="shrink-0 rounded-full bg-ink px-4 py-2 text-sm font-medium text-paper"
+     onClick={()=>setScenarioOpen(true)}
+    >{t("household_scenario_open")}</button>}
+   </div>
+
+   {scenarioOpen&&<div className="mt-5 space-y-4">
+    <div>
+     <p className="text-xs text-muted">{t("household_scenario_mode")}</p>
+     <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <button
+       type="button"
+       aria-pressed={scenarioMode==="reassign"}
+       onClick={()=>{
+        setScenarioMode("reassign");
+        setScenarioCapacityMember("");
+       }}
+       className={`rounded-xl border px-4 py-3 text-left text-sm transition ${scenarioMode==="reassign"?"border-ink bg-ink text-paper":"border-borderLight bg-white2/70 text-ink"}`}
+      >{t("household_scenario_mode_reassign")}</button>
+      <button
+       type="button"
+       aria-pressed={scenarioMode==="capacity"}
+       onClick={()=>{
+        setScenarioMode("capacity");
+        setScenarioFrom("");
+        setScenarioTo("");
+        setScenarioPoints(0);
+       }}
+       className={`rounded-xl border px-4 py-3 text-left text-sm transition ${scenarioMode==="capacity"?"border-ink bg-ink text-paper":"border-borderLight bg-white2/70 text-ink"}`}
+      >{t("household_scenario_mode_capacity")}</button>
+     </div>
+    </div>
+
+    {scenarioMode==="reassign"&&<>
+    <div className="grid gap-3 sm:grid-cols-2">
+     <label className="block">
+      <span className="text-xs text-muted">{t("household_scenario_from")}</span>
+      <select
+       value={scenarioFrom}
+       onChange={event=>{
+        setScenarioFrom(event.target.value);
+        setScenarioPoints(0);
+       }}
+       className="mt-1 w-full rounded-xl border border-borderLight bg-white2/70 px-3 py-2 text-sm text-ink"
+      >
+       <option value="">—</option>
+       {scenarioSnapshot.members.filter(item=>item.weightPoints>0).map(item=>{
+        const member=members.find(candidate=>candidate.id===item.memberId);
+        return <option key={item.memberId} value={item.memberId}>{member?.first_name||"—"} · {Math.round(item.weightPoints)} pts</option>;
+       })}
+       {scenarioSnapshot.unassignedWeightPoints>0&&<option value="unassigned">{t("household_scenario_unassigned")} · {Math.round(scenarioSnapshot.unassignedWeightPoints)} pts</option>}
+      </select>
+     </label>
+
+     <label className="block">
+      <span className="text-xs text-muted">{t("household_scenario_to")}</span>
+      <select
+       value={scenarioTo}
+       onChange={event=>setScenarioTo(event.target.value)}
+       className="mt-1 w-full rounded-xl border border-borderLight bg-white2/70 px-3 py-2 text-sm text-ink"
+      >
+       <option value="">—</option>
+       {scenarioSnapshot.members.filter(item=>item.memberId!==scenarioFrom).map(item=>{
+        const member=members.find(candidate=>candidate.id===item.memberId);
+        return <option key={item.memberId} value={item.memberId}>{member?.first_name||"—"}</option>;
+       })}
+       {scenarioFrom!=="unassigned"&&<option value="unassigned">{t("household_scenario_unassigned")}</option>}
+      </select>
+     </label>
+    </div>
+
+    {scenarioFrom&&<label className="block">
+     <span className="flex items-center justify-between gap-3 text-xs text-muted">
+      <span>{t("household_scenario_points")}</span>
+      <span>{t("household_scenario_available").replace("{points}",String(Math.round(
+       scenarioFrom==="unassigned"
+        ? scenarioSnapshot.unassignedWeightPoints
+        : scenarioSnapshot.members.find(item=>item.memberId===scenarioFrom)?.weightPoints??0
+      )))}</span>
+     </span>
+     <input
+      type="range"
+      min="0"
+      max={Math.max(0,Math.round(
+       scenarioFrom==="unassigned"
+        ? scenarioSnapshot.unassignedWeightPoints
+        : scenarioSnapshot.members.find(item=>item.memberId===scenarioFrom)?.weightPoints??0
+      ))}
+      step="1"
+      value={scenarioPoints}
+      onChange={event=>setScenarioPoints(Number(event.target.value))}
+      className="mt-3 w-full"
+     />
+     <p className="mt-1 text-right text-sm font-medium text-ink">{Math.round(scenarioPoints)} pts</p>
+    </label>}
+
+    </>}
+
+    {scenarioMode==="capacity"&&<div className="space-y-3">
+     <label className="block">
+      <span className="text-xs text-muted">{t("household_scenario_capacity_member")}</span>
+      <select
+       value={scenarioCapacityMember}
+       onChange={event=>setScenarioCapacityMember(event.target.value)}
+       className="mt-1 w-full rounded-xl border border-borderLight bg-white2/70 px-3 py-2 text-sm text-ink"
+      >
+       <option value="">—</option>
+       {scenarioSnapshot.members.map(item=>{
+        const member=members.find(candidate=>candidate.id===item.memberId);
+        return <option key={item.memberId} value={item.memberId}>{member?.first_name||"—"}</option>;
+       })}
+      </select>
+     </label>
+
+     {scenarioCapacityMember&&<div>
+      <p className="text-xs text-muted">{t("household_scenario_mode_capacity")}</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+       <button
+        type="button"
+        aria-pressed={scenarioCapacityLevel==="reduced"}
+        onClick={()=>setScenarioCapacityLevel("reduced")}
+        className={`rounded-xl border px-4 py-3 text-left text-sm transition ${scenarioCapacityLevel==="reduced"?"border-ink bg-ink text-paper":"border-borderLight bg-white2/70 text-ink"}`}
+       >{t("household_scenario_capacity_reduced")}</button>
+       <button
+        type="button"
+        aria-pressed={scenarioCapacityLevel==="very_reduced"}
+        onClick={()=>setScenarioCapacityLevel("very_reduced")}
+        className={`rounded-xl border px-4 py-3 text-left text-sm transition ${scenarioCapacityLevel==="very_reduced"?"border-ink bg-ink text-paper":"border-borderLight bg-white2/70 text-ink"}`}
+       >{t("household_scenario_capacity_very_reduced")}</button>
+      </div>
+     </div>}
+
+     {scenarioIsValid&&<p className="rounded-xl bg-white2/70 p-4 text-sm text-ink">{t("household_scenario_capacity_note")}</p>}
+    </div>}
+
+    {scenarioMode==="reassign"&&scenarioIsValid?<div className="grid gap-3 sm:grid-cols-2">
+     <div className="rounded-xl bg-white2/70 p-4">
+      <p className="text-xs font-medium text-muted">{t("household_scenario_today")}</p>
+      <div className="mt-3 space-y-2">
+       {scenarioBaseline.before.members.map(item=>{
+        const member=members.find(candidate=>candidate.id===item.memberId);
+        return <div key={item.memberId} className="flex items-center justify-between gap-3 text-sm"><span className="text-ink">{member?.first_name||"—"}</span><span className="font-medium text-ink">{Math.round(item.weightPoints)} pts</span></div>;
+       })}
+       {scenarioBaseline.before.unassignedWeightPoints>0&&<div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted">{t("household_scenario_unassigned")}</span><span className="font-medium text-ink">{Math.round(scenarioBaseline.before.unassignedWeightPoints)} pts</span></div>}
+      </div>
+     </div>
+
+     <div className="rounded-xl bg-white2/70 p-4">
+      <p className="text-xs font-medium text-muted">{t("household_scenario_simulation")}</p>
+      <div className="mt-3 space-y-2">
+       {scenarioResult.after.members.map(item=>{
+        const member=members.find(candidate=>candidate.id===item.memberId);
+        const change=scenarioResult.memberChanges.find(candidate=>candidate.memberId===item.memberId);
+        return <div key={item.memberId} className="flex items-center justify-between gap-3 text-sm"><span className="text-ink">{member?.first_name||"—"}</span><span className="font-medium text-ink">{Math.round(item.weightPoints)} pts{change&&Math.abs(change.deltaWeightPoints)>0.000001?<span className="ml-1 text-xs text-muted">({change.deltaWeightPoints>0?"+":""}{Math.round(change.deltaWeightPoints)})</span>:null}</span></div>;
+       })}
+       {(scenarioResult.after.unassignedWeightPoints>0||scenarioBaseline.before.unassignedWeightPoints>0)&&<div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted">{t("household_scenario_unassigned")}</span><span className="font-medium text-ink">{Math.round(scenarioResult.after.unassignedWeightPoints)} pts</span></div>}
+      </div>
+     </div>
+    </div>:<p className="rounded-xl bg-white2/70 p-3 text-xs text-muted">{t("household_scenario_invalid")}</p>}
+
+    {scenarioIsValid&&<p className="rounded-xl bg-white2/70 p-4 text-sm text-ink">{t(
+     scenarioResult.interpretation==="less_concentrated"
+      ?"household_scenario_less_concentrated"
+      :scenarioResult.interpretation==="more_concentrated"
+       ?"household_scenario_more_concentrated"
+       :scenarioResult.interpretation==="similar_distribution"
+        ?"household_scenario_similar"
+        :"household_scenario_not_comparable"
+    )}</p>}
+
+    <p className="text-xs text-muted">{t("household_scenario_disclaimer")}</p>
+
+    <div className="flex flex-wrap gap-2">
+     <button
+      type="button"
+      className="rounded-full border border-borderLight px-4 py-2 text-sm text-ink"
+      onClick={()=>{
+       setScenarioMode("reassign");
+       setScenarioFrom("");
+       setScenarioTo("");
+       setScenarioPoints(0);
+       setScenarioCapacityMember("");
+       setScenarioCapacityLevel("reduced");
+      }}
+     >{t("household_scenario_reset")}</button>
+     <button
+      type="button"
+      className="rounded-full border border-borderLight px-4 py-2 text-sm text-ink"
+      onClick={()=>{
+       setScenarioOpen(false);
+       setScenarioMode("reassign");
+       setScenarioFrom("");
+       setScenarioTo("");
+       setScenarioPoints(0);
+       setScenarioCapacityMember("");
+       setScenarioCapacityLevel("reduced");
+      }}
+     >{t("household_scenario_close")}</button>
+    </div>
+   </div>}
+  </section>}
   {members.length>=2&&me&&<section className="rounded-2xl border border-borderLight/70 bg-paper p-5">
    <p className="text-[11px] uppercase tracking-wide text-muted">{t("perception_gap_title")}</p>
    <h2 className="mt-1 font-serif text-xl text-ink">{t("perception_gap_question")}</h2>
