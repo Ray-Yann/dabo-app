@@ -807,12 +807,12 @@ export default function CoursesPage() {
                   <div className="space-y-1">
                     {group.items.map((item) => (
                       <div key={item.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                        <div onClick={() => toggle(item)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                        <div className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0"><Check size={12} strokeWidth={3} /></div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm text-muted line-through">{item.name}{item.quantity && <span> · {item.quantity}</span>}</div>
                           <div className="text-[11px] text-muted">{item.bought_at && relativeDate(item.bought_at)}</div>
                         </div>
-                        <button onClick={() => remove(item.id)} className="text-muted"><Trash2 size={16} /></button>
+                        <button onClick={() => setActionItemId(item.id)} className="text-muted" aria-label={t("courses_item_more_actions")}><MoreHorizontal size={18} /></button>
                       </div>
                     ))}
                   </div>
@@ -839,6 +839,19 @@ export default function CoursesPage() {
                 <div className="mt-1 text-lg font-medium text-ink">{actionItem.name}</div>
               </div>
               <div className="space-y-2">
+                {actionItem.status === "bought" && (
+                  <button
+                    type="button"
+                    onClick={() => { setActionItemId(null); void toggle(actionItem); }}
+                    className="flex w-full items-start gap-3 rounded-2xl border border-border px-4 py-4 text-left text-ink"
+                  >
+                    <Check size={18} className="mt-0.5 shrink-0" />
+                    <span>
+                      <span className="block">{t("courses_history_restore")}</span>
+                      <span className="mt-1 block text-xs font-normal text-muted">{t("courses_history_restore_help")}</span>
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => { setActionItemId(null); openItemComments(actionItem.id); }}

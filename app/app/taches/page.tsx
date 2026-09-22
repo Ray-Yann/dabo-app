@@ -817,9 +817,9 @@ export default function TasksPage() {
                 <div className="text-sm font-medium text-ink">{t("task_history_hide")}</div>
                 <div className="text-xs text-muted mt-1">{t("task_history_hide_help")}</div>
               </button>
-              <button type="button" onClick={() => manageCompletedTaskHistory("cancel")} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
-                <div className="text-sm font-medium text-ink">{t("task_history_cancel_contribution")}</div>
-                <div className="text-xs text-muted mt-1">{t("task_history_cancel_contribution_help")}</div>
+              <button type="button" onClick={() => { const task = historyActionTask; setHistoryActionTask(null); void uncompleteTask(task); }} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
+                <div className="text-sm font-medium text-ink">{t("task_history_restore")}</div>
+                <div className="text-xs text-muted mt-1">{t("task_history_restore_help")}</div>
               </button>
               <button type="button" onClick={() => setHistoryActionTask(null)} className="w-full py-3 text-sm text-muted font-medium">{t("cancel")}</button>
             </div>
@@ -1102,7 +1102,7 @@ export default function TasksPage() {
                     <div className="space-y-1">
                       {group.tasks.map((task) => (
                         <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                          <div onClick={() => uncompleteTask(task)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                          <div className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0"><Check size={12} strokeWidth={3} /></div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm text-border line-through">{task.name}</div>
                             <div className="text-[11px] text-muted">{completedLabel(task)}</div>
@@ -1119,7 +1119,7 @@ export default function TasksPage() {
               <div className="space-y-1">
                 {doneRecent.map((task) => (
                   <div key={task.id} className="flex items-center gap-3 py-3 border-b border-borderLight">
-                    <div onClick={() => uncompleteTask(task)} className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0 cursor-pointer"><Check size={12} strokeWidth={3} /></div>
+                    <div className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0"><Check size={12} strokeWidth={3} /></div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-border line-through">{task.name}</div>
                       <div className="text-[11px] text-muted">{completedLabel(task)}</div>
