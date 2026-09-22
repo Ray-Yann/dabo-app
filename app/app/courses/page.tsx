@@ -17,6 +17,8 @@ import { NativeNameInput } from "@/components/NativeNameInput";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
+import { recordContextualShareSuccess } from "@/lib/contextual-share";
+import { ContextualShareNudge } from "@/components/ContextualShareNudge";
 
 type HouseholdStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
@@ -316,6 +318,9 @@ export default function CoursesPage() {
     setAnimatingId(null);
     if (error) return;
     if (status === "bought") {
+      if (household && me?.user_id) {
+        recordContextualShareSuccess(me.user_id, household.id);
+      }
       setBoughtConfirmation(true);
       window.setTimeout(() => setBoughtConfirmation(false), 2200);
       if (household && me) {
@@ -863,6 +868,14 @@ export default function CoursesPage() {
         <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-30 rounded-full bg-ink px-4 py-2 text-xs font-medium text-paper shadow-lg">
           {t("courses_added_confirmation")}
         </div>
+      )}
+
+      {me?.user_id && household && (
+        <ContextualShareNudge
+          supabase={supabase}
+          userId={me.user_id}
+          householdId={household.id}
+        />
       )}
 
       {boughtConfirmation && (

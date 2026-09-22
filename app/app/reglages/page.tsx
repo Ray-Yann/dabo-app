@@ -19,6 +19,8 @@ import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
 import { setTutorialEnabled } from "@/lib/tutorial-preferences";
 import { clearTutorialLocalStateForUser } from "@/lib/tutorial-local-storage";
 import type { LifeContextImpact, LifeContextType, MemberLifeContext } from "@/lib/life-context";
+import { shareDaboApp } from "@/lib/app-share";
+import { markContextualShareShared } from "@/lib/contextual-share";
 
 type SettingsConfirmation =
   | { kind: "promote"; memberId: string; name: string }
@@ -356,59 +358,23 @@ export default function SettingsPage() {
     refresh();
   }
 
-  async function recordAppShare(method: "native" | "clipboard", referralToken: string) {
-    const payload = { method, householdId: household?.id || null, referralToken };
-    try {
-      // Une session peut être proche de son expiration au retour de la feuille de partage.
-      // getSession() rafraîchit si nécessaire ; en cas de 401, on force un refresh puis on retente une fois.
-      let { data: sessionData } = await supabase.auth.getSession();
-      let token = sessionData.session?.access_token;
-      if (!token) return false;
-
-      const send = (accessToken: string) => fetch("/api/share-app", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      });
-
-      let response = await send(token);
-      if (response.status === 401) {
-        const refreshed = await supabase.auth.refreshSession();
-        token = refreshed.data.session?.access_token;
-        if (token) response = await send(token);
-      }
-      if (!response.ok) console.warn("[DABO share] partage réussi, mesure indisponible", response.status);
-      return response.ok;
-    } catch {
-      // La mesure ne doit jamais bloquer l'action de partage.
-      return false;
-    }
-  }
-
   async function shareApp() {
-    const referralToken = crypto.randomUUID();
-    const shareData = {
-      title: "Dabo",
-      text: t("share_app_message"),
-      url: `https://dabo-app.vercel.app/?ref=${referralToken}`,
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        await recordAppShare("native", referralToken);
-      } catch {
-        // Partage annulé par la personne — aucun événement enregistré.
+    const result = await shareDaboApp({
+      supabase,
+      householdId: household?.id || null,
+      message: t("share_app_message"),
+    });
+
+    if (result.outcome === "shared") {
+      if (me?.user_id && household?.id) {
+        markContextualShareShared(me.user_id, household.id);
       }
-    } else {
-      try {
-        if (!navigator.clipboard) throw new Error("Clipboard unavailable");
-        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-        await recordAppShare("clipboard", referralToken);
+
+      if (result.method === "clipboard") {
         showFeedback("success", t("share_app_copied"));
-      } catch {
-        showFeedback("error", t("settings_error_copy"));
       }
+    } else if (result.outcome === "error") {
+      showFeedback("error", t("settings_error_copy"));
     }
   }
 

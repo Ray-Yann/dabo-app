@@ -16,6 +16,8 @@ import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { NativeNameInput } from "@/components/NativeNameInput";
 import { detectAdaptiveRoutineSuggestion, realignPendingRoutineDueDate, type AdaptiveRoutineSuggestion } from "@/lib/adaptive-routines";
+import { recordContextualShareSuccess } from "@/lib/contextual-share";
+import { ContextualShareNudge } from "@/components/ContextualShareNudge";
 
 
 type RoutineAdaptationPreference = {
@@ -535,6 +537,7 @@ export default function TasksPage() {
       if (!result.ok && result.reason === "contribution_error") {
         alert(t("task_completion_error"));
       } else if (result.ok) {
+        if (me.user_id) recordContextualShareSuccess(me.user_id, household.id);
         setCompletedConfirmation(true);
         window.setTimeout(() => setCompletedConfirmation(false), 2200);
       }
@@ -562,7 +565,11 @@ export default function TasksPage() {
       const performerIds = Object.keys(weights);
       const result = await completeHouseholdTask({ supabase, householdId: household.id, members, me }, task, performerIds, weights);
       if (!result.ok) alert(t("task_completion_error"));
-      else { setCompletedConfirmation(true); window.setTimeout(() => setCompletedConfirmation(false), 2200); }
+      else {
+        if (me.user_id) recordContextualShareSuccess(me.user_id, household.id);
+        setCompletedConfirmation(true);
+        window.setTimeout(() => setCompletedConfirmation(false), 2200);
+      }
     }
     loadTasks();
   }
@@ -864,6 +871,14 @@ export default function TasksPage() {
 
       {addedConfirmation && (
         <div className="mx-5 mb-3 text-xs text-ink bg-mustardBg rounded-xl px-3 py-2" role="status">✓ {t("task_added_confirmation")}</div>
+      )}
+
+      {me?.user_id && household && (
+        <ContextualShareNudge
+          supabase={supabase}
+          userId={me.user_id}
+          householdId={household.id}
+        />
       )}
 
       {completedConfirmation && (

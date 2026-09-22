@@ -29,6 +29,7 @@ import { SectionHeader } from "@/components/dabo/SectionHeader";
 import { computeHouseholdInsights } from "@/lib/household-insights";
 import { buildTodayHouseholdIntelligenceCandidate } from "@/lib/today-household-intelligence";
 import { applyHouseholdSignalLifecycle, householdAttentionFingerprint, householdSignalSnoozedUntil, type HouseholdAttentionReceipt } from "@/lib/household-attention-lifecycle";
+import { recordContextualShareSuccess } from "@/lib/contextual-share";
 
 export default function TodayPage() {
   useEffect(() => {
@@ -144,6 +145,8 @@ export default function TodayPage() {
       if (result.reason === "contribution_error") alert(t("task_completion_error"));
       return;
     }
+
+    if (me.user_id) recordContextualShareSuccess(me.user_id, household.id);
 
     const [{ data: myTasks }, { data: allTasks }, contributionData] = await Promise.all([
       supabase
