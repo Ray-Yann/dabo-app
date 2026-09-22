@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
-import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus } from "lucide-react";
+import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus, Download } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { enableNotifications, disableNotifications, requiresIosHomeScreenInstall } from "@/lib/notifications";
 import { hasVerifiedPushSubscription, stopNotificationNudge } from "@/lib/notification-activation";
@@ -68,6 +68,7 @@ export default function SettingsPage() {
   const [confirmation, setConfirmation] = useState<SettingsConfirmation | null>(null);
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState("");
+  const [exportingData, setExportingData] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   function showFeedback(type: "success" | "error", text: string) {
@@ -609,6 +610,55 @@ export default function SettingsPage() {
     }
     router.replace("/");
     return true;
+  }
+
+  async function exportMyData() {
+    if (exportingData) return;
+
+    setExportingData(true);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        showFeedback("error", t("settings_error_session"));
+        return;
+      }
+
+      const res = await fetch("/api/export-data", {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer " + data.session.access_token,
+        },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        showFeedback("error", t("settings_export_error"));
+        return;
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition");
+      const filenameMatch = disposition?.match(/filename="([^"]+)"/i);
+      const filename = filenameMatch?.[1] || "dabo-data.json";
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      showFeedback("success", t("settings_export_success"));
+    } catch (error) {
+      console.error("DABO portability download failed", error);
+      showFeedback("error", t("settings_export_error"));
+    } finally {
+      setExportingData(false);
+    }
   }
 
   async function signOut() {
@@ -1250,6 +1300,24 @@ export default function SettingsPage() {
             <h2 className="text-base font-semibold text-ink">{t("settings_section_account")}</h2>
           </div>
           <div className="bg-white2 rounded-2xl p-4">
+            <div className="pb-3 mb-3 border-b border-border">
+              <div className="text-sm font-medium text-ink">
+                {t("settings_export_title")}
+              </div>
+              <p className="text-xs text-muted mt-1 leading-relaxed">
+                {t("settings_export_desc")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void exportMyData()}
+                disabled={exportingData}
+                className="mt-3 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-ink flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Download size={16} />
+                <span>{exportingData ? "…" : t("settings_export_action")}</span>
+              </button>
+            </div>
+
             <button onClick={signOut} className="w-full text-sm text-ink py-1 flex items-center justify-between">
               <span>{t("settings_signout")}</span><LogOut size={16} className="text-muted" />
             </button>
