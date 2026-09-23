@@ -6,6 +6,10 @@ const route = fs.readFileSync("app/api/calendar-reminders/route.ts", "utf8");
 const page = fs.readFileSync("app/app/calendrier/page.tsx", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 const migration = fs.readFileSync("supabase/migrations/20260918_calendar_reminders_v11.sql", "utf8");
+const serviceRoleMigration = fs.readFileSync(
+  "supabase/migrations/2026-09-23-calendar-reminder-deliveries-service-role.sql",
+  "utf8"
+);
 
 test("rappel horaire lit heure, fuseau et recurrence", () => {
   assert.match(route, /event_time,time_zone/);
@@ -37,3 +41,11 @@ test("rappel calendrier tolere cinq minutes de retard sans anticiper", () => {
 
 
 
+
+
+test("service_role peut reserver et liberer un rappel calendrier", () => {
+  assert.match(
+    serviceRoleMigration,
+    /grant\s+insert\s*,\s*delete\s+on\s+table\s+public\.calendar_reminder_deliveries\s+to\s+service_role\s*;/i
+  );
+});
