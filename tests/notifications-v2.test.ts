@@ -48,6 +48,17 @@ test("Notifications V2 déduplique le Cron et transmet une destination au Servic
   assert.match(migration, /unique \(member_id, delivery_date\)/);
 });
 
+test("Notifications V2 garantit les permissions service_role du verrou anti-doublon", () => {
+  const migration = fs.readFileSync(
+    "supabase/migrations/2026-09-23-notification-deliveries-service-role.sql",
+    "utf8"
+  );
+  assert.match(
+    migration,
+    /grant\s+insert\s*,\s*delete\s+on\s+table\s+public\.notification_deliveries\s+to\s+service_role\s*;/i
+  );
+});
+
 test("Notifications V2 exclut Courses et Équilibre du Cron intelligent", () => {
   const route = fs.readFileSync("app/api/daily-reminders/route.ts", "utf8");
   assert.doesNotMatch(route, /from\("shopping_items"\)/);
