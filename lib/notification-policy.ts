@@ -99,11 +99,17 @@ export function eventNotificationCandidate(input: {
   title: string;
   daysUntilOccurrence: number;
   reminderDaysBefore: number;
+  hasTime: boolean;
 }): NotificationCandidate | null {
-  if (
-    input.daysUntilOccurrence !== 0 &&
-    input.daysUntilOccurrence !== input.reminderDaysBefore
-  ) {
+  const isAdvanceReminder =
+    input.reminderDaysBefore > 0 &&
+    input.daysUntilOccurrence === input.reminderDaysBefore;
+
+  const isAllDayOccurrenceToday =
+    input.daysUntilOccurrence === 0 &&
+    !input.hasTime;
+
+  if (!isAdvanceReminder && !isAllDayOccurrenceToday) {
     return null;
   }
 

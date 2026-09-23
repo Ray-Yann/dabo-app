@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
 
   const { data: events } = await supabase
     .from("calendar_events")
-    .select("id, household_id, title, event_date, recurring, recurrence_frequency, recurrence_interval, recurrence_end_date, reminder_days_before, visibility, private_owner_id");
+    .select("id, household_id, title, event_date, recurring, recurrence_frequency, recurrence_interval, recurrence_end_date, event_time, reminder_days_before, visibility, private_owner_id");
 
   for (const event of events || []) {
     const occurrence = occurrenceOnOrAfter(event);
@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
       title: event.title,
       daysUntilOccurrence: until,
       reminderDaysBefore: event.reminder_days_before,
+        hasTime: Boolean(event.event_time),
     });
     if (!candidate) continue;
 

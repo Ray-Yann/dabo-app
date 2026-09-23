@@ -23,9 +23,23 @@ test("Notifications V2 rappelle les factures à J-3, J0 puis à des jalons de re
 });
 
 test("Notifications V2 respecte le rappel calendrier configuré", () => {
-  assert.ok(eventNotificationCandidate({ id: "e", title: "Dentiste", daysUntilOccurrence: 2, reminderDaysBefore: 2 }));
-  assert.ok(eventNotificationCandidate({ id: "e", title: "Dentiste", daysUntilOccurrence: 0, reminderDaysBefore: 2 }));
-  assert.equal(eventNotificationCandidate({ id: "e", title: "Dentiste", daysUntilOccurrence: 1, reminderDaysBefore: 2 }), null);
+  assert.ok(eventNotificationCandidate({ id: "e", title: "Dentiste", daysUntilOccurrence: 2, reminderDaysBefore: 2, hasTime: true }));
+  assert.equal(eventNotificationCandidate({ id: "e", title: "Dentiste", daysUntilOccurrence: 0, reminderDaysBefore: 2, hasTime: true }), null);
+  assert.ok(eventNotificationCandidate({ id: "e2", title: "Anniversaire", daysUntilOccurrence: 0, reminderDaysBefore: 2, hasTime: false }));
+  assert.equal(eventNotificationCandidate({ id: "e", title: "Dentiste", daysUntilOccurrence: 1, reminderDaysBefore: 2, hasTime: true }), null);
+});
+
+test("Notifications V2 relie le digest calendrier a event_time pour eviter le doublon horaire", () => {
+  const route = fs.readFileSync("app/api/daily-reminders/route.ts", "utf8");
+
+  assert.match(
+    route,
+    /recurrence_end_date,\s*event_time,\s*reminder_days_before/
+  );
+  assert.match(
+    route,
+    /hasTime:\s*Boolean\(event\.event_time\)/
+  );
 });
 
 test("Notifications V2 produit un digest unique et ouvre directement le bon onglet", () => {
