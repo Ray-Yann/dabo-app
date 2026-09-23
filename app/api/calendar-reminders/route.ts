@@ -78,7 +78,20 @@ export async function GET(req: NextRequest) {
       const { error: claimError } = await db.from("calendar_reminder_deliveries").insert({
         event_id: event.id, member_id: memberId, occurrence_date: targetOccurrenceDate, reminder_days_before: event.reminder_days_before || 0,
       });
-      if (claimError) { claimFailures++; if (claimError.code === "23505") continue; else continue; }
+      if (claimError) {
+        claimFailures++;
+        console.error("[calendar-reminders] Reminder claim failed", {
+          eventId: event.id,
+          memberId,
+          occurrenceDate: targetOccurrenceDate,
+          reminderDaysBefore: event.reminder_days_before || 0,
+          code: claimError.code ?? null,
+          message: claimError.message ?? null,
+          details: claimError.details ?? null,
+          hint: claimError.hint ?? null,
+        });
+        continue;
+      }
 
       const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("member_id", memberId);
       subscriptionsFound += (subs || []).length;
