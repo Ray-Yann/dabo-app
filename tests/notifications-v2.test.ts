@@ -59,6 +59,17 @@ test("Notifications V2 garantit les permissions service_role du verrou anti-doub
   );
 });
 
+test("Notifications V2 garde la marque DABO cohérente dans les titres push", () => {
+  const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
+  const titles = [
+    ...i18n.matchAll(/notif_(?:reminder|digest)_title:\s*"([^"]+)"/g),
+  ].map((match) => match[1]);
+
+  assert.equal(titles.length, 14);
+  assert.ok(titles.every((title) => title.startsWith("DABO — ")));
+  assert.doesNotMatch(i18n, /"Dabo —/);
+});
+
 test("Notifications V2 exclut Courses et Équilibre du Cron intelligent", () => {
   const route = fs.readFileSync("app/api/daily-reminders/route.ts", "utf8");
   assert.doesNotMatch(route, /from\("shopping_items"\)/);
