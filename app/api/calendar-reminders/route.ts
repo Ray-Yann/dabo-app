@@ -43,7 +43,7 @@ function occurrenceIso(event: CalendarEvent, onOrAfter: string) {
 }
 
 export async function GET(req: NextRequest) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Non autorisÃ©" }, { status: 401 });
+  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Non autoris\u00e9" }, { status: 401 });
   try { configureWebPush(); } catch { return NextResponse.json({ error: "Configuration push indisponible" }, { status: 503 }); }
 
   const db = createAdminClient();
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
       let delivered = false;
       for (const sub of subs || []) {
         try {
-          await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title: "Dabo â€” Rappel", body: event.title, url: "/app/calendrier" }));
+          await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title: "DABO \u2014 Rappel", body: event.title, url: "/app/calendrier" }));
           sent++; delivered = true;
         } catch (e: unknown) {
           pushFailures++;

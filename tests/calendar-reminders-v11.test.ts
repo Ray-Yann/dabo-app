@@ -49,3 +49,9 @@ test("service_role peut reserver et liberer un rappel calendrier", () => {
     /grant\s+insert\s*,\s*delete\s+on\s+table\s+public\.calendar_reminder_deliveries\s+to\s+service_role\s*;/i
   );
 });
+
+
+test("le titre du push calendrier reste UTF-8 propre et conforme a la marque DABO", () => {
+  assert.match(route, /title:\s*"DABO \\u2014 Rappel"/);
+  assert.doesNotMatch(route, /Ã|â‚¬|â€/);
+});
