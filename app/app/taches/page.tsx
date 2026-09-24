@@ -9,6 +9,7 @@ import { Task, TaskSubtask, Comment, Routine, RoutineFrequency, DURATION_OPTIONS
 import { memberColor, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold, notifyMembers } from "@/lib/notifications";
 import { newlyAssignedMemberIds } from "@/lib/notification-assignment-targeting";
+import { commentNotificationRecipientIds } from "@/lib/notification-comment-targeting";
 import { completeHouseholdTask, insertNextRecurringOccurrence, uncompleteHouseholdTask } from "@/lib/task-completion";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search, MoreHorizontal } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
@@ -736,10 +737,51 @@ export default function TasksPage() {
     reloadComments(id);
   }
   async function addComment() {
-    if (!newComment.trim() || !openComments || !me) return;
-    await supabase.from("comments").insert({ household_id: household!.id, author_id: me.id, task_id: openComments, text: newComment.trim() });
+    if (!newComment.trim() || !openComments || !me || !household) return;
+
+    const taskId = openComments;
+    const commentedTask = tasks.find((task) => task.id === taskId);
+    const taskSubtasks = subtasks.filter((subtask) => subtask.task_id === taskId);
+    const assignedMemberIds =
+      taskSubtasks.length > 0
+        ? taskSubtasks.map((subtask) => subtask.assigned_to)
+        : [commentedTask?.assigned_to];
+
+    const previousCommentAuthorIds = comments
+      .filter((comment) => comment.task_id === taskId)
+      .map((comment) => comment.author_id);
+
+    const { error: commentInsertError } = await supabase.from("comments").insert({
+      household_id: household.id,
+      author_id: me.id,
+      task_id: taskId,
+      text: newComment.trim(),
+    });
+
+    if (commentInsertError) {
+      console.error(commentInsertError);
+      return;
+    }
+
+    const targetMemberIds = commentNotificationRecipientIds({
+      actorMemberId: me.id,
+      assignedMemberIds,
+      previousCommentAuthorIds,
+    });
+
+    if (targetMemberIds.length > 0 && commentedTask) {
+      notifyMembers(
+        supabase,
+        household.id,
+        me.id,
+        targetMemberIds,
+        "notif_task_comment",
+        { name: me.first_name, task: commentedTask.name }
+      );
+    }
+
     setNewComment("");
-    reloadComments(openComments);
+    reloadComments(taskId);
   }
   async function saveEditComment(id: string) {
     if (!editCommentText.trim() || !openComments) return;

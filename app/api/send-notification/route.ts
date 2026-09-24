@@ -21,8 +21,8 @@ function configureWebPush() {
 // Seules ces clés peuvent déclencher une notification — empêche quiconque
 // d'injecter un texte arbitraire dans une notification, même en cas de jeton
 // valide détourné.
-const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent", "notif_member_joined", "notif_task_assigned", "notif_item_assigned"];
-const TARGETED_ONLY_KEYS = ["notif_task_assigned", "notif_item_assigned"];
+const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent", "notif_member_joined", "notif_task_assigned", "notif_item_assigned", "notif_task_comment", "notif_item_comment"];
+const TARGETED_ONLY_KEYS = ["notif_task_assigned", "notif_item_assigned", "notif_task_comment", "notif_item_comment"];
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");

@@ -8,6 +8,7 @@ import { ShoppingItem, Comment } from "@/lib/types";
 import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold, notifyMembers } from "@/lib/notifications";
 import { newlyAssignedMemberIds } from "@/lib/notification-assignment-targeting";
+import { commentNotificationRecipientIds } from "@/lib/notification-comment-targeting";
 import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal, Store } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
@@ -431,10 +432,45 @@ export default function CoursesPage() {
     reloadComments(id);
   }
   async function addComment() {
-    if (!newComment.trim() || !openComments || !me) return;
-    await supabase.from("comments").insert({ household_id: household!.id, author_id: me.id, shopping_item_id: openComments, text: newComment.trim() });
+    if (!newComment.trim() || !openComments || !me || !household) return;
+
+    const shoppingItemId = openComments;
+    const commentedItem = items.find((item) => item.id === shoppingItemId);
+    const previousCommentAuthorIds = comments
+      .filter((comment) => comment.shopping_item_id === shoppingItemId)
+      .map((comment) => comment.author_id);
+
+    const { error: commentInsertError } = await supabase.from("comments").insert({
+      household_id: household.id,
+      author_id: me.id,
+      shopping_item_id: shoppingItemId,
+      text: newComment.trim(),
+    });
+
+    if (commentInsertError) {
+      console.error(commentInsertError);
+      return;
+    }
+
+    const targetMemberIds = commentNotificationRecipientIds({
+      actorMemberId: me.id,
+      assignedMemberIds: [commentedItem?.assigned_to],
+      previousCommentAuthorIds,
+    });
+
+    if (targetMemberIds.length > 0 && commentedItem) {
+      notifyMembers(
+        supabase,
+        household.id,
+        me.id,
+        targetMemberIds,
+        "notif_item_comment",
+        { name: me.first_name, item: commentedItem.name }
+      );
+    }
+
     setNewComment("");
-    reloadComments(openComments);
+    reloadComments(shoppingItemId);
   }
   async function saveEditComment(id: string) {
     if (!editCommentText.trim() || !openComments) return;
