@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  let eventDeliveryKey: string | null = null;
 
   // Vérifie que la personne qui déclenche la notification est bien elle-même
   // membre de ce foyer précis — jamais de foyer arbitraire fourni par le client.
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    eventDeliveryKey = `bill_paid:${paymentTransaction.id}`;
     params = { bill: bill.label };
   }
 
@@ -182,11 +184,37 @@ export async function POST(req: NextRequest) {
       .select("*")
       .in("member_id", accountMemberIds);
 
+    let eventDeliveryClaimed = false;
+    if (eventDeliveryKey) {
+      const { error: claimError } = await admin
+        .from("event_notification_deliveries")
+        .insert({
+          event_key: eventDeliveryKey,
+          member_id: member.id,
+        });
+
+      if (claimError) {
+        if (claimError.code === "23505") {
+          continue;
+        }
+
+        console.error("[send-notification] Event delivery claim failed", {
+          memberId: member.id,
+          eventKey: eventDeliveryKey,
+          code: claimError.code ?? null,
+        });
+        continue;
+      }
+
+      eventDeliveryClaimed = true;
+    }
+
     // Chaque destinataire reçoit le message dans SA langue du foyer concerné,
     // pas celle de la personne qui a déclenché l'action.
     const lang: Lang = (member.language as Lang) || "fr";
     const body = translateWithParams(lang, key, params || {});
 
+    let memberDelivered = false;
     for (const sub of subs || []) {
       if (deliveredEndpoints.has(sub.endpoint)) continue;
       try {
@@ -198,6 +226,7 @@ export async function POST(req: NextRequest) {
           JSON.stringify({ title: "Dabo", body })
         );
         deliveredEndpoints.add(sub.endpoint);
+        memberDelivered = true;
         sent++;
       } catch (e: unknown) {
         const statusCode = (e as { statusCode?: number })?.statusCode;
@@ -211,6 +240,22 @@ export async function POST(req: NextRequest) {
             message: e instanceof Error ? e.message : "Unknown Web Push error",
           });
         }
+      }
+    }
+
+    if (eventDeliveryClaimed && !memberDelivered && eventDeliveryKey) {
+      const { error: releaseError } = await admin
+        .from("event_notification_deliveries")
+        .delete()
+        .eq("event_key", eventDeliveryKey)
+        .eq("member_id", member.id);
+
+      if (releaseError) {
+        console.error("[send-notification] Event delivery claim release failed", {
+          memberId: member.id,
+          eventKey: eventDeliveryKey,
+          code: releaseError.code ?? null,
+        });
       }
     }
   }

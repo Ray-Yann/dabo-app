@@ -57,3 +57,26 @@ test("Bill Paid V1 ne fait pas confiance a un libelle de facture fourni par le c
     /notif_bill_paid[\s\S]{0,500}params\.bill/
   );
 });
+
+
+test("Bill Paid V1 deduplique durablement chaque transaction par destinataire", () => {
+  assert.match(
+    sendRoute,
+    /from\("event_notification_deliveries"\)/
+  );
+  assert.match(
+    sendRoute,
+    /bill_paid:[^\n]*paymentTransaction\.id/
+  );
+  assert.match(
+    sendRoute,
+    /member_id/
+  );
+});
+
+test("Bill Paid V1 ignore un rejeu deja reclame sans renvoyer le push", () => {
+  assert.match(
+    sendRoute,
+    /23505/
+  );
+});
