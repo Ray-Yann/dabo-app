@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { useLanguage, useT } from "@/lib/language-context";
+import { notifyBillPaid } from "@/lib/notifications";
 import {
   categoryTotals,
   financePeriodLabel,
@@ -150,9 +151,9 @@ export default function BudgetPage() {
   }
 
   async function markPaid(bill:Bill){
-    if(!me||busy)return; setBusy(true);setError(null);
+    if(!household||!me||busy)return; setBusy(true);setError(null);
     try{
-      const {error:e}=await supabase.rpc("pay_finance_bill",{p_bill_id:bill.id,p_paid_by_member_id:payer||me.id,p_paid_on:todayKey()}); if(e)throw e; setPayingBill(null); await load();
+      const {error:e}=await supabase.rpc("pay_finance_bill",{p_bill_id:bill.id,p_paid_by_member_id:payer||me.id,p_paid_on:todayKey()}); if(e)throw e; void notifyBillPaid(supabase,household.id,me.id,bill.id); setPayingBill(null); await load();
     }catch(e){console.error(e);setError(t("finance_error_mark_paid"));}finally{setBusy(false);}
   }
 

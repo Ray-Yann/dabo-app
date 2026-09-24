@@ -134,3 +134,32 @@ export async function notifyMembers(
     // Une notification manquée ne doit jamais bloquer l'action principale de l'utilisateur.
   }
 }
+
+
+export async function notifyBillPaid(
+  supabase: SupabaseClient,
+  householdId: string,
+  excludeMemberId: string,
+  billId: string
+) {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+
+    await fetch("/api/send-notification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify({
+        householdId,
+        excludeMemberId,
+        key: "notif_bill_paid",
+        resourceId: billId,
+      }),
+    });
+  } catch {
+    // A missing notification must never block the user's primary action.
+  }
+}

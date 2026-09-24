@@ -6,12 +6,14 @@ import { useHousehold } from "@/lib/use-household";
 import { LobaMarkdown } from "@/components/LobaMarkdown";
 import type { LobaAiMessage } from "@/lib/loba-ai";
 import type { LobaHouseholdAction } from "@/lib/loba-household-actions";
+import { lobaNotificationPlan } from "@/lib/loba-notification-policy";
+import { notifyHousehold, notifyMembers, notifyBillPaid } from "@/lib/notifications";
 
 type Props = { householdName: string };
 type UiMessage = { r:"u"|"l"; t:string };
 
 export function LobaHouseholdChat({ householdName }: Props){
- const { household, supabase } = useHousehold();
+ const { household, me, supabase } = useHousehold();
  const [open,setOpen]=useState(false),[q,setQ]=useState(""),[messages,setMessages]=useState<UiMessage[]>([]),[busy,setBusy]=useState(false),[pending,setPending]=useState<LobaHouseholdAction|null>(null);
  async function token(){const {data}=await supabase.auth.getSession();return data.session?.access_token||null}
  async function ask(x:string){
@@ -26,11 +28,46 @@ export function LobaHouseholdChat({ householdName }: Props){
   }catch(e){setMessages(m=>[...m,{r:"l",t:e instanceof Error&&e.message!=="session"?e.message:"LOBA n’est pas disponible pour le moment."}])}finally{setBusy(false)}
  }
  async function confirm(){
-  if(!pending||!household||busy)return; const action=pending; setBusy(true);
+  if(!pending||!household||!me||busy)return; const action=pending; setBusy(true);
   try{
    const access=await token(); if(!access) throw new Error("session");
    const res=await fetch("/api/loba/household",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${access}`},body:JSON.stringify({householdId:household.id,confirmAction:action})});
    const body=await res.json(); if(!res.ok) throw new Error(body.error||"Action impossible");
+
+   const notificationPlan=lobaNotificationPlan({
+    action,
+    actorMemberId:me.id,
+    actorFirstName:me.first_name,
+   });
+
+   for(const notification of notificationPlan){
+    if(notification.kind==="members"){
+     void notifyMembers(
+      supabase,
+      household.id,
+      me.id,
+      notification.targetMemberIds,
+      notification.key,
+      notification.params
+     );
+    }else if(notification.kind==="household"){
+     void notifyHousehold(
+      supabase,
+      household.id,
+      me.id,
+      notification.key,
+      notification.params
+     );
+    }else{
+     void notifyBillPaid(
+      supabase,
+      household.id,
+      me.id,
+      notification.resourceId
+     );
+    }
+   }
+
    setPending(null);
    const done=action.type==="shopping.add"?`C’est fait : **${action.item}**${action.quantity?` (${action.quantity})`:""} a été ajouté aux courses du foyer.`
     :action.type==="shopping.update"?`C’est fait : **${action.itemName||"l’article"}** a été modifié.`

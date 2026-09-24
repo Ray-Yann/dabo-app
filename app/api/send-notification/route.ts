@@ -21,7 +21,7 @@ function configureWebPush() {
 // Seules ces clés peuvent déclencher une notification — empêche quiconque
 // d'injecter un texte arbitraire dans une notification, même en cas de jeton
 // valide détourné.
-const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent", "notif_member_joined", "notif_task_assigned", "notif_item_assigned", "notif_task_comment", "notif_item_comment"];
+const ALLOWED_KEYS = ["notif_item_bought", "notif_task_done", "notif_item_urgent", "notif_task_urgent", "notif_member_joined", "notif_task_assigned", "notif_item_assigned", "notif_task_comment", "notif_item_comment", "notif_bill_paid"];
 const TARGETED_ONLY_KEYS = ["notif_task_assigned", "notif_item_assigned", "notif_task_comment", "notif_item_comment"];
 
 export async function POST(req: NextRequest) {
@@ -29,12 +29,22 @@ export async function POST(req: NextRequest) {
   const token = authHeader?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const { householdId, excludeMemberId, targetMemberIds, key, params } = await req.json();
+  let { householdId, excludeMemberId, targetMemberIds, key, params, resourceId } = await req.json();
   if (!householdId || !key) {
     return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
   }
   if (!ALLOWED_KEYS.includes(key)) {
     return NextResponse.json({ error: "Message non autorisé" }, { status: 400 });
+  }
+
+  if (
+    key === "notif_bill_paid" &&
+    (typeof resourceId !== "string" || resourceId.length === 0)
+  ) {
+    return NextResponse.json(
+      { error: "Identifiant de facture manquant" },
+      { status: 400 }
+    );
   }
 
   if (TARGETED_ONLY_KEYS.includes(key) && targetMemberIds === undefined) {
@@ -80,6 +90,45 @@ export async function POST(req: NextRequest) {
 
   if (!callerMember) {
     return NextResponse.json({ error: "Non autorisé pour ce foyer" }, { status: 403 });
+  }
+
+  if (key === "notif_bill_paid") {
+    const { data: bill } = await admin
+      .from("finance_bills")
+      .select("label,status,visibility,paid_transaction_id")
+      .eq("id", resourceId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+
+    if (
+      !bill ||
+      bill.visibility !== "household" ||
+      bill.status !== "paid" ||
+      !bill.paid_transaction_id
+    ) {
+      return NextResponse.json(
+        { error: "Facture non éligible à une notification" },
+        { status: 403 }
+      );
+    }
+
+    const { data: paymentTransaction } = await admin
+      .from("finance_transactions")
+      .select("id")
+      .eq("id", bill.paid_transaction_id)
+      .eq("household_id", householdId)
+      .eq("created_by_member_id", callerMember.id)
+      .eq("source", "bill_payment")
+      .maybeSingle();
+
+    if (!paymentTransaction) {
+      return NextResponse.json(
+        { error: "Paiement non autorisé pour cette notification" },
+        { status: 403 }
+      );
+    }
+
+    params = { bill: bill.label };
   }
 
   let membersQuery = admin
