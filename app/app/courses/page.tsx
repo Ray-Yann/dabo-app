@@ -22,6 +22,7 @@ import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
 import { ContextualShareNudge } from "@/components/ContextualShareNudge";
+import { parseShoppingListImport } from "@/lib/shopping-list-import";
 
 type HouseholdStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
@@ -82,6 +83,10 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportBusy, setBulkImportBusy] = useState(false);
+  const [bulkImportError, setBulkImportError] = useState("");
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("first") !== "1") return;
@@ -309,6 +314,52 @@ export default function CoursesPage() {
     }
     setAddForm(EMPTY_FORM);
     setShowAdd(false);
+    setAddConfirmation(true);
+    window.setTimeout(() => setAddConfirmation(false), 2200);
+    loadItems();
+  }
+
+  async function importShoppingList() {
+    if (!household || bulkImportBusy) return;
+
+    const names = parseShoppingListImport(bulkImportText);
+    if (names.length === 0) return;
+
+    setBulkImportBusy(true);
+    setBulkImportError("");
+
+    const { error } = await supabase.from("shopping_items").insert(
+      names.map((name) => ({
+        household_id: household.id,
+        name,
+        quantity: null,
+        urgent: false,
+        assigned_to: null,
+        due_date: null,
+        store_name: null,
+      }))
+    );
+
+    setBulkImportBusy(false);
+
+    if (error) {
+      console.error(error);
+      setBulkImportError(t("courses_bulk_import_error"));
+      return;
+    }
+
+    void trackAcquisitionEvent("first_value", {
+      householdId: household.id,
+      valueType: "shopping",
+    });
+
+    if (completeFirstValueGuidance("shopping")) {
+      setFirstValueConfirmation(true);
+      window.setTimeout(() => setFirstValueConfirmation(false), 3200);
+    }
+
+    setBulkImportText("");
+    setShowBulkImport(false);
     setAddConfirmation(true);
     window.setTimeout(() => setAddConfirmation(false), 2200);
     loadItems();
@@ -789,11 +840,67 @@ export default function CoursesPage() {
             <div className="text-sm font-semibold text-ink">{t("courses_add_question")}</div>
             <div className="text-xs text-muted mt-0.5">{t("courses_add_hint")}</div>
           </div>
-          <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} stores={availableStores()} />
+          {!showBulkImport ? (
+            <>
+              <ItemFormFields form={addForm} setForm={setAddForm} members={members} t={t} stores={availableStores()} />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkImport(true);
+                  setBulkImportError("");
+                }}
+                className="text-xs font-medium text-muted underline underline-offset-2"
+              >
+                {t("courses_bulk_import_open")}
+              </button>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div>
+                <div className="text-sm font-medium text-ink">{t("courses_bulk_import_title")}</div>
+                <div className="mt-0.5 text-xs text-muted">{t("courses_bulk_import_hint")}</div>
+              </div>
+              <textarea
+                autoFocus
+                rows={6}
+                value={bulkImportText}
+                onChange={(event) => setBulkImportText(event.target.value)}
+                placeholder={t("courses_bulk_import_placeholder")}
+                className="w-full resize-y rounded-xl border border-border bg-white2 px-3 py-2.5 text-sm text-ink outline-none focus:border-ink"
+              />
+              {bulkImportError && (
+                <div className="text-xs text-red-600">{bulkImportError}</div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={bulkImportBusy || parseShoppingListImport(bulkImportText).length === 0}
+                  onClick={importShoppingList}
+                  className="flex-1 rounded-xl bg-ink py-2 text-sm font-medium text-paper disabled:opacity-50"
+                >
+                  {bulkImportBusy ? t("loading") : t("courses_bulk_import_add")}
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkImportBusy}
+                  onClick={() => {
+                    setShowBulkImport(false);
+                    setBulkImportText("");
+                    setBulkImportError("");
+                  }}
+                  className="px-4 text-sm text-muted disabled:opacity-50"
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </div>
+          )}
+          {!showBulkImport && (
           <div className="flex gap-2">
             <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
             <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
           </div>
+          )}
         </div>
       )}
 
