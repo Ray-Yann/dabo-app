@@ -28,7 +28,29 @@ export async function POST(req: NextRequest) {
 
   if (member) {
     try {
-      await transferCreatorAndArchive(admin, member.id);
+      const { promotedMemberId } = await transferCreatorAndArchive(admin, member.id);
+
+      if (promotedMemberId) {
+        try {
+          await sendEventNotification({
+            admin,
+            householdId: member.household_id,
+            excludeMemberId: member.id,
+            targetMemberIds: [promotedMemberId],
+            key: "notif_creator_promoted",
+            eventDeliveryKey: `creator_promoted:${member.household_id}:${promotedMemberId}`,
+          });
+        } catch (notificationError) {
+          console.error("[leave-household] Creator promotion notification failed", {
+            memberId: promotedMemberId,
+            householdId: member.household_id,
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : String(notificationError),
+          });
+        }
+      }
 
       try {
         await sendEventNotification({

@@ -47,8 +47,22 @@ test("Security Households V1 bloque les mutations directes de champs d'adhésion
 
 test("Security Households V1 réserve la promotion au creator via un RPC dédié", () => {
   const settings = readFileSync("app/app/reglages/page.tsx", "utf8");
+  const promotionRoute = readFileSync("app/api/promote-member/route.ts", "utf8");
+
   assert.match(migration, /create or replace function public\.promote_household_member_to_creator/);
   assert.match(migration, /if not public\.is_household_creator\(v_household_id\)/);
-  assert.match(settings, /rpc\("promote_household_member_to_creator"/);
+
+  assert.match(settings, /fetch\("\/api\/promote-member"/);
+  assert.doesNotMatch(
+    settings,
+    /rpc\(\s*"promote_household_member_to_creator"/
+  );
+
+  assert.match(promotionRoute, /createUserClient\(token\)/);
+  assert.match(
+    promotionRoute,
+    /rpc\(\s*"promote_household_member_to_creator"[\s\S]*p_member_id: memberId/
+  );
+
   assert.doesNotMatch(settings, /from\("members"\)\.update\(\{ role: "creator"/);
 });

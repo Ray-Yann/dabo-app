@@ -60,26 +60,45 @@ export async function transferCreatorAndArchive(admin: SupabaseClient, memberId:
     .maybeSingle();
 
   if (memberError) throw memberError;
-  if (!member || member.left_at) return;
+  if (!member || member.left_at) return { promotedMemberId: null };
+
+  let promotedMemberId: string | null = null;
 
   if (member.role === "creator") {
-    const { data: nextInLine, error: nextError } = await admin
+    const { data: remainingCreator, error: remainingCreatorError } = await admin
       .from("members")
       .select("id")
       .eq("household_id", member.household_id)
       .neq("id", memberId)
+      .eq("role", "creator")
       .is("left_at", null)
       .not("user_id", "is", null)
-      .order("created_at", { ascending: true })
-      .limit(1);
+      .limit(1)
+      .maybeSingle();
 
-    if (nextError) throw nextError;
-    if (nextInLine && nextInLine.length > 0) {
-      const { error: promoteError } = await admin
+    if (remainingCreatorError) throw remainingCreatorError;
+
+    if (!remainingCreator) {
+      const { data: nextInLine, error: nextError } = await admin
         .from("members")
-        .update({ role: "creator" })
-        .eq("id", nextInLine[0].id);
-      if (promoteError) throw promoteError;
+        .select("id")
+        .eq("household_id", member.household_id)
+        .neq("id", memberId)
+        .is("left_at", null)
+        .not("user_id", "is", null)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (nextError) throw nextError;
+      if (nextInLine && nextInLine.length > 0) {
+        const { error: promoteError } = await admin
+          .from("members")
+          .update({ role: "creator" })
+          .eq("id", nextInLine[0].id);
+
+        if (promoteError) throw promoteError;
+        promotedMemberId = nextInLine[0].id;
+      }
     }
   }
 
@@ -122,4 +141,6 @@ export async function transferCreatorAndArchive(admin: SupabaseClient, memberId:
     })
     .eq("id", memberId);
   if (archiveError) throw archiveError;
+
+  return { promotedMemberId };
 }

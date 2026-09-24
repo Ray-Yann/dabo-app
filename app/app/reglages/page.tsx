@@ -549,11 +549,26 @@ export default function SettingsPage() {
   }
 
   async function promoteToCreator(memberId: string) {
-    const { error } = await supabase.rpc("promote_household_member_to_creator", { p_member_id: memberId });
-    if (error) {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      showFeedback("error", t("settings_error_session"));
+      return false;
+    }
+
+    const res = await fetch("/api/promote-member", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${data.session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ memberId }),
+    });
+
+    if (!res.ok) {
       showFeedback("error", t("settings_error_promote"));
       return false;
     }
+
     await refresh();
     showFeedback("success", t("settings_creator_updated"));
     return true;

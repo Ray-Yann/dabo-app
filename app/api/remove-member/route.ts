@@ -41,7 +41,29 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await transferCreatorAndArchive(admin, target.id);
+    const { promotedMemberId } = await transferCreatorAndArchive(admin, target.id);
+
+    if (promotedMemberId) {
+      try {
+        await sendEventNotification({
+          admin,
+          householdId: target.household_id,
+          excludeMemberId: caller.id,
+          targetMemberIds: [promotedMemberId],
+          key: "notif_creator_promoted",
+          eventDeliveryKey: `creator_promoted:${target.household_id}:${promotedMemberId}`,
+        });
+      } catch (notificationError) {
+        console.error("[remove-member] Creator promotion notification failed", {
+          memberId: promotedMemberId,
+          householdId: target.household_id,
+          error:
+            notificationError instanceof Error
+              ? notificationError.message
+              : String(notificationError),
+        });
+      }
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Impossible de retirer ce membre" },

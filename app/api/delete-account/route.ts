@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, transferCreatorAndArchive, verifyUserToken } from "@/lib/supabase-admin";
+import { sendEventNotification } from "@/lib/server-event-notifications";
 
 // Supprime définitivement le compte de la personne qui fait la demande.
 // L'identité est vérifiée ici, côté serveur, à partir du jeton envoyé —
@@ -23,10 +24,35 @@ export async function POST(req: NextRequest) {
   // d'abord le rôle de créateur si nécessaire (voir transferCreatorAndArchive).
   // Les tâches et courses qui lui étaient assignées repassent automatiquement
   // en "non assigné", ses commentaires sont supprimés avec elle.
-  const { data: memberships } = await admin.from("members").select("id").eq("user_id", userId);
+  const { data: memberships } = await admin
+    .from("members")
+    .select("id, household_id")
+    .eq("user_id", userId);
   for (const m of memberships || []) {
     try {
-      await transferCreatorAndArchive(admin, m.id);
+      const { promotedMemberId } = await transferCreatorAndArchive(admin, m.id);
+
+      if (promotedMemberId) {
+        try {
+          await sendEventNotification({
+            admin,
+            householdId: m.household_id,
+            excludeMemberId: m.id,
+            targetMemberIds: [promotedMemberId],
+            key: "notif_creator_promoted",
+            eventDeliveryKey: `creator_promoted:${m.household_id}:${promotedMemberId}`,
+          });
+        } catch (notificationError) {
+          console.error("[delete-account] Creator promotion notification failed", {
+            memberId: promotedMemberId,
+            householdId: m.household_id,
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : String(notificationError),
+          });
+        }
+      }
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Impossible d'archiver l'historique du membre" },
