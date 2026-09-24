@@ -157,7 +157,25 @@ export function DaboMainNav() {
     </nav>
 
     {moreOpen && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25" onClick={()=>void closeMore()}><section className="w-full max-w-lg rounded-t-[28px] bg-paper px-5 pb-7 pt-4 shadow-2xl" onClick={e=>e.stopPropagation()} aria-modal="true" role="dialog"><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-wide text-muted">DABO</p><h2 className="font-serif text-xl">{editing?t("nav_customize_title"):t("tab_more")}</h2></div><button onClick={()=>void closeMore()} className="flex h-10 w-10 items-center justify-center rounded-full bg-white2" aria-label={t("nav_close")}><X size={18}/></button></div>
-      {!editing ? <><div className="mt-5 grid grid-cols-2 gap-2">{hidden.map(key=>{const item=catalog[key];const Icon=item.icon;return <button key={key} onClick={()=>go(item.href)} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Icon size={19}/><span className="text-sm font-semibold">{item.label}</span></button>})}<button onClick={()=>go("/app/reglages")} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Settings size={19}/><span className="text-sm font-semibold">{t("tab_settings")}</span></button></div><button onClick={()=>setEditing(true)} className="mt-4 w-full rounded-2xl border border-borderLight px-4 py-3 text-sm font-semibold">{t("nav_customize_action")}</button></>
+      {!editing ? <>
+        <div className="mt-5">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t("quick_actions_title")}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={()=>go("/app/taches?first=1")} className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-2xl border border-borderLight bg-white2 px-2 py-3 text-center">
+              <ListChecks size={20}/>
+              <span className="text-xs font-semibold leading-tight">{t("quick_action_task")}</span>
+            </button>
+            <button onClick={()=>go("/app/courses?first=1")} className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-2xl border border-borderLight bg-white2 px-2 py-3 text-center">
+              <ShoppingBag size={20}/>
+              <span className="text-xs font-semibold leading-tight">{t("quick_action_shopping")}</span>
+            </button>
+            <button onClick={()=>go("/app/calendrier?first=1")} className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-2xl border border-borderLight bg-white2 px-2 py-3 text-center">
+              <Calendar size={20}/>
+              <span className="text-xs font-semibold leading-tight">{t("quick_action_calendar")}</span>
+            </button>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-2">{hidden.map(key=>{const item=catalog[key];const Icon=item.icon;return <button key={key} onClick={()=>go(item.href)} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Icon size={19}/><span className="text-sm font-semibold">{item.label}</span></button>})}<button onClick={()=>go("/app/reglages")} className="flex items-center gap-3 rounded-2xl border border-borderLight bg-white2 px-4 py-4 text-left"><Settings size={19}/><span className="text-sm font-semibold">{t("tab_settings")}</span></button></div><button onClick={()=>setEditing(true)} className="mt-4 w-full rounded-2xl border border-borderLight px-4 py-3 text-sm font-semibold">{t("nav_customize_action")}</button></>
       : <div className="mt-5 space-y-3"><p className="text-sm leading-relaxed text-muted">{t("nav_customize_help")}</p><div className="rounded-2xl border border-borderLight bg-white2 p-3"><div className="flex items-center gap-3 rounded-xl bg-paper px-3 py-3"><Home size={18}/><span className="flex-1 text-sm font-semibold">{t("tab_today")}</span><span className="text-xs text-muted">{t("nav_locked")}</span></div>{pinned.map((key,index)=>{const item=catalog[key];const Icon=item.icon;return <div key={key} className="mt-2 flex items-center gap-2 rounded-xl bg-paper px-2 py-2"><GripVertical size={16} className="text-muted"/><Icon size={18}/><select value={key} onChange={e=>replace(index,e.target.value as TabKey)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none">{TAB_KEYS.map(candidate=><option key={candidate} value={candidate} disabled={candidate!==key&&pinned.includes(candidate)}>{catalog[candidate].label}</option>)}</select><button disabled={index===0} onClick={()=>swap(index,-1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↑</button><button disabled={index===pinned.length-1} onClick={()=>swap(index,1)} className="h-8 w-8 rounded-lg bg-white2 disabled:opacity-25">↓</button></div>})}</div>{saveError && <p className="text-xs text-red-700" role="alert">{saveError}</p>}<button onClick={()=>void finishEditing()} disabled={savingPreference} className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-60">{savingPreference?t("scan_saving"):t("nav_done")}</button></div>}
       </section></div>}
   </>;
