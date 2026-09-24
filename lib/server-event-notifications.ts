@@ -12,6 +12,30 @@ type SendEventNotificationOptions = {
   eventDeliveryKey?: string | null;
 };
 
+function notificationUrlForKey(key: string) {
+  if (key.startsWith("notif_task_")) {
+    return "/app/taches";
+  }
+
+  if (key.startsWith("notif_item_")) {
+    return "/app/courses";
+  }
+
+  if (key === "notif_bill_paid") {
+    return "/app/finances";
+  }
+
+  if (key.startsWith("notif_member_")) {
+    return "/app/reglages";
+  }
+
+  if (key === "notif_creator_promoted") {
+    return "/app/reglages";
+  }
+
+  return "/app";
+}
+
 function configureWebPush() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -110,7 +134,9 @@ export async function sendEventNotification({
     }
 
     const lang: Lang = (member.language as Lang) || "fr";
+    const title = translateWithParams(lang, "notif_event_title", {});
     const body = translateWithParams(lang, key, params);
+    const url = notificationUrlForKey(key);
 
     let memberDelivered = false;
 
@@ -123,7 +149,7 @@ export async function sendEventNotification({
             endpoint: sub.endpoint,
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
-          JSON.stringify({ title: "Dabo", body })
+          JSON.stringify({ title, body, url })
         );
 
         deliveredEndpoints.add(sub.endpoint);

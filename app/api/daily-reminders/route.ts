@@ -19,6 +19,34 @@ function configureWebPush() {
   webpush.setVapidDetails("mailto:contact@dabo.app", publicKey, privateKey);
 }
 
+function localDate(now: Date, timeZone = "Europe/Brussels") {
+  const format = (zone: string) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value || "";
+
+    return `${get("year")}-${get("month")}-${get("day")}`;
+  };
+
+  try {
+    return format(timeZone);
+  } catch {
+    return format("UTC");
+  }
+}
+
+function addCivilDays(isoDate: string, days: number) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
 function langOf(value: unknown): Lang {
   return (["fr", "nl", "en", "de", "es", "it", "pt"] as const).includes(value as Lang)
     ? (value as Lang)
@@ -41,7 +69,8 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = localDate(now);
 
   const { data: members } = await supabase
     .from("members")
@@ -87,7 +116,7 @@ export async function GET(req: NextRequest) {
     .from("finance_bills")
     .select("id, household_id, label, due_on, visibility, private_owner_member_id")
     .eq("status", "pending")
-    .lte("due_on", new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10));
+    .lte("due_on", addCivilDays(today, 3));
 
   for (const bill of bills || []) {
     const candidate = billNotificationCandidate({
