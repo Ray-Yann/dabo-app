@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, transferCreatorAndArchive, verifyUserToken } from "@/lib/supabase-admin";
+import { sendEventNotification } from "@/lib/server-event-notifications";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const { data: target } = await admin
     .from("members")
-    .select("id, household_id")
+    .select("id, household_id, first_name")
     .eq("id", memberId)
     .is("left_at", null)
     .maybeSingle();
@@ -46,6 +47,24 @@ export async function POST(req: NextRequest) {
       { error: error instanceof Error ? error.message : "Impossible de retirer ce membre" },
       { status: 500 }
     );
+  }
+
+  try {
+    await sendEventNotification({
+      admin,
+      householdId: target.household_id,
+      excludeMemberId: caller.id,
+      key: "notif_member_removed",
+      params: { name: target.first_name || "" },
+    });
+  } catch (notificationError) {
+    console.error("[remove-member] Removal notification failed", {
+      memberId: target.id,
+      message:
+        notificationError instanceof Error
+          ? notificationError.message
+          : "Unknown event notification error",
+    });
   }
 
   return NextResponse.json({ success: true });

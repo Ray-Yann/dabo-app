@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const route = fs.readFileSync(
-  new URL("../app/api/send-notification/route.ts", import.meta.url),
+  new URL("../lib/server-event-notifications.ts", import.meta.url),
   "utf8"
 );
 

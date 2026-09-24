@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import webpush from "web-push";
 import { createAdminClient, verifyUserToken } from "@/lib/supabase-admin";
-import { translateWithParams, Lang } from "@/lib/i18n";
-
-function configureWebPush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-
-  if (!publicKey || !privateKey) {
-    throw new Error("Configuration VAPID manquante");
-  }
-
-  webpush.setVapidDetails(
-    "mailto:contact@dabo.app",
-    publicKey,
-    privateKey
-  );
-}
+import { sendEventNotification } from "@/lib/server-event-notifications";
 
 // Seules ces clés peuvent déclencher une notification — empêche quiconque
 // d'injecter un texte arbitraire dans une notification, même en cas de jeton
@@ -133,132 +117,26 @@ export async function POST(req: NextRequest) {
     params = { bill: bill.label };
   }
 
-  let membersQuery = admin
-    .from("members")
-    .select("id, user_id, language")
-    .eq("household_id", householdId)
-    .is("left_at", null)
-    .not("user_id", "is", null)
-    .neq("id", excludeMemberId || "");
-
-  if (targetMemberIds !== undefined) {
-    if (targetMemberIds.length === 0) {
-      return NextResponse.json({ sent: 0 });
-    }
-
-    membersQuery = membersQuery.in("id", targetMemberIds);
-  }
-
-  const { data: members } = await membersQuery;
-
-  if (!members || members.length === 0) return NextResponse.json({ sent: 0 });
-
   try {
-    configureWebPush();
-  } catch {
+    const sent = await sendEventNotification({
+      admin,
+      householdId,
+      excludeMemberId: callerMember.id,
+      targetMemberIds,
+      key,
+      params: params || {},
+      eventDeliveryKey,
+    });
+
+    return NextResponse.json({ sent });
+  } catch (error) {
+    console.error("[send-notification] Event transport unavailable", {
+      message: error instanceof Error ? error.message : "Unknown event notification error",
+    });
+
     return NextResponse.json(
       { error: "Configuration des notifications indisponible" },
       { status: 503 }
     );
   }
-
-  let sent = 0;
-  const deliveredEndpoints = new Set<string>();
-  for (const member of members) {
-    // Depuis le multi-foyers, un même compte possède un profil membre différent
-    // dans chaque foyer. L'abonnement Push reste attaché au terminal et son
-    // endpoint est unique : il peut donc être enregistré sous n'importe lequel
-    // des profils actifs de ce compte. On retrouve tous ces profils avant
-    // d'envoyer, au lieu de supposer que l'abonnement est sur le profil du
-    // foyer qui vient de déclencher l'événement.
-    const { data: accountMemberships } = await admin
-      .from("members")
-      .select("id")
-      .eq("user_id", member.user_id)
-      .is("left_at", null);
-    const accountMemberIds = (accountMemberships || []).map((membership) => membership.id);
-    if (accountMemberIds.length === 0) continue;
-
-    const { data: subs } = await admin
-      .from("push_subscriptions")
-      .select("*")
-      .in("member_id", accountMemberIds);
-
-    let eventDeliveryClaimed = false;
-    if (eventDeliveryKey) {
-      const { error: claimError } = await admin
-        .from("event_notification_deliveries")
-        .insert({
-          event_key: eventDeliveryKey,
-          member_id: member.id,
-        });
-
-      if (claimError) {
-        if (claimError.code === "23505") {
-          continue;
-        }
-
-        console.error("[send-notification] Event delivery claim failed", {
-          memberId: member.id,
-          eventKey: eventDeliveryKey,
-          code: claimError.code ?? null,
-        });
-        continue;
-      }
-
-      eventDeliveryClaimed = true;
-    }
-
-    // Chaque destinataire reçoit le message dans SA langue du foyer concerné,
-    // pas celle de la personne qui a déclenché l'action.
-    const lang: Lang = (member.language as Lang) || "fr";
-    const body = translateWithParams(lang, key, params || {});
-
-    let memberDelivered = false;
-    for (const sub of subs || []) {
-      if (deliveredEndpoints.has(sub.endpoint)) continue;
-      try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          JSON.stringify({ title: "Dabo", body })
-        );
-        deliveredEndpoints.add(sub.endpoint);
-        memberDelivered = true;
-        sent++;
-      } catch (e: unknown) {
-        const statusCode = (e as { statusCode?: number })?.statusCode;
-        if (statusCode === 404 || statusCode === 410) {
-          await admin.from("push_subscriptions").delete().eq("id", sub.id);
-        } else {
-          console.error("[send-notification] Web Push failed", {
-            memberId: member.id,
-            subscriptionId: sub.id,
-            statusCode: statusCode ?? null,
-            message: e instanceof Error ? e.message : "Unknown Web Push error",
-          });
-        }
-      }
-    }
-
-    if (eventDeliveryClaimed && !memberDelivered && eventDeliveryKey) {
-      const { error: releaseError } = await admin
-        .from("event_notification_deliveries")
-        .delete()
-        .eq("event_key", eventDeliveryKey)
-        .eq("member_id", member.id);
-
-      if (releaseError) {
-        console.error("[send-notification] Event delivery claim release failed", {
-          memberId: member.id,
-          eventKey: eventDeliveryKey,
-          code: releaseError.code ?? null,
-        });
-      }
-    }
-  }
-
-  return NextResponse.json({ sent });
 }

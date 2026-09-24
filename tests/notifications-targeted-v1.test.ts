@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const sendRoute = fs.readFileSync("app/api/send-notification/route.ts", "utf8");
+const eventNotifications = fs.readFileSync("lib/server-event-notifications.ts", "utf8");
 const notifications = fs.readFileSync("lib/notifications.ts", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 
@@ -15,7 +16,7 @@ test("Notifications Targeted V1 conserve la verification du membre appelant dans
 
 test("Notifications Targeted V1 accepte une liste explicite de membres cibles", () => {
   assert.match(sendRoute, /targetMemberIds/);
-  assert.match(sendRoute, /\.in\("id", targetMemberIds\)/);
+  assert.match(eventNotifications, /\.in\("id", targetMemberIds\)/);
 });
 
 test("Notifications Targeted V1 expose un helper client cible sans remplacer le broadcast", () => {

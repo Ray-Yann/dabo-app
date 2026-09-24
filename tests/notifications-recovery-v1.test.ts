@@ -3,18 +3,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const sendRoute = fs.readFileSync("app/api/send-notification/route.ts", "utf8");
+const eventNotifications = fs.readFileSync("lib/server-event-notifications.ts", "utf8");
 const onboarding = fs.readFileSync("app/page.tsx", "utf8");
 const home = fs.readFileSync("app/app/page.tsx", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 
 test("Notifications Recovery V1 retrouve les abonnements d'un compte dans tous ses profils multi-foyers", () => {
-  assert.match(sendRoute, /\.eq\("user_id", member\.user_id\)/);
-  assert.match(sendRoute, /\.in\("member_id", accountMemberIds\)/);
+  assert.match(eventNotifications, /\.eq\("user_id", member\.user_id\)/);
+  assert.match(eventNotifications, /\.in\("member_id", accountMemberIds\)/);
 });
 
 test("Notifications Recovery V1 déduplique un même terminal avant envoi", () => {
-  assert.match(sendRoute, /deliveredEndpoints = new Set<string>\(\)/);
-  assert.match(sendRoute, /deliveredEndpoints\.has\(sub\.endpoint\)/);
+  assert.match(eventNotifications, /deliveredEndpoints = new Set<string>\(\)/);
+  assert.match(eventNotifications, /deliveredEndpoints\.has\(sub\.endpoint\)/);
 });
 
 test("Notifications Recovery V1 restaure la notification quand un membre rejoint le foyer", () => {

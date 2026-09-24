@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, transferCreatorAndArchive, verifyUserToken } from "@/lib/supabase-admin";
+import { sendEventNotification } from "@/lib/server-event-notifications";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   const { data: member } = await admin
     .from("members")
-    .select("id")
+    .select("id, household_id, first_name")
     .eq("id", memberId)
     .eq("user_id", userData.id)
     .is("left_at", null)
@@ -28,6 +29,24 @@ export async function POST(req: NextRequest) {
   if (member) {
     try {
       await transferCreatorAndArchive(admin, member.id);
+
+      try {
+        await sendEventNotification({
+          admin,
+          householdId: member.household_id,
+          excludeMemberId: member.id,
+          key: "notif_member_left",
+          params: { name: member.first_name || "" },
+        });
+      } catch (notificationError) {
+        console.error("[leave-household] Departure notification failed", {
+          memberId: member.id,
+          message:
+            notificationError instanceof Error
+              ? notificationError.message
+              : "Unknown event notification error",
+        });
+      }
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Impossible de quitter le foyer" },

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const sendRoute = fs.readFileSync("app/api/send-notification/route.ts", "utf8");
+const eventNotifications = fs.readFileSync("lib/server-event-notifications.ts", "utf8");
 
 test("Bill Paid V1 autorise la cle de notification facture payee", () => {
   assert.match(sendRoute, /ALLOWED_KEYS[\s\S]*notif_bill_paid/);
@@ -61,7 +62,7 @@ test("Bill Paid V1 ne fait pas confiance a un libelle de facture fourni par le c
 
 test("Bill Paid V1 deduplique durablement chaque transaction par destinataire", () => {
   assert.match(
-    sendRoute,
+    eventNotifications,
     /from\("event_notification_deliveries"\)/
   );
   assert.match(
@@ -69,14 +70,14 @@ test("Bill Paid V1 deduplique durablement chaque transaction par destinataire", 
     /bill_paid:[^\n]*paymentTransaction\.id/
   );
   assert.match(
-    sendRoute,
+    eventNotifications,
     /member_id/
   );
 });
 
 test("Bill Paid V1 ignore un rejeu deja reclame sans renvoyer le push", () => {
   assert.match(
-    sendRoute,
+    eventNotifications,
     /23505/
   );
 });
