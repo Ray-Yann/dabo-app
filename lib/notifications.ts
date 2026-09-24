@@ -97,3 +97,40 @@ export async function notifyHousehold(
     // Une notification manquée ne doit jamais bloquer l'action principale de l'utilisateur.
   }
 }
+
+
+export async function notifyMembers(
+  supabase: SupabaseClient,
+  householdId: string,
+  excludeMemberId: string,
+  targetMemberIds: string[],
+  key: string,
+  params: Record<string, string>
+) {
+  const uniqueTargetMemberIds = [...new Set(targetMemberIds)]
+    .filter((memberId) => memberId && memberId !== excludeMemberId);
+
+  if (uniqueTargetMemberIds.length === 0) return;
+
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+
+    await fetch("/api/send-notification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify({
+        householdId,
+        excludeMemberId,
+        targetMemberIds: uniqueTargetMemberIds,
+        key,
+        params,
+      }),
+    });
+  } catch {
+    // Une notification manquée ne doit jamais bloquer l'action principale de l'utilisateur.
+  }
+}

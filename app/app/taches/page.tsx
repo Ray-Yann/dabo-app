@@ -7,7 +7,8 @@ import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { Task, TaskSubtask, Comment, Routine, RoutineFrequency, DURATION_OPTIONS, EFFORT_OPTIONS, computeTaskPoints } from "@/lib/types";
 import { memberColor, todayCivilDate } from "@/lib/utils";
-import { notifyHousehold } from "@/lib/notifications";
+import { notifyHousehold, notifyMembers } from "@/lib/notifications";
+import { newlyAssignedMemberIds } from "@/lib/notification-assignment-targeting";
 import { completeHouseholdTask, insertNextRecurringOccurrence, uncompleteHouseholdTask } from "@/lib/task-completion";
 import { Check, Trash2, Repeat, MessageCircle, X, Pencil, Search, MoreHorizontal } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
@@ -432,10 +433,15 @@ export default function TasksPage() {
       urgent: addForm.urgent,
       due_date: addForm.dueDate || null,
     }).select("id").single();
-    if (!taskInsertError && insertedTask && validSubtasks.length > 0) {
-      await supabase.from("task_subtasks").insert(validSubtasks.map((item, position) => ({
+    let taskAssignmentsPersisted = !taskInsertError && Boolean(insertedTask);
+    if (taskAssignmentsPersisted && insertedTask && validSubtasks.length > 0) {
+      const { error: subtaskInsertError } = await supabase.from("task_subtasks").insert(validSubtasks.map((item, position) => ({
         household_id: household.id, task_id: insertedTask.id, name: item.name.trim(), assigned_to: item.assignedTo || null, position,
       })));
+      if (subtaskInsertError) {
+        console.error(subtaskInsertError);
+        taskAssignmentsPersisted = false;
+      }
     }
     if (!taskInsertError) {
       void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "task" });
@@ -444,7 +450,25 @@ export default function TasksPage() {
         window.setTimeout(() => setFirstValueConfirmation(false), 3200);
       }
     }
-    if (addForm.urgent && me) {
+    if (taskAssignmentsPersisted && me) {
+      const targetMemberIds = newlyAssignedMemberIds(
+        [],
+        validSubtasks.length > 0
+          ? validSubtasks.map((item) => item.assignedTo)
+          : [addForm.assignedTo],
+        me.id
+      );
+      void notifyMembers(
+        supabase,
+        household.id,
+        me.id,
+        targetMemberIds,
+        "notif_task_assigned",
+        { name: me.first_name, task: addForm.name.trim() }
+      );
+    }
+
+    if (taskAssignmentsPersisted && addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: addForm.name.trim() });
     }
     setAddForm(EMPTY_FORM);
@@ -493,7 +517,17 @@ export default function TasksPage() {
     const finalAssignee = validSubtasks.length > 0
       ? (subtaskAssignees.length === 1 && subtaskAssignees[0] ? subtaskAssignees[0] : null)
       : (editForm.assignedTo || null);
-    await supabase.from("tasks").update({
+    const previousSubtaskAssignees = subtasks
+      .filter((item) => item.task_id === id)
+      .map((item) => item.assigned_to);
+    const previousAssignmentMemberIds = previousSubtaskAssignees.length > 0
+      ? previousSubtaskAssignees
+      : [editedTask?.assigned_to || null];
+    const nextAssignmentMemberIds = validSubtasks.length > 0
+      ? validSubtasks.map((item) => item.assignedTo)
+      : [editForm.assignedTo];
+
+    const { error: taskUpdateError } = await supabase.from("tasks").update({
       name: editForm.name.trim(),
       weight_points: points,
       duration_key: editForm.durationKey,
@@ -502,11 +536,23 @@ export default function TasksPage() {
       urgent: editForm.urgent,
       due_date: editForm.dueDate || null,
     }).eq("id", id);
-    await supabase.from("task_subtasks").delete().eq("task_id", id);
-    if (validSubtasks.length > 0 && household) {
-      await supabase.from("task_subtasks").insert(validSubtasks.map((item, position) => ({
+    if (taskUpdateError) {
+      console.error(taskUpdateError);
+      return;
+    }
+    let taskSubtasksPersisted = true;
+    const { error: subtaskDeleteError } = await supabase.from("task_subtasks").delete().eq("task_id", id);
+    if (subtaskDeleteError) {
+      console.error(subtaskDeleteError);
+      taskSubtasksPersisted = false;
+    } else if (validSubtasks.length > 0 && household) {
+      const { error: subtaskInsertError } = await supabase.from("task_subtasks").insert(validSubtasks.map((item, position) => ({
         household_id: household.id, task_id: id, name: item.name.trim(), assigned_to: item.assignedTo || null, position,
       })));
+      if (subtaskInsertError) {
+        console.error(subtaskInsertError);
+        taskSubtasksPersisted = false;
+      }
     }
     if (editedTask?.routine_id && existingRoutine) {
       const recurrenceChanged = existingRoutine.frequency !== editForm.recurrence
@@ -524,7 +570,23 @@ export default function TasksPage() {
         last_assigned_member: finalAssignee,
       }).eq("id", editedTask.routine_id);
     }
-    if (editForm.urgent && !wasUrgent && household && me) {
+    if (taskSubtasksPersisted && household && me) {
+      const targetMemberIds = newlyAssignedMemberIds(
+        previousAssignmentMemberIds,
+        nextAssignmentMemberIds,
+        me.id
+      );
+      void notifyMembers(
+        supabase,
+        household.id,
+        me.id,
+        targetMemberIds,
+        "notif_task_assigned",
+        { name: me.first_name, task: editForm.name.trim() }
+      );
+    }
+
+    if (taskSubtasksPersisted && editForm.urgent && !wasUrgent && household && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: editForm.name.trim() });
     }
     setEditingId(null);

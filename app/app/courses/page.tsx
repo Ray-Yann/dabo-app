@@ -6,7 +6,8 @@ import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
 import { ShoppingItem, Comment } from "@/lib/types";
 import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
-import { notifyHousehold } from "@/lib/notifications";
+import { notifyHousehold, notifyMembers } from "@/lib/notifications";
+import { newlyAssignedMemberIds } from "@/lib/notification-assignment-targeting";
 import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal, Store } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
@@ -286,6 +287,22 @@ export default function CoursesPage() {
         window.setTimeout(() => setFirstValueConfirmation(false), 3200);
       }
     }
+    if (!shoppingInsertError && me) {
+      const targetMemberIds = newlyAssignedMemberIds(
+        [],
+        [addForm.assignedTo],
+        me.id
+      );
+      void notifyMembers(
+        supabase,
+        household.id,
+        me.id,
+        targetMemberIds,
+        "notif_item_assigned",
+        { name: me.first_name, item: addForm.name.trim() }
+      );
+    }
+
     if (addForm.urgent && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: addForm.name.trim() });
     }
@@ -312,11 +329,12 @@ export default function CoursesPage() {
 
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
-    const wasUrgent = items.find((i) => i.id === id)?.urgent || false;
+    const editedItem = items.find((i) => i.id === id);
+    const wasUrgent = editedItem?.urgent || false;
     const storeName = resolvedStore(editForm);
     if (editForm.store === OTHER_STORE && !storeName) return;
     if (storeName) await rememberStore(storeName);
-    await supabase.from("shopping_items").update({
+    const { error: shoppingUpdateError } = await supabase.from("shopping_items").update({
       name: editForm.name.trim(),
       quantity: editForm.quantity || null,
       urgent: editForm.urgent,
@@ -324,6 +342,27 @@ export default function CoursesPage() {
       due_date: editForm.dueDate || null,
       store_name: storeName || null,
     }).eq("id", id);
+    if (shoppingUpdateError) {
+      console.error(shoppingUpdateError);
+      return;
+    }
+
+    if (household && me) {
+      const targetMemberIds = newlyAssignedMemberIds(
+        [editedItem?.assigned_to || null],
+        [editForm.assignedTo],
+        me.id
+      );
+      void notifyMembers(
+        supabase,
+        household.id,
+        me.id,
+        targetMemberIds,
+        "notif_item_assigned",
+        { name: me.first_name, item: editForm.name.trim() }
+      );
+    }
+
     if (editForm.urgent && !wasUrgent && household && me) {
       notifyHousehold(supabase, household.id, me.id, "notif_item_urgent", { name: me.first_name, item: editForm.name.trim() });
     }
