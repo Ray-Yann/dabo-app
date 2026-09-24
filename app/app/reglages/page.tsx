@@ -21,6 +21,7 @@ import { clearTutorialLocalStateForUser } from "@/lib/tutorial-local-storage";
 import type { LifeContextImpact, LifeContextType, MemberLifeContext } from "@/lib/life-context";
 import { shareDaboApp } from "@/lib/app-share";
 import { markContextualShareShared } from "@/lib/contextual-share";
+import { QRCodeSVG } from "qrcode.react";
 
 type SettingsConfirmation =
   | { kind: "promote"; memberId: string; name: string }
@@ -42,6 +43,10 @@ export default function SettingsPage() {
   const t = useT();
   const lang = useLanguage();
   const householdCountries = countryOptions(lang);
+  const inviteUrl =
+    household && typeof window !== "undefined"
+      ? `${window.location.origin}/?invite=${encodeURIComponent(household.invite_code)}`
+      : "";
   const [copied, setCopied] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "done" | "error" | "checking" | "blocked" | "unsupported" | "ios-install">("checking");
   const [notifError, setNotifError] = useState("");
@@ -507,7 +512,6 @@ export default function SettingsPage() {
     const text = t("settings_invite_share_message")
       .replace("{household}", household.name)
       .replace("{code}", household.invite_code);
-    const inviteUrl = `${window.location.origin}/?invite=${encodeURIComponent(household.invite_code)}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: "DABO", text, url: inviteUrl });
@@ -1158,6 +1162,25 @@ export default function SettingsPage() {
                     <Copy size={14} /> {copied ? t("copied") : t("copy")}
                   </button>
                 </div>
+                {inviteUrl && (
+                  <div className="mb-3 rounded-xl border border-border bg-paper p-4 text-center">
+                    <div className="mb-1 text-sm font-medium text-ink">
+                      {t("settings_invite_qr_title")}
+                    </div>
+                    <p className="mb-3 text-xs text-muted">
+                      {t("settings_invite_qr_hint")}
+                    </p>
+                    <div className="mx-auto flex w-fit items-center justify-center rounded-xl bg-white p-2">
+                      <QRCodeSVG
+                        value={inviteUrl}
+                        size={176}
+                        level="M"
+                        marginSize={4}
+                        title={t("settings_invite_qr_title")}
+                      />
+                    </div>
+                  </div>
+                )}
                 <button onClick={shareInvite} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink font-medium flex items-center justify-center gap-2">
                   <Share2 size={15} /> {t("settings_share_invite")}
                 </button>

@@ -996,6 +996,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "Vous",
     settings_member_actions: "Actions du membre",
     settings_share_invite: "Partager l’invitation",
+    settings_invite_qr_title: "Inviter avec un QR code",
+
+    settings_invite_qr_hint: "Faites scanner ce QR code pour rejoindre directement ce foyer.",
+
     settings_invite_share_message: "Rejoins {household} sur DABO avec le code {code}.",
     settings_preferences_desc: "Choisissez comment DABO vous accompagne au quotidien.",
     settings_sensitive_actions: "Actions sensibles",
@@ -2016,6 +2020,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "Jij",
     settings_member_actions: "Acties voor dit lid",
     settings_share_invite: "Uitnodiging delen",
+    settings_invite_qr_title: "Uitnodigen met QR-code",
+
+    settings_invite_qr_hint: "Laat deze QR-code scannen om rechtstreeks lid te worden van dit huishouden.",
+
     settings_invite_share_message: "Word lid van {household} op DABO met de code {code}.",
     settings_preferences_desc: "Kies hoe DABO je dagelijks begeleidt.",
     settings_sensitive_actions: "Gevoelige acties",
@@ -3036,6 +3044,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "You",
     settings_member_actions: "Member actions",
     settings_share_invite: "Share invitation",
+    settings_invite_qr_title: "Invite with a QR code",
+
+    settings_invite_qr_hint: "Scan this QR code to join this household directly.",
+
     settings_invite_share_message: "Join {household} on DABO with the code {code}.",
     settings_preferences_desc: "Choose how DABO supports you every day.",
     settings_sensitive_actions: "Sensitive actions",
@@ -4058,6 +4070,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "Sie",
     settings_member_actions: "Aktivitäten des Mitglieds",
     settings_share_invite: "Einladung teilen",
+    settings_invite_qr_title: "Mit QR-Code einladen",
+
+    settings_invite_qr_hint: "Scannen Sie diesen QR-Code, um diesem Haushalt direkt beizutreten.",
+
     settings_invite_share_message: "Mach mit {household} auf DABO mit dem Code {code}.",
     settings_preferences_desc: "Entscheiden Sie, wie DABO begleitet Sie im Alltag.",
     settings_sensitive_actions: "Sensible Maßnahmen",
@@ -5079,6 +5095,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "Tú",
     settings_member_actions: "Acciones del miembro",
     settings_share_invite: "Compartir la invitación",
+    settings_invite_qr_title: "Invitar con un código QR",
+
+    settings_invite_qr_hint: "Escanea este código QR para unirte directamente a este hogar.",
+
     settings_invite_share_message: "Únete a {household} en DABO con el código {code}.",
     settings_preferences_desc: "Elige cómo DABO te acompaña en tu día a día.",
     settings_sensitive_actions: "Acciones delicadas",
@@ -6100,6 +6120,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "Voi",
     settings_member_actions: "Azioni del membro",
     settings_share_invite: "Condividi l'invito",
+    settings_invite_qr_title: "Invita con un codice QR",
+
+    settings_invite_qr_hint: "Scansiona questo codice QR per unirti direttamente a questo nucleo familiare.",
+
     settings_invite_share_message: "Unisciti a noi {household} su DABO con il codice {code}.",
     settings_preferences_desc: "Scegliete come DABO vi accompagna nella vita di tutti i giorni.",
     settings_sensitive_actions: "Azioni sensibili",
@@ -7121,6 +7145,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     settings_you: "Vocês",
     settings_member_actions: "Ações do membro",
     settings_share_invite: "Partilhar o convite",
+    settings_invite_qr_title: "Convidar com um código QR",
+
+    settings_invite_qr_hint: "Digitalize este código QR para entrar diretamente neste agregado familiar.",
+
     settings_invite_share_message: "Junta-te a nós {household} sobre DABO com o código {code}.",
     settings_preferences_desc: "Escolha como DABO acompanha-o no dia a dia.",
     settings_sensitive_actions: "Ações sensíveis",
