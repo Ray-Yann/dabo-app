@@ -441,6 +441,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "Impossible d’ajouter la liste pour le moment. Réessayez.",
     courses_add_hint: "Ajoutez l’essentiel, puis précisez seulement si besoin.",
     courses_optional_details: "Détails facultatifs",
+
+    tasks_add_details: "Ajouter des détails",
+
+    tasks_hide_details: "Masquer les détails",
     courses_store_optional: "Magasin (facultatif)",
     courses_store_none: "Aucun magasin",
     courses_store_other: "Autre magasin…",
@@ -1471,6 +1475,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "De lijst kan momenteel niet worden toegevoegd. Probeer het opnieuw.",
     courses_add_hint: "Voeg eerst het belangrijkste toe en vul alleen aan wat nodig is.",
     courses_optional_details: "Optionele details",
+
+    tasks_add_details: "Details toevoegen",
+
+    tasks_hide_details: "Details verbergen",
     courses_store_optional: "Winkel (optioneel)",
     courses_store_none: "Geen winkel",
     courses_store_other: "Andere winkel…",
@@ -2501,6 +2509,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "Unable to add the list right now. Please try again.",
     courses_add_hint: "Add the essential first, then fill in details only if useful.",
     courses_optional_details: "Optional details",
+
+    tasks_add_details: "Add details",
+
+    tasks_hide_details: "Hide details",
     courses_store_optional: "Store (optional)",
     courses_store_none: "No store",
     courses_store_other: "Other store…",
@@ -3529,6 +3541,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "Die Liste kann momentan nicht hinzugefügt werden. Versuchen Sie es erneut.",
     courses_add_hint: "Fügen Sie das Wesentliche hinzu und ergänzen Sie es nur bei Bedarf.",
     courses_optional_details: "Optionale Angaben",
+
+    tasks_add_details: "Details hinzufügen",
+
+    tasks_hide_details: "Details ausblenden",
     courses_store_optional: "Geschäft (optional)",
     courses_store_none: "Kein Geschäft",
     courses_store_other: "Ein anderes Geschäft…",
@@ -4560,6 +4576,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "No se puede añadir la lista en este momento. Inténtalo de nuevo.",
     courses_add_hint: "Añade lo esencial y, a continuación, da más detalles solo si es necesario.",
     courses_optional_details: "Datos opcionales",
+
+    tasks_add_details: "Añadir detalles",
+
+    tasks_hide_details: "Ocultar detalles",
     courses_store_optional: "Tienda (opcional)",
     courses_store_none: "No hay tiendas",
     courses_store_other: "Otra tienda…",
@@ -5591,6 +5611,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "Impossibile aggiungere l’elenco al momento. Riprova.",
     courses_add_hint: "Aggiungete l'essenziale, poi precisate solo se necessario.",
     courses_optional_details: "Dettagli facoltativi",
+
+    tasks_add_details: "Aggiungi dettagli",
+
+    tasks_hide_details: "Nascondi dettagli",
     courses_store_optional: "Negozio (facoltativo)",
     courses_store_none: "Nessun negozio",
     courses_store_other: "Un altro negozio…",
@@ -6622,6 +6646,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     courses_bulk_import_error: "Não foi possível adicionar a lista neste momento. Tente novamente.",
     courses_add_hint: "Adicione o essencial e, depois, especifique apenas se for necessário.",
     courses_optional_details: "Detalhes opcionais",
+
+    tasks_add_details: "Adicionar detalhes",
+
+    tasks_hide_details: "Ocultar detalhes",
     courses_store_optional: "Loja (opcional)",
     courses_store_none: "Não há nenhuma loja",
     courses_store_other: "Outra loja…",

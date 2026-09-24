@@ -78,12 +78,14 @@ function TaskFormFields({
   setForm,
   members,
   editingRecurring,
+  showDetails = true,
   t,
 }: {
   form: TaskForm;
   setForm: (f: TaskForm) => void;
   members: { id: string; first_name: string }[];
   editingRecurring?: boolean;
+  showDetails?: boolean;
   t: (key: string) => string;
 }) {
   return (
@@ -93,7 +95,9 @@ function TaskFormFields({
         <NativeNameInput autoFocus placeholder={t("task_name_placeholder")} value={form.name} onCommit={(name) => setForm({ ...form, name })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink" />
       </div>
 
-      <SubtaskFields subtasks={form.subtasks} onChange={(subtasks) => setForm({ ...form, subtasks })} members={members} t={t} />
+      {showDetails && (
+        <>
+          <SubtaskFields subtasks={form.subtasks} onChange={(subtasks) => setForm({ ...form, subtasks })} members={members} t={t} />
 
       <div className="pt-1">
         <div className="text-[11px] uppercase tracking-wide text-muted font-semibold mb-2">{t("task_form_for_task")}</div>
@@ -147,6 +151,8 @@ function TaskFormFields({
           </div>
         </div>
       )}
+        </>
+      )}
     </>
   );
 }
@@ -162,6 +168,7 @@ export default function TasksPage() {
   const [routineAdaptationBusyId, setRoutineAdaptationBusyId] = useState<string | null>(null);
   const [routineAdaptationNow, setRoutineAdaptationNow] = useState<number>(0);
   const [showAdd, setShowAdd] = useState(false);
+  const [showTaskDetails, setShowTaskDetails] = useState(false);
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("first") !== "1") return;
@@ -175,6 +182,7 @@ export default function TasksPage() {
 
     setView("to_do");
     setEditingId(null);
+    setShowTaskDetails(false);
     setShowAdd(true);
   }, []);
 
@@ -473,6 +481,7 @@ export default function TasksPage() {
       notifyHousehold(supabase, household.id, me.id, "notif_task_urgent", { name: me.first_name, task: addForm.name.trim() });
     }
     setAddForm(EMPTY_FORM);
+    setShowTaskDetails(false);
     setShowAdd(false);
     setAddedConfirmation(true);
     window.setTimeout(() => setAddedConfirmation(false), 2200);
@@ -981,7 +990,7 @@ export default function TasksPage() {
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{pending.length} {t("tasks_in_progress")}</div>
           <h1 className="font-serif text-2xl text-ink">{t("tasks_title")}</h1>
         </div>
-        <button ref={topAddRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium">
+        <button ref={topAddRef} onClick={() => { setEditingId(null); setShowTaskDetails(false); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium">
           {t("add")}
         </button>
       </div>
@@ -1027,16 +1036,45 @@ export default function TasksPage() {
 
       {view === "to_do" && showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-2">
-          <TaskFormFields form={addForm} setForm={setAddForm} members={members} t={t} />
+          <TaskFormFields
+            form={addForm}
+            setForm={setAddForm}
+            members={members}
+            showDetails={showTaskDetails}
+            t={t}
+          />
+
+          {showTaskDetails && (
+            <button
+              type="button"
+              aria-expanded="true"
+              onClick={() => setShowTaskDetails(false)}
+              className="text-xs font-medium text-muted hover:text-ink"
+            >
+              {t("tasks_hide_details")}
+            </button>
+          )}
+
+          {!showTaskDetails && (
+            <button
+              type="button"
+              aria-expanded="false"
+              onClick={() => setShowTaskDetails(true)}
+              className="text-xs font-medium text-muted hover:text-ink"
+            >
+              + {t("tasks_add_details")}
+            </button>
+          )}
+
           <div className="flex gap-2">
             <button onClick={addTask} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
-            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
+            <button onClick={() => { setShowAdd(false); setShowTaskDetails(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
           </div>
         </div>
       )}
 
       {view === "to_do" && (<div className="px-5">
-        {pending.length === 0 && !showAdd && <EmptyState message={`${t("tasks_empty_title")} ${t("tasks_empty")}`} actionLabel={t("tasks_create_first")} onAction={() => setShowAdd(true)} />}
+        {pending.length === 0 && !showAdd && <EmptyState message={`${t("tasks_empty_title")} ${t("tasks_empty")}`} actionLabel={t("tasks_create_first")} onAction={() => { setShowTaskDetails(false); setShowAdd(true); }} />}
         <div className="space-y-4 mb-6">
           {pendingGroups.map((group) => (
             <section key={group.key} className="dabo-member-task-group" style={group.key !== "unassigned" ? { "--dabo-member-accent": memberColor(members, group.key) } as CSSProperties : undefined}>
@@ -1130,7 +1168,7 @@ export default function TasksPage() {
       {view === "routines" && (
         <div className="px-5 space-y-2">
           {routines.filter((routine) => routine.active).length === 0 ? (
-            <EmptyState message={t("tasks_empty")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowAdd(true); }} />
+            <EmptyState message={t("tasks_empty")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowTaskDetails(false); setShowAdd(true); }} />
           ) : routines.filter((routine) => routine.active).map((routine) => {
             const adaptation = activeRoutineSuggestions.find(
               (item) => item.routineId === routine.id
@@ -1269,13 +1307,13 @@ export default function TasksPage() {
             )}
           </>
         ) : (
-          <EmptyState message={t("tasks_history_no_results")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowAdd(true); }} />
+          <EmptyState message={t("tasks_history_no_results")} actionLabel={t("tasks_create_first")} onAction={() => { setView("to_do"); setEditingId(null); setShowTaskDetails(false); setShowAdd(true); }} />
         )}
       </div>)}
 
         {view === "to_do" && showFloatingAdd && !showAdd && (
           <button
-            onClick={() => { setEditingId(null); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            onClick={() => { setEditingId(null); setShowTaskDetails(false); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
             className="sm:hidden fixed right-5 bottom-24 z-30 bg-ink text-paper rounded-full px-5 py-3 text-sm font-medium shadow-lg"
           >
             {t("add")}
