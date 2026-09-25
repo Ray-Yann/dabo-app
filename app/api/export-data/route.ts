@@ -127,6 +127,17 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
+  const personalEventIds = (personalEventsResult.data || []).map(
+    (event) => event.id
+  );
+
+  const calendarCompletionsResult = personalEventIds.length
+    ? await admin
+        .from("calendar_event_completions")
+        .select("event_id, occurrence_date, completed_by, completed_at")
+        .in("event_id", personalEventIds)
+    : { data: [], error: null };
+
   const queryError =
     householdsResult.error ||
     navigationResult.error ||
@@ -134,6 +145,7 @@ export async function GET(req: NextRequest) {
     lifeContextsResult.error ||
     perceptionsResult.error ||
     personalEventsResult.error ||
+    calendarCompletionsResult.error ||
     pendingTasksResult.error ||
     contributionParticipantsResult.error ||
     subtasksResult.error ||
@@ -290,6 +302,7 @@ export async function GET(req: NextRequest) {
       lifeContexts: lifeContextsResult.data || [],
       loadPerceptions: perceptionsResult.data || [],
       personalCalendarEvents: personalEventsResult.data || [],
+      calendarCompletions: calendarCompletionsResult.data || [],
       tasks: {
         assignedPending: pendingTasksResult.data || [],
         completedContributions: personalContributions,

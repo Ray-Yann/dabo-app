@@ -1,4 +1,8 @@
-import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
+import {
+  type CalendarEventCompletion,
+  calendarCompletedOccurrenceSet,
+  nextUncompletedOccurrence,
+} from "@/lib/calendar-completions";
 import type { CalendarEvent, Member, Routine, Task } from "@/lib/types";
 
 export type DaboInsightType =
@@ -24,6 +28,7 @@ export type DaboEngineInput = {
   members: Member[];
   tasks: Task[];
   calendarEvents: CalendarEvent[];
+  completedCalendarOccurrences?: CalendarEventCompletion[];
   routines?: Routine[];
   contributionPointsByMember: Map<string, number>;
   /**
@@ -96,9 +101,19 @@ export function suggestMemberForTask(
   )[0] ?? null;
 }
 
-function buildUpcomingEventInsights(events: CalendarEvent[], today: string): DaboInsight[] {
+function buildUpcomingEventInsights(
+  events: CalendarEvent[],
+  today: string,
+  completedCalendarOccurrences: CalendarEventCompletion[] = []
+): DaboInsight[] {
+  const completedOccurrences = calendarCompletedOccurrenceSet(completedCalendarOccurrences);
+
   return events.flatMap((event) => {
-    const occurrence = occurrenceOnOrAfter(event, parseCivilDate(today));
+    const occurrence = nextUncompletedOccurrence(
+      event,
+      completedOccurrences,
+      parseCivilDate(today)
+    );
     if (!occurrence) return [];
 
     const occurrenceCivil = [
@@ -171,7 +186,11 @@ export function generateDaboInsights(input: DaboEngineInput): DaboInsight[] {
   const routines = input.routines ?? [];
 
   return [
-    ...buildUpcomingEventInsights(input.calendarEvents, input.today),
+    ...buildUpcomingEventInsights(
+      input.calendarEvents,
+      input.today,
+      input.completedCalendarOccurrences ?? []
+    ),
     ...buildAssignmentInsights(
       input.members,
       input.tasks,

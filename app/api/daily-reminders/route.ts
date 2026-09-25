@@ -3,7 +3,10 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { translate, translateWithParams, Lang } from "@/lib/i18n";
 import { daysUntil } from "@/lib/utils";
-import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
+import {
+  calendarCompletedOccurrenceSet,
+  nextUncompletedOccurrence,
+} from "@/lib/calendar-completions";
 import {
   billNotificationCandidate,
   buildDailyDigest,
@@ -138,8 +141,30 @@ export async function GET(req: NextRequest) {
     .from("calendar_events")
     .select("id, household_id, title, event_date, recurring, recurrence_frequency, recurrence_interval, recurrence_end_date, event_time, reminder_days_before, visibility, private_owner_id");
 
+  const eventIds = (events || []).map((event) => event.id);
+  const { data: calendarCompletions, error: calendarCompletionsError } =
+    eventIds.length > 0
+      ? await supabase
+          .from("calendar_event_completions")
+          .select("event_id, occurrence_date")
+          .in("event_id", eventIds)
+      : { data: [], error: null };
+
+  if (calendarCompletionsError) {
+    return NextResponse.json(
+      { error: "Lecture des validations du calendrier impossible" },
+      { status: 500 }
+    );
+  }
+
+  const completedCalendarOccurrences =
+    calendarCompletedOccurrenceSet(calendarCompletions || []);
+
   for (const event of events || []) {
-    const occurrence = occurrenceOnOrAfter(event);
+    const occurrence = nextUncompletedOccurrence(
+      event,
+      completedCalendarOccurrences
+    );
     if (!occurrence) continue;
     const until = daysUntil(occurrence);
     const candidate = eventNotificationCandidate({

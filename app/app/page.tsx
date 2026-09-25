@@ -14,7 +14,12 @@ import { NotificationActivationNudge } from "@/components/NotificationActivation
 import { TaskCompletionDialog } from "@/components/TaskCompletionDialog";
 import { useLanguage, useT } from "@/lib/language-context";
 import { useRouter } from "next/navigation";
-import { nextOccurrence, daysUntil, todayCivilDate } from "@/lib/utils";
+import { daysUntil, todayCivilDate } from "@/lib/utils";
+import {
+  type CalendarEventCompletion,
+  calendarCompletedOccurrenceSet,
+  nextUncompletedOccurrence,
+} from "@/lib/calendar-completions";
 import { completeHouseholdTask } from "@/lib/task-completion";
 import { ContributionBalanceData, computeContributionMemberPoints, countConfirmedContributionsSince, fetchContributionBalanceData } from "@/lib/task-contributions";
 import { DaboInsight, generateDaboInsights } from "@/lib/dabo-engine";
@@ -55,6 +60,7 @@ export default function TodayPage() {
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
   const [activeHouseholdShoppingCount, setActiveHouseholdShoppingCount] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [completedCalendarOccurrences, setCompletedCalendarOccurrences] = useState<CalendarEventCompletion[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [financeBills, setFinanceBills] = useState<FinanceBillAttentionLike[]>([]);
   const [dashboardReady, setDashboardReady] = useState(false);
@@ -101,6 +107,17 @@ export default function TodayPage() {
           : Promise.resolve({ data: null, error: null }),
       ]);
 
+      const loadedCalendarEvents = (eventsResult.data as CalendarEvent[]) || [];
+      const completionResult = loadedCalendarEvents.length > 0
+        ? await supabase
+            .from("calendar_event_completions")
+            .select("event_id, occurrence_date, completed_by, completed_at")
+            .in("event_id", loadedCalendarEvents.map((event) => event.id))
+        : { data: [], error: null };
+
+      if (eventsResult.error) throw eventsResult.error;
+      if (completionResult.error) throw completionResult.error;
+
       const allTasks = (allTasksResult.data as Task[]) || [];
       setTasks(allTasks.filter((task) => task.status === "pending"));
       setAllTasksForBalance(allTasks);
@@ -109,7 +126,10 @@ export default function TodayPage() {
       setItems((myItemsResult.data as ShoppingItem[]) || []);
       setTotalItemsEver(totalShoppingResult.count ?? 0);
       setActiveHouseholdShoppingCount(activeShoppingResult.count ?? 0);
-      setCalendarEvents((eventsResult.data as CalendarEvent[]) || []);
+      setCalendarEvents(loadedCalendarEvents);
+      setCompletedCalendarOccurrences(
+        (completionResult.data as CalendarEventCompletion[]) || []
+      );
       setRoutines((routinesResult.data as Routine[]) || []);
       setFinanceBills((billsResult.data as FinanceBillAttentionLike[]) || []);
       if (attentionReceiptResult.error) throw attentionReceiptResult.error;
@@ -189,6 +209,7 @@ export default function TodayPage() {
       members,
       tasks: allTasksForBalance,
       calendarEvents,
+      completedCalendarOccurrences,
       routines,
       contributionPointsByMember,
       today: todayCivilDate(),
@@ -202,8 +223,13 @@ export default function TodayPage() {
         .filter((insight) => insight.type === "upcoming_event" && insight.relatedEntityId)
         .map((insight) => insight.relatedEntityId as string)
     );
+    const completedOccurrenceKeys = calendarCompletedOccurrenceSet(completedCalendarOccurrences);
+
     const weekEventInsights: DaboInsight[] = calendarEvents
-      .map((event) => ({ event, days: daysUntil(nextOccurrence(event.event_date, event.recurring)) }))
+      .map((event) => {
+        const next = nextUncompletedOccurrence(event, completedOccurrenceKeys);
+        return { event, days: next ? daysUntil(next) : Number.POSITIVE_INFINITY };
+      })
       .filter(({ event, days }) => days >= 0 && days <= 7 && !engineEventIds.has(event.id))
       .map(({ event, days }) => ({
         id: `upcoming_event_week:${event.id}`,
@@ -229,7 +255,7 @@ export default function TodayPage() {
         return true;
       })
       .slice(0, 3);
-  }, [household, members, allTasksForBalance, calendarEvents, routines]);
+  }, [household, members, allTasksForBalance, calendarEvents, completedCalendarOccurrences, routines]);
 
   const todayHouseholdIntelligence = useMemo(() => {
     if (!household || !dashboardReady || dashboardLoadError) return null;
@@ -269,8 +295,11 @@ export default function TodayPage() {
   const nothingToDo = tasks.length === 0 && items.length === 0;
   const isBrandNew = nothingToDo && allTasksForBalance.length === 0 && totalItemsEver === 0;
   const today = todayCivilDate();
+  const completedOccurrenceKeys = calendarCompletedOccurrenceSet(completedCalendarOccurrences);
   const upcomingHouseholdEventsCount = calendarEvents.filter((event) => {
-    const days = daysUntil(nextOccurrence(event.event_date, event.recurring));
+    const next = nextUncompletedOccurrence(event, completedOccurrenceKeys);
+    if (!next) return false;
+    const days = daysUntil(next);
     return days >= 0 && days <= 7;
   }).length;
 

@@ -8,7 +8,14 @@ import { EmptyState } from "@/components/EmptyState";
 import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
 import { daysUntil } from "@/lib/utils";
-import { occurrenceOnOrAfter, occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
+import { occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
+import {
+  CalendarEventCompletion,
+  calendarCompletedOccurrenceSet,
+  calendarOccurrenceDate,
+  isCalendarOccurrenceCompleted,
+  nextUncompletedOccurrence,
+} from "@/lib/calendar-completions";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
@@ -20,6 +27,7 @@ export default function CalendarPage() {
   const { loading, household, me, supabase } = useHousehold();
   const t = useT();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [completedOccurrences, setCompletedOccurrences] = useState<CalendarEventCompletion[]>([]);
   const [view, setView] = useState<CalendarView>("upcoming");
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
@@ -74,8 +82,29 @@ export default function CalendarPage() {
       setErrorMessage(t("calendar_error_load"));
       return;
     }
+    const loadedEvents = (data as CalendarEvent[]) || [];
+    setEvents(loadedEvents);
+
+    if (loadedEvents.length === 0) {
+      setCompletedOccurrences([]);
+      setErrorMessage("");
+      return;
+    }
+
+    const { data: completionData, error: completionError } = await supabase
+      .from("calendar_event_completions")
+      .select("event_id, occurrence_date, completed_by, completed_at")
+      .in("event_id", loadedEvents.map((event) => event.id));
+
+    if (completionError) {
+      setErrorMessage(t("calendar_error_load"));
+      return;
+    }
+
+    setCompletedOccurrences(
+      (completionData as CalendarEventCompletion[]) || []
+    );
     setErrorMessage("");
-    setEvents((data as CalendarEvent[]) || []);
   }
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -126,6 +155,42 @@ export default function CalendarPage() {
     if (newVisibility === "personal") setView("personal");
     else if (view === "personal") setView("upcoming");
     loadEvents();
+  }
+
+  async function completeOccurrence(eventId: string, occurrenceDate: string) {
+    if (!me) return;
+
+    const { error } = await supabase
+      .from("calendar_event_completions")
+      .insert({
+        event_id: eventId,
+        occurrence_date: occurrenceDate,
+        completed_by: me.id,
+      });
+
+    if (error) {
+      setErrorMessage(t("calendar_error_save"));
+      return;
+    }
+
+    setErrorMessage("");
+    await loadEvents();
+  }
+
+  async function restoreOccurrence(eventId: string, occurrenceDate: string) {
+    const { error } = await supabase
+      .from("calendar_event_completions")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("occurrence_date", occurrenceDate);
+
+    if (error) {
+      setErrorMessage(t("calendar_error_save"));
+      return;
+    }
+
+    setErrorMessage("");
+    await loadEvents();
   }
 
   async function remove(id: string) {
@@ -234,8 +299,13 @@ export default function CalendarPage() {
     return event.visibility === "household";
   });
 
+  const completedOccurrenceKeys = calendarCompletedOccurrenceSet(completedOccurrences);
+
   const upcoming = visibleEvents
-    .map((e) => ({ ...e, next: occurrenceOnOrAfter(e) }))
+    .map((e) => ({
+      ...e,
+      next: nextUncompletedOccurrence(e, completedOccurrenceKeys),
+    }))
     .filter((e): e is typeof e & { next: Date } => Boolean(e.next))
     .sort((a, b) => a.next.getTime() - b.next.getTime());
 
@@ -266,7 +336,11 @@ export default function CalendarPage() {
   const monthStart = new Date(monthYear, monthIndex, 1);
   const monthEnd = new Date(monthYear, monthIndex + 1, 0);
   const monthEvents = visibleEvents.flatMap((event) =>
-    occurrencesInRange(event, monthStart, monthEnd).map((monthOccurrence) => ({ ...event, monthOccurrence }))
+    occurrencesInRange(event, monthStart, monthEnd).map((monthOccurrence) => ({
+      ...event,
+      monthOccurrence,
+      occurrenceDate: calendarOccurrenceDate(monthOccurrence),
+    }))
   );
   const householdEventDays = new Set(monthEvents.filter((event) => event.visibility === "household").map((event) => event.monthOccurrence.getDate()));
   const personalEventDays = new Set(monthEvents.filter((event) => event.visibility === "personal").map((event) => event.monthOccurrence.getDate()));
@@ -372,20 +446,50 @@ export default function CalendarPage() {
                 <p className="mt-2 text-sm text-muted">{t("calendar_month_no_event")}</p>
               ) : (
                 <div className="mt-2 space-y-2">
-                  {selectedMonthEvents.map((event) => (
-                    <div key={`${event.id}-${event.monthOccurrence.toISOString()}`} className="rounded-2xl border border-borderLight bg-paper px-3 py-2.5">
-                      <div className="flex min-w-0 items-start justify-between gap-3">
-                        <div className="min-w-0 text-sm font-medium text-ink">{event.title}</div>
-                        <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted">
-                          {event.visibility === "personal" ? <LockKeyhole size={12} /> : <Users size={12} />}
-                          {event.visibility === "personal" ? t("calendar_month_personal_legend") : t("calendar_month_household_legend")}
-                        </span>
+                  {selectedMonthEvents.map((event) => {
+                    const occurrenceCompleted = isCalendarOccurrenceCompleted(
+                      completedOccurrenceKeys,
+                      event.id,
+                      event.occurrenceDate
+                    );
+
+                    return (
+                      <div key={`${event.id}-${event.occurrenceDate}`} className="rounded-2xl border border-borderLight bg-paper px-3 py-2.5">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0 text-sm font-medium text-ink">{event.title}</div>
+                          <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted">
+                            {event.visibility === "personal" ? <LockKeyhole size={12} /> : <Users size={12} />}
+                            {event.visibility === "personal" ? t("calendar_month_personal_legend") : t("calendar_month_household_legend")}
+                          </span>
+                        </div>
+                        {isRecurringCalendarEvent(event) && (
+                          <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted"><Repeat size={12} />{t("calendar_recurring")}</div>
+                        )}
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          {occurrenceCompleted ? (
+                            <>
+                              <span className="text-xs font-medium text-muted">{t("calendar_completed")}</span>
+                              <button
+                                type="button"
+                                onClick={() => restoreOccurrence(event.id, event.occurrenceDate)}
+                                className="rounded-lg border border-borderLight px-2.5 py-1.5 text-xs font-medium text-ink"
+                              >
+                                {t("calendar_restore")}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => completeOccurrence(event.id, event.occurrenceDate)}
+                              className="ml-auto rounded-lg border border-borderLight px-2.5 py-1.5 text-xs font-medium text-ink"
+                            >
+                              {t("calendar_mark_done")}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      {isRecurringCalendarEvent(event) && (
-                        <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted"><Repeat size={12} />{t("calendar_recurring")}</div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -532,6 +636,13 @@ export default function CalendarPage() {
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => completeOccurrence(e.id, calendarOccurrenceDate(e.next))}
+                          className="rounded-lg border border-borderLight px-2 py-1.5 text-xs font-medium text-ink"
+                        >
+                          {t("calendar_mark_done")}
+                        </button>
                         <button onClick={() => startEditing(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("calendar_edit_event")}>
                           <Pencil size={15} />
                         </button>

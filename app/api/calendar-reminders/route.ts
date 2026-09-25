@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { occurrenceOnOrAfter } from "@/lib/calendar-recurrence";
+import {
+  calendarCompletedOccurrenceSet,
+  isCalendarOccurrenceCompleted,
+} from "@/lib/calendar-completions";
 import type { CalendarEvent } from "@/lib/types";
 
 function configureWebPush() {
@@ -53,6 +57,23 @@ export async function GET(req: NextRequest) {
     .not("event_time", "is", null);
   if (error) return NextResponse.json({ error: "Lecture calendrier impossible" }, { status: 500 });
 
+  const eventIds = (events || []).map((event) => event.id);
+  const { data: completions, error: completionsError } = eventIds.length > 0
+    ? await db
+        .from("calendar_event_completions")
+        .select("event_id,occurrence_date")
+        .in("event_id", eventIds)
+    : { data: [], error: null };
+
+  if (completionsError) {
+    return NextResponse.json(
+      { error: "Lecture des validations du calendrier impossible" },
+      { status: 500 }
+    );
+  }
+
+  const completedOccurrences = calendarCompletedOccurrenceSet(completions || []);
+
   let sent = 0, due = 0, membersFound = 0, subscriptionsFound = 0, claimFailures = 0, pushFailures = 0;
   for (const raw of events || []) {
     const event = raw as CalendarEvent;
@@ -63,6 +84,13 @@ export async function GET(req: NextRequest) {
 
     const targetOccurrenceDate = addCivilDays(local.date, Math.max(0, event.reminder_days_before || 0));
     if (occurrenceIso(event, targetOccurrenceDate) !== targetOccurrenceDate) continue;
+    if (
+      isCalendarOccurrenceCompleted(
+        completedOccurrences,
+        event.id,
+        targetOccurrenceDate
+      )
+    ) continue;
     due++;
 
     let memberIds: string[] = [];
