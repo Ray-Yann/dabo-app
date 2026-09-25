@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { EmptyState } from "@/components/EmptyState";
@@ -23,6 +23,19 @@ import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
 import { ContextualShareNudge } from "@/components/ContextualShareNudge";
 import { parseShoppingListImport } from "@/lib/shopping-list-import";
+import {
+  applyOfflineShoppingStatus,
+  createShoppingOfflineSnapshot,
+  mergePendingShoppingChanges,
+  queueShoppingStatusChange,
+  removeSyncedShoppingStatusChange,
+} from "@/lib/shopping-offline";
+import {
+  loadShoppingOfflineQueue,
+  loadShoppingOfflineSnapshot,
+  saveShoppingOfflineQueue,
+  saveShoppingOfflineSnapshot,
+} from "@/lib/shopping-offline-storage";
 
 type HouseholdStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
@@ -77,7 +90,7 @@ function ItemFormFields({
 }
 
 export default function CoursesPage() {
-  const { loading, household, me, members, supabase } = useHousehold();
+  const { loading, household, me, members, supabase, offlineFallback } = useHousehold();
   const t = useT();
   const [view, setView] = useState<"to_buy" | "suggestions" | "history">("to_buy");
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -98,9 +111,13 @@ export default function CoursesPage() {
       url.pathname + url.search + url.hash
     );
 
-    setView("to_buy");
-    setEditingId(null);
-    setShowAdd(true);
+    const quickActionTimer = window.setTimeout(() => {
+      setView("to_buy");
+      setEditingId(null);
+      setShowAdd(true);
+    }, 0);
+
+    return () => window.clearTimeout(quickActionTimer);
   }, []);
 
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
@@ -132,6 +149,11 @@ export default function CoursesPage() {
   const [shoppingFinanceBusy, setShoppingFinanceBusy] = useState(false);
   const [shoppingFinanceError, setShoppingFinanceError] = useState("");
   const [shoppingFinanceSaved, setShoppingFinanceSaved] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
+  const [isSyncingOfflineChanges, setIsSyncingOfflineChanges] = useState(false);
+  const [pendingOfflineChanges, setPendingOfflineChanges] = useState(0);
+  const [hasOfflineSnapshot, setHasOfflineSnapshot] = useState(false);
+  const [loadedShoppingHouseholdId, setLoadedShoppingHouseholdId] = useState<string | null>(null);
 
   useEffect(() => {
     const button = headerAddButtonRef.current;
@@ -146,7 +168,7 @@ export default function CoursesPage() {
     return () => observer.disconnect();
   }, []);
 
-  async function loadShoppingFinancePrompt() {
+  const loadShoppingFinancePrompt = useCallback(async () => {
     if (!household) return;
     const { data, error } = await supabase
       .from("shopping_sessions")
@@ -159,7 +181,7 @@ export default function CoursesPage() {
     const eligible = ((data || []) as ShoppingFinanceSession[]).find((session) => shoppingSessionPromptEligible(session, new Date()));
     setShoppingFinanceSession(eligible || null);
     if (eligible && !shoppingFinancePayer && me) setShoppingFinancePayer(me.id);
-  }
+  }, [household, supabase, shoppingFinancePayer, me]);
 
   async function recordShoppingFinance() {
     if (!shoppingFinanceSession || !shoppingFinancePayer) return;
@@ -204,29 +226,165 @@ export default function CoursesPage() {
     setShoppingFinanceError("");
   }
 
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     if (!household) return;
-    const [{ data: itemData }, { data: preferenceData }, { data: storeData }] = await Promise.all([
-      supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
-      supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
-      supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
-    ]);
-    setItems((itemData as ShoppingItem[]) || []);
-    setSuggestionPreferences((preferenceData as ShoppingSuggestionPreference[]) || []);
-    setHouseholdStores((storeData as HouseholdStore[]) || []);
-  }
+
+    try {
+      const [itemResult, preferenceResult, storeResult] = await Promise.all([
+        supabase.from("shopping_items").select("*").eq("household_id", household.id).order("created_at", { ascending: false }),
+        supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
+        supabase.from("household_stores").select("id,name").eq("household_id", household.id).order("name"),
+      ]);
+
+      if (itemResult.error) {
+        const snapshot = await loadShoppingOfflineSnapshot(household.id);
+        if (snapshot) {
+          const queue = await loadShoppingOfflineQueue(household.id);
+          setLoadedShoppingHouseholdId(household.id);
+          setHasOfflineSnapshot(true);
+          setPendingOfflineChanges(queue.length);
+          setItems(mergePendingShoppingChanges(snapshot.items, queue, household.id));
+        }
+        return;
+      }
+
+      const serverItems = (itemResult.data as ShoppingItem[]) || [];
+
+      try {
+        await saveShoppingOfflineSnapshot(
+          createShoppingOfflineSnapshot(
+            household.id,
+            serverItems,
+            new Date().toISOString()
+          )
+        );
+      } catch (error) {
+        console.error("Unable to save shopping offline snapshot", error);
+      }
+
+      const queue = await loadShoppingOfflineQueue(household.id);
+      setLoadedShoppingHouseholdId(household.id);
+      setHasOfflineSnapshot(true);
+      setPendingOfflineChanges(queue.length);
+      setItems(mergePendingShoppingChanges(serverItems, queue, household.id));
+
+      if (!preferenceResult.error) {
+        setSuggestionPreferences(
+          (preferenceResult.data as ShoppingSuggestionPreference[]) || []
+        );
+      }
+
+      if (!storeResult.error) {
+        setHouseholdStores((storeResult.data as HouseholdStore[]) || []);
+      }
+    } catch (error) {
+      console.error("Unable to load shopping items", error);
+
+      const snapshot = await loadShoppingOfflineSnapshot(household.id);
+      if (!snapshot) return;
+
+      const queue = await loadShoppingOfflineQueue(household.id);
+      setLoadedShoppingHouseholdId(household.id);
+      setHasOfflineSnapshot(true);
+      setPendingOfflineChanges(queue.length);
+      setItems(mergePendingShoppingChanges(snapshot.items, queue, household.id));
+    }
+  }, [household, supabase]);
+
+  const syncPendingShoppingChanges = useCallback(async () => {
+    if (!household || !navigator.onLine) return;
+
+    const syncKey = `dabo-shopping-sync-${household.id}`;
+    if (sessionStorage.getItem(syncKey) === "1") return;
+
+    let queue = await loadShoppingOfflineQueue(household.id);
+    setPendingOfflineChanges(queue.length);
+
+    if (queue.length === 0) return;
+
+    sessionStorage.setItem(syncKey, "1");
+    setIsSyncingOfflineChanges(true);
+
+    try {
+      for (const change of [...queue]) {
+        const { error } = await supabase.rpc("dabo_set_shopping_item_status", {
+          p_item_id: change.itemId,
+          p_status: change.status,
+        });
+
+        if (error) {
+          console.error("Unable to synchronize offline shopping change", error);
+          return;
+        }
+
+        queue = removeSyncedShoppingStatusChange(
+          queue,
+          household.id,
+          change.itemId
+        );
+
+        await saveShoppingOfflineQueue(household.id, queue);
+        setPendingOfflineChanges(queue.length);
+      }
+
+      await loadItems();
+      void loadShoppingFinancePrompt();
+    } catch (error) {
+      console.error("Unable to synchronize offline shopping queue", error);
+    } finally {
+      setIsSyncingOfflineChanges(false);
+      sessionStorage.removeItem(syncKey);
+    }
+  }, [household, supabase, loadItems, loadShoppingFinancePrompt]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (household) loadItems();
-  }, [household]);
+    if (!household) return;
+
+    const timer = window.setTimeout(() => void loadItems(), 0);
+    return () => window.clearTimeout(timer);
+  }, [household, loadItems]);
 
   useEffect(() => {
     if (!household) return;
-    void loadShoppingFinancePrompt();
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      void syncPendingShoppingChanges();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    const initialSyncTimer = navigator.onLine
+      ? window.setTimeout(() => void syncPendingShoppingChanges(), 0)
+      : null;
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (initialSyncTimer !== null) {
+        window.clearTimeout(initialSyncTimer);
+      }
+    };
+  }, [household, syncPendingShoppingChanges]);
+
+  const offlineShoppingMode = !isOnline || offlineFallback;
+
+  useEffect(() => {
+    if (!household || offlineShoppingMode) return;
+
+    const initialFinanceTimer = window.setTimeout(() => void loadShoppingFinancePrompt(), 0);
     const timer = window.setInterval(() => void loadShoppingFinancePrompt(), 60_000);
-    return () => window.clearInterval(timer);
-  }, [household?.id, me?.id]);
+
+    return () => {
+      window.clearTimeout(initialFinanceTimer);
+      window.clearInterval(timer);
+    };
+  }, [household, me?.id, offlineShoppingMode, loadShoppingFinancePrompt]);
 
   function availableStores() {
     const byKey = new Map<string, string>();
@@ -428,7 +586,55 @@ export default function CoursesPage() {
       setAnimatingId(item.id);
       await new Promise((r) => setTimeout(r, 260));
     }
+
     const status = goingToBought ? "bought" : "to_buy";
+
+    if (!navigator.onLine && household) {
+      try {
+        const changedAt = new Date().toISOString();
+        const currentSnapshot = await loadShoppingOfflineSnapshot(household.id);
+        const currentQueue = await loadShoppingOfflineQueue(household.id);
+
+        const updatedItems = applyOfflineShoppingStatus(
+          items,
+          item.id,
+          status,
+          changedAt
+        );
+
+        const updatedQueue = queueShoppingStatusChange(currentQueue, {
+          itemId: item.id,
+          householdId: household.id,
+          status,
+          changedAt,
+        });
+
+        await saveShoppingOfflineQueue(household.id, updatedQueue);
+        setPendingOfflineChanges(updatedQueue.length);
+
+        await saveShoppingOfflineSnapshot(
+          createShoppingOfflineSnapshot(
+            household.id,
+            updatedItems,
+            currentSnapshot?.syncedAt ?? ""
+          )
+        );
+
+        setItems(updatedItems);
+
+        if (status === "bought") {
+          setBoughtConfirmation(true);
+          window.setTimeout(() => setBoughtConfirmation(false), 2200);
+        }
+      } catch (error) {
+        console.error("[DABO] offline shopping persistence failed", error);
+      } finally {
+        setAnimatingId(null);
+      }
+
+      return;
+    }
+
     const { error } = await supabase.rpc("dabo_set_shopping_item_status", { p_item_id: item.id, p_status: status });
     setAnimatingId(null);
     if (error) return;
@@ -639,7 +845,9 @@ export default function CoursesPage() {
 
   if (loading || !household) return <LoadingState />;
 
-  const toBuy = [...items.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const shoppingDataMatchesHousehold = loadedShoppingHouseholdId === household?.id;
+  const visibleItems = shoppingDataMatchesHousehold ? items : [];
+  const toBuy = [...visibleItems.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
   const toBuyGroups = (() => {
     const groups = new Map<string, ShoppingItem[]>();
     for (const item of toBuy) {
@@ -652,8 +860,8 @@ export default function CoursesPage() {
       return a.localeCompare(b, undefined, { sensitivity: "base" });
     });
   })();
-  const hasBoughtItems = items.some((i) => i.status === "bought");
-  const allBought = items
+  const hasBoughtItems = visibleItems.some((i) => i.status === "bought");
+  const allBought = visibleItems
     .filter((i) => i.status === "bought")
     .filter((i) => i.name.toLowerCase().includes(deferredBoughtSearch.toLowerCase()))
     .sort((a, b) => new Date(b.bought_at || 0).getTime() - new Date(a.bought_at || 0).getTime());
@@ -685,9 +893,11 @@ export default function CoursesPage() {
   })();
   const shoppingSuggestions = suggestionsHandledThisVisit >= 3
     ? []
-    : generateShoppingSuggestions({ items, preferences: suggestionPreferences, today: todayCivilDate() })
+    : generateShoppingSuggestions({ items: visibleItems, preferences: suggestionPreferences, today: todayCivilDate() })
         .filter((suggestion) => !handledSuggestionKeys.includes(suggestion.productKey));
   const shoppingSuggestion = shoppingSuggestions[0] ?? null;
+  const hasCurrentOfflineSnapshot = shoppingDataMatchesHousehold && hasOfflineSnapshot;
+  const effectiveView = offlineShoppingMode ? "to_buy" : view;
 
   function memberName(id: string | null) {
     return members.find((m) => m.id === id)?.first_name;
@@ -701,20 +911,54 @@ export default function CoursesPage() {
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t("courses_remaining")}</div>
           <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
         </div>
-        <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
-          <Plus size={15} /> {t("add")}
-        </button>
+        {!offlineShoppingMode && (
+          <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
+            <Plus size={15} /> {t("add")}
+          </button>
+        )}
       </div>
 
       <IntroTip id="courses" title={t("intro_courses_title")} text={t("intro_courses")} />
 
-      {shoppingFinanceSaved && (
+      {(offlineShoppingMode || isSyncingOfflineChanges || pendingOfflineChanges > 0) && (
+        <div
+          className="mx-5 mb-4 rounded-2xl border border-borderLight bg-white2 px-4 py-3"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="text-sm font-semibold text-ink">
+            {isSyncingOfflineChanges
+              ? t("courses_offline_syncing")
+              : offlineShoppingMode
+                ? t("courses_offline_status")
+                : t("courses_offline_pending").replace("{count}", String(pendingOfflineChanges))}
+          </div>
+          {offlineShoppingMode && hasOfflineSnapshot && pendingOfflineChanges > 0 && (
+            <div className="mt-1 text-xs text-muted">
+              {t("courses_offline_pending").replace("{count}", String(pendingOfflineChanges))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {offlineShoppingMode && !hasCurrentOfflineSnapshot && (
+        <div className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-5">
+          <div className="font-serif text-lg text-ink">
+            {t("courses_offline_unavailable_title")}
+          </div>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            {t("courses_offline_unavailable_text")}
+          </p>
+        </div>
+      )}
+
+      {!offlineShoppingMode && shoppingFinanceSaved && (
         <div className="mx-5 mb-4 rounded-2xl border border-borderLight bg-white2 px-4 py-3 text-sm font-medium text-ink">
           {t("courses_finance_saved")}
         </div>
       )}
 
-      {shoppingFinanceSession && (
+      {!offlineShoppingMode && shoppingFinanceSession && (
         <section className="mx-5 mb-4 rounded-3xl border border-borderLight bg-paper p-4 shadow-sm">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t("courses_finance_eyebrow")}</div>
           <h2 className="mt-1 font-serif text-xl text-ink">{t("courses_finance_title")}</h2>
@@ -753,7 +997,7 @@ export default function CoursesPage() {
         </section>
       )}
 
-      {view === "suggestions" && shoppingSuggestion && (
+      {!offlineShoppingMode && effectiveView === "suggestions" && shoppingSuggestion && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-mustardBg flex items-center justify-center shrink-0">
@@ -818,6 +1062,7 @@ export default function CoursesPage() {
         </div>
       )}
 
+      {!offlineShoppingMode && (
       <div className="px-5 mb-5">
         <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
         <select value={view} onChange={(e) => setView(e.target.value as "to_buy" | "suggestions" | "history")} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
@@ -826,15 +1071,16 @@ export default function CoursesPage() {
           <option value="history">{t("ux_history")}</option>
         </select>
       </div>
+      )}
 
-      {view === "to_buy" && <NearbyStoresPanel supabase={supabase} t={t} onUseStore={useNearbyStore} />}
+      {effectiveView === "to_buy" && !offlineShoppingMode && <NearbyStoresPanel supabase={supabase} t={t} onUseStore={useNearbyStore} />}
 
-      {view === "suggestions" && !shoppingSuggestion && (
+      {!offlineShoppingMode && effectiveView === "suggestions" && !shoppingSuggestion && (
         <div className="mx-5 rounded-3xl border border-borderLight bg-white2 p-6 text-center text-sm text-muted">{t("courses_empty")}</div>
       )}
 
-      {view === "to_buy" && (<>
-      {showAdd && (
+      {effectiveView === "to_buy" && (<>
+      {!offlineShoppingMode && showAdd && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-3">
           <div>
             <div className="text-sm font-semibold text-ink">{t("courses_add_question")}</div>
@@ -905,7 +1151,7 @@ export default function CoursesPage() {
       )}
 
       <div className="px-5">
-        {toBuy.length === 0 && !showAdd && <EmptyState message={`${t("courses_empty_title")} ${t("courses_empty")}`} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
+        {toBuy.length === 0 && !showAdd && !offlineShoppingMode && <EmptyState message={`${t("courses_empty_title")} ${t("courses_empty")}`} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
         <div className="space-y-1 mb-6">
           {toBuyGroups.map(([storeLabel, storeItems]) => (
             <div key={storeLabel} className="mb-4">
@@ -943,11 +1189,15 @@ export default function CoursesPage() {
                       </div>
                     )}
                   </div>
-                  <button onClick={() => startEdit(item)} className="text-muted" aria-label={t("edit")}><Pencil size={16} /></button>
-                  <button onClick={() => setActionItemId(item.id)} className="text-muted" aria-label={t("courses_item_more_actions")}><MoreHorizontal size={18} /></button>
+                  {!offlineShoppingMode && (
+                    <>
+                      <button onClick={() => startEdit(item)} className="text-muted" aria-label={t("edit")}><Pencil size={16} /></button>
+                      <button onClick={() => setActionItemId(item.id)} className="text-muted" aria-label={t("courses_item_more_actions")}><MoreHorizontal size={18} /></button>
+                    </>
+                  )}
                 </div>
               )}
-              {openComments === item.id && (
+              {!offlineShoppingMode && openComments === item.id && (
                 <div className="mt-2 ml-8 bg-white2 rounded-xl p-3">
                   {comments.length === 0 && <p className="text-xs text-muted italic">{t("comments_none")}</p>}
                   {comments.map((c) => (
@@ -988,7 +1238,36 @@ export default function CoursesPage() {
         </div>
       </>)}
 
-      {view === "history" && (
+      {offlineShoppingMode && hasCurrentOfflineSnapshot && allBought.length > 0 && (
+        <section data-offline-bought-items="true" className="mx-5 mt-5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">
+            {t("courses_offline_bought")}
+          </div>
+          <div className="space-y-1">
+            {allBought.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => toggle(item)}
+                aria-label={t("courses_restore_to_buy")}
+                className="w-full flex items-center gap-3 py-3 border-b border-borderLight text-left"
+              >
+                <span className="w-5 h-5 rounded-full bg-ink flex items-center justify-center text-paper shrink-0">
+                  <Check size={12} strokeWidth={3} />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm text-muted line-through">
+                    {item.name}
+                    {item.quantity && <span> · {item.quantity}</span>}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!offlineShoppingMode && effectiveView === "history" && (
         <div className="px-5">
         {hasBoughtItems ? (
           <>
@@ -1033,7 +1312,7 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {actionItemId && (() => {
+      {!offlineShoppingMode && actionItemId && (() => {
         const actionItem = items.find((item) => item.id === actionItemId);
         if (!actionItem) return null;
         return (
@@ -1099,7 +1378,7 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {me?.user_id && household && (
+      {!offlineShoppingMode && me?.user_id && household && (
         <ContextualShareNudge
           supabase={supabase}
           userId={me.user_id}
@@ -1113,7 +1392,7 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {view === "to_buy" && !showAdd && !headerAddButtonVisible && (
+      {!offlineShoppingMode && effectiveView === "to_buy" && !showAdd && !headerAddButtonVisible && (
         <button
           type="button"
           onClick={() => { setEditingId(null); setShowAdd(true); }}

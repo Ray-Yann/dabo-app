@@ -1,11 +1,100 @@
-const DABO_SW_VERSION = "pwa-v1-20260912";
+const DABO_SW_VERSION = "pwa-v2-shopping-offline-20260924";
+const DABO_OFFLINE_CACHE = "dabo-shopping-offline-v1";
 
-self.addEventListener("install", () => {
-  self.skipWaiting();
+const DABO_OFFLINE_ROUTES = [
+  "/app",
+  "/app/courses",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(DABO_OFFLINE_CACHE)
+      .then((cache) => cache.addAll(DABO_OFFLINE_ROUTES))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter(
+              (cacheName) =>
+                cacheName.startsWith("dabo-shopping-offline-") &&
+                cacheName !== DABO_OFFLINE_CACHE
+            )
+            .map((cacheName) => caches.delete(cacheName))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+
+  if (url.origin !== self.location.origin) return;
+
+  const isNextStaticAsset = url.pathname.startsWith("/_next/static/");
+
+  if (isNextStaticAsset) {
+    event.respondWith(
+      caches.open(DABO_OFFLINE_CACHE).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+
+        const response = await fetch(event.request);
+
+        if (response && response.ok) {
+          await cache.put(event.request, response.clone());
+        }
+
+        return response;
+      })
+    );
+    return;
+  }
+
+  if (event.request.mode !== "navigate") return;
+
+  const isOfflineShoppingRoute =
+    url.pathname === "/" ||
+    url.pathname === "/app" ||
+    url.pathname === "/app/courses";
+
+  if (!isOfflineShoppingRoute) return;
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.ok) {
+          const copy = response.clone();
+
+          event.waitUntil(
+            caches
+              .open(DABO_OFFLINE_CACHE)
+              .then((cache) => cache.put(event.request, copy))
+          );
+        }
+
+        return response;
+      })
+      .catch(async () => {
+        const exactMatch = await caches.match(event.request);
+        if (exactMatch) return exactMatch;
+
+        const coursesFallback = await caches.match("/app/courses");
+        if (coursesFallback) return coursesFallback;
+
+        return caches.match("/app");
+      })
+  );
 });
 
 self.addEventListener("message", (event) => {

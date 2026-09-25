@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
+import { clearHouseholdOfflineContext } from "@/lib/household-offline-storage";
+import { clearShoppingOfflineData } from "@/lib/shopping-offline-storage";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
 import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus, Download } from "lucide-react";
@@ -654,6 +656,20 @@ export default function SettingsPage() {
   }
 
   async function signOut() {
+    const { data } = await supabase.auth.getSession();
+
+    if (data.session) {
+      try {
+        await clearHouseholdOfflineContext(data.session.user.id);
+
+        if (household?.id) {
+          await clearShoppingOfflineData(household.id);
+        }
+      } catch (error) {
+        console.error("[DABO] offline sign out cleanup failed", error);
+      }
+    }
+
     await supabase.auth.signOut();
     router.replace("/");
   }
@@ -672,6 +688,17 @@ export default function SettingsPage() {
       showFeedback("error", t("settings_error_delete_account"));
       return false;
     }
+
+    try {
+      await clearHouseholdOfflineContext(data.session.user.id);
+
+      if (household?.id) {
+        await clearShoppingOfflineData(household.id);
+      }
+    } catch (error) {
+      console.error("[DABO] offline account deletion cleanup failed", error);
+    }
+
     await supabase.auth.signOut();
     router.replace("/");
     return true;

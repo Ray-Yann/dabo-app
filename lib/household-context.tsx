@@ -4,10 +4,16 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import { Household, Member } from "@/lib/types";
+import { createHouseholdOfflineContext } from "@/lib/household-offline";
+import {
+  loadHouseholdOfflineContext,
+  saveHouseholdOfflineContext,
+} from "@/lib/household-offline-storage";
 
 type HouseholdContextValue = {
   loading: boolean;
   loadError: boolean;
+  offlineFallback: boolean;
   household: Household | null;
   me: Member | null;
   members: Member[];
@@ -31,6 +37,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [offlineFallback, setOfflineFallback] = useState(false);
   const [household, setHousehold] = useState<Household | null>(null);
   const [me, setMe] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -41,6 +48,10 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     setLoadError(false);
+    setOfflineFallback(false);
+
+    let authenticatedUserId: string | null = null;
+
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
@@ -49,6 +60,8 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
         router.replace("/");
         return;
       }
+
+      authenticatedUserId = sessionData.session.user.id;
 
       const { data: myMembers, error: myMembersError } = await supabase
         .from("members")
@@ -93,15 +106,68 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       if (!householdData) throw new Error("ACTIVE_HOUSEHOLD_UNAVAILABLE");
 
       const historicalMembers = (householdMembersResult.data as Member[]) || [];
+      const activeMembers = historicalMembers.filter(
+        (member) => !member.left_at && member.user_id
+      );
+
+      try {
+        await saveHouseholdOfflineContext(
+          createHouseholdOfflineContext(
+            sessionData.session.user.id,
+            householdData,
+            myMember,
+            activeMembers,
+            historicalMembers,
+            nextMemberships,
+            new Date().toISOString()
+          )
+        );
+      } catch (error) {
+        console.error("[DABO] offline household cache save failed", error);
+      }
+
       window.localStorage.setItem(activeHouseholdKey, myMember.household_id);
       setMemberships(nextMemberships);
       setMe(myMember);
       setHousehold(householdData);
       setAllMembers(historicalMembers);
-      setMembers(historicalMembers.filter((member) => !member.left_at && member.user_id));
+      setMembers(activeMembers);
+      setOfflineFallback(false);
       setLoading(false);
     } catch (error) {
       console.error("[DABO] household load failed", error instanceof Error ? { name: error.name, message: error.message } : { name: "UnknownError" });
+
+      if (authenticatedUserId) {
+        try {
+          const cachedContext = await loadHouseholdOfflineContext(
+            authenticatedUserId
+          );
+
+          if (cachedContext) {
+            window.localStorage.setItem(
+              activeHouseholdKey,
+              cachedContext.household.id
+            );
+            setHousehold(cachedContext.household);
+            setMe(cachedContext.me);
+            setMembers(cachedContext.members);
+            setAllMembers(cachedContext.allMembers);
+            setMemberships(cachedContext.memberships);
+            setOfflineFallback(true);
+            setLoadError(false);
+            setLoading(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.error(
+            "[DABO] household offline restore failed",
+            cacheError instanceof Error
+              ? { name: cacheError.name, message: cacheError.message }
+              : { name: "UnknownError" }
+          );
+        }
+      }
+
       setLoading(false);
       setLoadError(true);
     }
@@ -124,7 +190,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   return (
-    <HouseholdContext.Provider value={{ loading, loadError, household, me, members, allMembers, memberships, switchHousehold, refresh, retry, supabase }}>
+    <HouseholdContext.Provider value={{ loading, loadError, offlineFallback, household, me, members, allMembers, memberships, switchHousehold, refresh, retry, supabase }}>
       {children}
     </HouseholdContext.Provider>
   );

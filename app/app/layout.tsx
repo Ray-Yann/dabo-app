@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
 import { HouseholdProvider } from "@/lib/household-context";
 import { LanguageProvider, useT } from "@/lib/language-context";
@@ -44,10 +45,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
-  const { me, loading, loadError, retry } = useHousehold();
+  const { me, loading, loadError, retry, offlineFallback } = useHousehold();
+  const pathname = usePathname();
+  const router = useRouter();
   const [fallbackLang, setFallbackLang] = useState<Lang>("fr");
 
   useEffect(() => { setFallbackLang(detectAvailableLanguageFromDevice()); }, []);
+
+  useEffect(() => {
+    if (offlineFallback && pathname !== "/app/courses") {
+      router.replace("/app/courses");
+    }
+  }, [offlineFallback, pathname, router]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -69,6 +78,14 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
         <div className="min-h-[100dvh] bg-paper flex items-center justify-center"><LoadingState /></div>
       ) : loadError ? (
         <HouseholdLoadError onRetry={() => void retry()} />
+      ) : offlineFallback ? (
+        pathname === "/app/courses" ? (
+          <div className={`${me?.dark_mode ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
+            <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
+          </div>
+        ) : (
+          <div className="min-h-[100dvh] bg-paper flex items-center justify-center"><LoadingState /></div>
+        )
       ) : (
         <AppShell dark={!!me?.dark_mode}>{children}</AppShell>
       )}
