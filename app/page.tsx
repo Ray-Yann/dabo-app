@@ -12,7 +12,10 @@ import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvaila
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 import { startFirstValueGuidance } from "@/lib/first-value-guidance";
 import { notifyHousehold } from "@/lib/notifications";
-import { loadHouseholdOfflineContext } from "@/lib/household-offline-storage";
+import {
+  loadHouseholdOfflineContext,
+  loadOfflineAuthenticatedUser,
+} from "@/lib/household-offline-storage";
 
 type Phase = "loading" | "value" | "auth" | "setup";
 type AuthMode = "signup" | "login" | "forgot";
@@ -108,14 +111,24 @@ export default function OnboardingPage() {
       const incomingInvite = searchParams.get("invite")?.trim().toUpperCase();
       const forgot = searchParams.get("forgot") === "1";
 
-      if (!data.session) {
+      let startupUserId = data.session?.user.id ?? null;
+
+      if (!startupUserId && !navigator.onLine && !incomingInvite && !forgot) {
+        try {
+          startupUserId = await loadOfflineAuthenticatedUser();
+        } catch (error) {
+          console.error("Unable to restore authenticated user for offline startup", error);
+        }
+      }
+
+      if (!startupUserId) {
         setPhase(forgot || incomingInvite ? "auth" : "value");
         return;
       }
 
       if (!navigator.onLine && !incomingInvite && !forgot) {
         try {
-          const cachedHousehold = await loadHouseholdOfflineContext(data.session.user.id);
+          const cachedHousehold = await loadHouseholdOfflineContext(startupUserId);
           if (cachedHousehold) {
             router.replace("/app/courses");
             return;
@@ -123,6 +136,11 @@ export default function OnboardingPage() {
         } catch (error) {
           console.error("Unable to restore household for offline startup", error);
         }
+      }
+
+      if (!data.session) {
+        setPhase(forgot || incomingInvite ? "auth" : "value");
+        return;
       }
 
       const { data: members } = await supabase

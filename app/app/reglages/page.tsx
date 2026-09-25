@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useRouter } from "next/navigation";
 import { useHousehold } from "@/lib/use-household";
-import { clearHouseholdOfflineContext } from "@/lib/household-offline-storage";
+import {
+  clearHouseholdOfflineContext,
+  clearOfflineAuthenticatedUser,
+} from "@/lib/household-offline-storage";
 import { clearShoppingOfflineData } from "@/lib/shopping-offline-storage";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
@@ -661,6 +664,7 @@ export default function SettingsPage() {
     if (data.session) {
       try {
         await clearHouseholdOfflineContext(data.session.user.id);
+        await clearOfflineAuthenticatedUser();
 
         if (household?.id) {
           await clearShoppingOfflineData(household.id);
@@ -691,6 +695,7 @@ export default function SettingsPage() {
 
     try {
       await clearHouseholdOfflineContext(data.session.user.id);
+      await clearOfflineAuthenticatedUser();
 
       if (household?.id) {
         await clearShoppingOfflineData(household.id);

@@ -7,7 +7,9 @@ import { Household, Member } from "@/lib/types";
 import { createHouseholdOfflineContext } from "@/lib/household-offline";
 import {
   loadHouseholdOfflineContext,
+  loadOfflineAuthenticatedUser,
   saveHouseholdOfflineContext,
+  saveOfflineAuthenticatedUser,
 } from "@/lib/household-offline-storage";
 
 type HouseholdContextValue = {
@@ -56,6 +58,32 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!sessionData.session) {
+        if (!navigator.onLine) {
+          authenticatedUserId = await loadOfflineAuthenticatedUser();
+
+          if (authenticatedUserId) {
+            const cachedContext = await loadHouseholdOfflineContext(
+              authenticatedUserId
+            );
+
+            if (cachedContext) {
+              window.localStorage.setItem(
+                activeHouseholdKey,
+                cachedContext.household.id
+              );
+              setHousehold(cachedContext.household);
+              setMe(cachedContext.me);
+              setMembers(cachedContext.members);
+              setAllMembers(cachedContext.allMembers);
+              setMemberships(cachedContext.memberships);
+              setOfflineFallback(true);
+              setLoadError(false);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
         setLoading(false);
         router.replace("/");
         return;
@@ -122,6 +150,9 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
             new Date().toISOString()
           )
         );
+        await saveOfflineAuthenticatedUser(
+          sessionData.session.user.id
+        );
       } catch (error) {
         console.error("[DABO] offline household cache save failed", error);
       }
@@ -186,8 +217,20 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let active = true;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (!active || event !== "INITIAL_SESSION") return;
+      void refresh();
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [refresh, supabase]);
 
   return (
     <HouseholdContext.Provider value={{ loading, loadError, offlineFallback, household, me, members, allMembers, memberships, switchHousehold, refresh, retry, supabase }}>

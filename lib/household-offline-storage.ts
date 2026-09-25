@@ -7,6 +7,7 @@ import {
 const DB_NAME = "dabo-offline-v1";
 const DB_VERSION = 1;
 const STORE_NAME = "keyval";
+const OFFLINE_AUTHENTICATED_USER_KEY = "dabo-offline-authenticated-user";
 
 function openHouseholdOfflineDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -144,5 +145,31 @@ export async function clearHouseholdOfflineContext(
 ): Promise<void> {
   await deleteValue(
     householdOfflineContextKey(userId)
+  );
+}
+
+export async function saveOfflineAuthenticatedUser(
+  userId: string
+): Promise<void> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) return;
+
+  await writeValue(
+    OFFLINE_AUTHENTICATED_USER_KEY,
+    normalizedUserId
+  );
+}
+
+export async function loadOfflineAuthenticatedUser(): Promise<string | null> {
+  const userId = await readValue(
+    OFFLINE_AUTHENTICATED_USER_KEY
+  );
+
+  return userId?.trim() || null;
+}
+
+export async function clearOfflineAuthenticatedUser(): Promise<void> {
+  await deleteValue(
+    OFFLINE_AUTHENTICATED_USER_KEY
   );
 }
