@@ -618,9 +618,12 @@ export default function CalendarPage() {
                         isToday ? "dabo-calendar-event-today border-mustard/30 bg-mustardBg" : e.visibility === "personal" ? "dabo-calendar-event-personal border-borderLight bg-white2" : "dabo-calendar-event-shared border-borderLight bg-white2"
                       }`}
                     >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-paper text-mustard" : "bg-mustardBg text-mustard"}`}>
-                        {e.visibility === "personal" ? <LockKeyhole size={17} /> : isRecurringCalendarEvent(e) ? <PartyPopper size={17} /> : <CalendarDays size={17} />}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => completeOccurrence(e.id, calendarOccurrenceDate(e.next))}
+                        className="w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer"
+                        aria-label={t("calendar_mark_done")}
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-ink truncate">{e.title}</div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted">
@@ -636,13 +639,6 @@ export default function CalendarPage() {
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => completeOccurrence(e.id, calendarOccurrenceDate(e.next))}
-                          className="rounded-lg border border-borderLight px-2 py-1.5 text-xs font-medium text-ink"
-                        >
-                          {t("calendar_mark_done")}
-                        </button>
                         <button onClick={() => startEditing(e)} className="rounded-lg p-1.5 text-muted" aria-label={t("calendar_edit_event")}>
                           <Pencil size={15} />
                         </button>

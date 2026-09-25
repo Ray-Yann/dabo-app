@@ -91,3 +91,7 @@ using (
       )
   )
 );
+
+grant select, insert, delete
+on table public.calendar_event_completions
+to authenticated;

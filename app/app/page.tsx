@@ -116,7 +116,6 @@ export default function TodayPage() {
         : { data: [], error: null };
 
       if (eventsResult.error) throw eventsResult.error;
-      if (completionResult.error) throw completionResult.error;
 
       const allTasks = (allTasksResult.data as Task[]) || [];
       setTasks(allTasks.filter((task) => task.status === "pending"));
@@ -128,7 +127,9 @@ export default function TodayPage() {
       setActiveHouseholdShoppingCount(activeShoppingResult.count ?? 0);
       setCalendarEvents(loadedCalendarEvents);
       setCompletedCalendarOccurrences(
-        (completionResult.data as CalendarEventCompletion[]) || []
+        completionResult.error
+          ? []
+          : (completionResult.data as CalendarEventCompletion[]) || []
       );
       setRoutines((routinesResult.data as Routine[]) || []);
       setFinanceBills((billsResult.data as FinanceBillAttentionLike[]) || []);
