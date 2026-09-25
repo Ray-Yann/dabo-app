@@ -12,6 +12,7 @@ import { AVAILABLE_LANGUAGE_OPTIONS, detectAvailableLanguageFromDevice, isAvaila
 import { captureReferralFromUrl, trackAcquisitionEvent } from "@/lib/acquisition";
 import { startFirstValueGuidance } from "@/lib/first-value-guidance";
 import { notifyHousehold } from "@/lib/notifications";
+import { loadHouseholdOfflineContext } from "@/lib/household-offline-storage";
 
 type Phase = "loading" | "value" | "auth" | "setup";
 type AuthMode = "signup" | "login" | "forgot";
@@ -111,6 +112,19 @@ export default function OnboardingPage() {
         setPhase(forgot || incomingInvite ? "auth" : "value");
         return;
       }
+
+      if (!navigator.onLine && !incomingInvite && !forgot) {
+        try {
+          const cachedHousehold = await loadHouseholdOfflineContext(data.session.user.id);
+          if (cachedHousehold) {
+            router.replace("/app/courses");
+            return;
+          }
+        } catch (error) {
+          console.error("Unable to restore household for offline startup", error);
+        }
+      }
+
       const { data: members } = await supabase
         .from("members")
         .select("id,first_name")
