@@ -162,7 +162,8 @@ export function interpretHouseholdInbox(
   }
 
   if (/^(nettoyer|ranger|laver|aspirer|repasser|sortir)\b/i.test(normalized)) {
-    return baseResult("task", text, null, date, time);
+    const title = clean(text.replace(/\s+\bdemain\b[\s.!?,;:]*$/i, ""));
+    return baseResult("task", title || text, null, date, time);
   }
 
   return baseResult("unknown", text, null, date, time);

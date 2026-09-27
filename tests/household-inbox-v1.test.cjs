@@ -1,4 +1,4 @@
-﻿const test = require("node:test");
+const test = require("node:test");
 const assert = require("node:assert/strict");
 
 async function loadInbox() {
@@ -632,4 +632,15 @@ test("Donne-le a DABO demande un type explicite quand la destination est Finance
     /setHouseholdInboxFinanceKind/,
     "Le type Finance choisi doit modifier explicitement la proposition"
   );
+});
+
+test("Household Inbox retire demain ponctue du titre d'une tache et conserve l'echeance", async () => {
+  const { interpretHouseholdInbox } = await loadInbox();
+  const result = interpretHouseholdInbox("Nettoyer la salle de bain demain.", {
+    referenceDate: "2026-09-28",
+  });
+
+  assert.equal(result.destination, "task");
+  assert.equal(result.title, "Nettoyer la salle de bain");
+  assert.equal(result.date, "2026-09-29");
 });
