@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { useLanguage, useT } from "@/lib/language-context";
 import { notifyBillPaid } from "@/lib/notifications";
+import { readFinanceInboxPrefill } from "@/lib/household-inbox";
 import {
   categoryTotals,
   financePeriodLabel,
@@ -92,6 +93,34 @@ export default function BudgetPage() {
 
   useEffect(()=>{ load().catch(e=>{console.error(e);setError(t("finance_error_load"));}); },[load]);
   useEffect(()=>{ if(me&&!payer) setPayer(me.id); },[me,payer]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const inboxPrefill = readFinanceInboxPrefill(url.searchParams);
+
+    if (!inboxPrefill) return;
+
+    url.searchParams.delete("inbox");
+    url.searchParams.delete("kind");
+    url.searchParams.delete("label");
+    url.searchParams.delete("date");
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.pathname + url.search + url.hash
+    );
+
+    setForm(inboxPrefill.kind);
+    setEditingExpense(null);
+    setLabel(inboxPrefill.label);
+    setAmount("");
+    setCategory("autre");
+    setDate(inboxPrefill.date || todayKey());
+    setPayer(me?.id || "");
+    setBillRecurrence("once");
+    setError(null);
+  }, [me]);
 
   const range=useMemo(()=>financePeriodRange(period,periodAnchor),[period,periodAnchor]);
   const previous=useMemo(()=>previousPeriodRange(period,periodAnchor),[period,periodAnchor]);

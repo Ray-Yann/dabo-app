@@ -23,6 +23,7 @@ import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
 import { ContextualShareNudge } from "@/components/ContextualShareNudge";
 import { parseShoppingListImport } from "@/lib/shopping-list-import";
+import { readShoppingInboxPrefill } from "@/lib/household-inbox";
 import {
   applyOfflineShoppingStatus,
   createShoppingOfflineSnapshot,
@@ -100,11 +101,23 @@ export default function CoursesPage() {
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportBusy, setBulkImportBusy] = useState(false);
   const [bulkImportError, setBulkImportError] = useState("");
+  const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("first") !== "1") return;
 
+    const inboxPrefill = readShoppingInboxPrefill(url.searchParams);
+
     url.searchParams.delete("first");
+
+    if (inboxPrefill) {
+      url.searchParams.delete("inbox");
+      url.searchParams.delete("name");
+      url.searchParams.delete("date");
+    }
+
     window.history.replaceState(
       window.history.state,
       "",
@@ -114,14 +127,20 @@ export default function CoursesPage() {
     const quickActionTimer = window.setTimeout(() => {
       setView("to_buy");
       setEditingId(null);
+
+      if (inboxPrefill) {
+        setAddForm({
+          ...EMPTY_FORM,
+          name: inboxPrefill.name,
+          dueDate: inboxPrefill.dueDate,
+        });
+      }
+
       setShowAdd(true);
     }, 0);
 
     return () => window.clearTimeout(quickActionTimer);
   }, []);
-
-  const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ItemForm>(EMPTY_FORM);
   const [openComments, setOpenComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);

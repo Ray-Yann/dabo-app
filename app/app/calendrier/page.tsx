@@ -7,7 +7,7 @@ import { Header } from "@/components/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { IntroTip } from "@/components/IntroTip";
 import { CalendarEvent } from "@/lib/types";
-import { daysUntil } from "@/lib/utils";
+import { daysUntil, todayCivilDate } from "@/lib/utils";
 import { occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
 import {
   CalendarEventCompletion,
@@ -19,6 +19,7 @@ import {
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
+import { readCalendarInboxPrefill } from "@/lib/household-inbox";
 import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users } from "lucide-react";
 
 type CalendarView = "upcoming" | "month" | "personal";
@@ -61,7 +62,17 @@ export default function CalendarPage() {
     const url = new URL(window.location.href);
     if (url.searchParams.get("first") !== "1") return;
 
+    const inboxPrefill = readCalendarInboxPrefill(url.searchParams);
+
     url.searchParams.delete("first");
+
+    if (inboxPrefill) {
+      url.searchParams.delete("inbox");
+      url.searchParams.delete("title");
+      url.searchParams.delete("date");
+      url.searchParams.delete("time");
+    }
+
     window.history.replaceState(
       window.history.state,
       "",
@@ -71,6 +82,14 @@ export default function CalendarPage() {
     setView("upcoming");
     setNewVisibility("household");
     setEditingId(null);
+
+    if (inboxPrefill) {
+      setTitle(inboxPrefill.title);
+      setEventDate(inboxPrefill.eventDate || todayCivilDate());
+      setEventTime(inboxPrefill.eventTime);
+      setShowMoreOptions(Boolean(inboxPrefill.eventTime));
+    }
+
     setShowAdd(true);
   }, []);
 

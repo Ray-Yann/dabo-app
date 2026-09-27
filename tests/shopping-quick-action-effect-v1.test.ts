@@ -14,13 +14,18 @@ test("shopping quick action state changes are deferred outside the effect body",
     )
   );
 
-  assert.ok(
-    source.includes(
-      `setView("to_buy");
-      setEditingId(null);
-      setShowAdd(true);`
-    )
+  const timerStart = source.indexOf(
+    'const quickActionTimer = window.setTimeout(() => {'
   );
+  const timerEnd = source.indexOf(
+    '}, 0);',
+    timerStart
+  );
+  const deferredBlock = source.slice(timerStart, timerEnd);
+
+  assert.ok(deferredBlock.includes('setView("to_buy");'));
+  assert.ok(deferredBlock.includes('setEditingId(null);'));
+  assert.ok(deferredBlock.includes('setShowAdd(true);'));
 
   assert.ok(
     source.includes(
@@ -34,3 +39,4 @@ test("shopping quick action still consumes the first query parameter", () => {
   assert.ok(source.includes('url.searchParams.delete("first")'));
   assert.ok(source.includes('window.history.replaceState('));
 });
+

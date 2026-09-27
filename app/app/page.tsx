@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
@@ -35,6 +35,13 @@ import { computeHouseholdInsights } from "@/lib/household-insights";
 import { buildTodayHouseholdIntelligenceCandidate } from "@/lib/today-household-intelligence";
 import { applyHouseholdSignalLifecycle, householdAttentionFingerprint, householdSignalSnoozedUntil, type HouseholdAttentionReceipt } from "@/lib/household-attention-lifecycle";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
+import {
+  buildHouseholdInboxHref,
+  interpretHouseholdInbox,
+  type HouseholdInboxDestination,
+  type HouseholdInboxFinanceKind,
+  type HouseholdInboxInterpretation,
+} from "@/lib/household-inbox";
 
 export default function TodayPage() {
   useEffect(() => {
@@ -68,6 +75,9 @@ export default function TodayPage() {
   const [householdAttentionReceipt, setHouseholdAttentionReceipt] = useState<HouseholdAttentionReceipt | null>(null);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
+  const [householdInboxText, setHouseholdInboxText] = useState("");
+  const [householdInboxProposal, setHouseholdInboxProposal] =
+    useState<HouseholdInboxInterpretation | null>(null);
 
   useEffect(() => {
     if (!household || !me) return;
@@ -148,6 +158,58 @@ export default function TodayPage() {
     };
   }, [household, me, supabase]);
 
+  function prepareHouseholdInbox() {
+    const value = householdInboxText.trim();
+
+    if (!value) {
+      setHouseholdInboxProposal(null);
+      return;
+    }
+
+    setHouseholdInboxProposal(
+      interpretHouseholdInbox(value, { referenceDate: todayCivilDate() })
+    );
+  }
+
+  function setHouseholdInboxDestination(
+    destination: Exclude<HouseholdInboxDestination, "unknown">
+  ) {
+    setHouseholdInboxProposal((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        destination,
+        financeKind:
+          destination === "finance" && current.destination === "finance"
+            ? current.financeKind
+            : null,
+      };
+    });
+  }
+
+  function setHouseholdInboxFinanceKind(
+    financeKind: Exclude<HouseholdInboxFinanceKind, null>
+  ) {
+    setHouseholdInboxProposal((current) => {
+      if (!current || current.destination !== "finance") return current;
+
+      return {
+        ...current,
+        financeKind,
+      };
+    });
+  }
+
+  function confirmHouseholdInbox() {
+    if (!householdInboxProposal) return;
+
+    const href = buildHouseholdInboxHref(householdInboxProposal);
+    if (!href) return;
+
+    router.push(href);
+  }
+
   async function toggleTask(task: Task, performerIds?: string[]) {
     if (!household || !me) return;
 
@@ -217,7 +279,7 @@ export default function TodayPage() {
     });
 
     // Keep Phase 7.1.R3.1 behaviour: when several events are coming up,
-    // Aujourd’hui must not silently hide the second one. Events within 7 days
+    // Aujourdâ€™hui must not silently hide the second one. Events within 7 days
     // can join the same maximum-three Suggestions DABO area.
     const engineEventIds = new Set(
       insights
@@ -469,6 +531,193 @@ export default function TodayPage() {
         />
       )}
 
+      <section
+        className="px-5 pb-4"
+        data-testid="household-inbox"
+        aria-labelledby="household-inbox-title"
+      >
+        <div className="dabo-organic-card w-full border border-black/5 bg-white p-4 shadow-[0_6px_20px_rgba(34,48,31,0.08)]">
+          <div className="mb-3">
+            <h2
+              id="household-inbox-title"
+              className="font-serif text-lg font-semibold leading-tight text-ink"
+            >
+              {t("household_inbox_title")}
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              {t("household_inbox_description")}
+            </p>
+          </div>
+
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              prepareHouseholdInbox();
+            }}
+            className="flex w-full flex-col gap-2 sm:flex-row"
+          >
+            <input
+              type="text"
+              value={householdInboxText}
+              onChange={(event) => {
+                setHouseholdInboxText(event.target.value);
+                setHouseholdInboxProposal(null);
+              }}
+              aria-label={t("household_inbox_input_label")}
+              placeholder={t("household_inbox_placeholder")}
+              autoComplete="off"
+              enterKeyHint="go"
+              className="min-h-11 min-w-0 w-full flex-1 rounded-xl border border-black/10 bg-paper px-3 py-2.5 text-base text-ink outline-none transition focus:border-black/25 focus:ring-2 focus:ring-black/5 sm:text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!householdInboxText.trim()}
+              className="dabo-primary-action min-h-11 w-full shrink-0 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+            >
+              {t("household_inbox_analyze")}
+            </button>
+          </form>
+
+          {householdInboxProposal && (
+            <div
+              className="mt-3 rounded-2xl border border-black/5 bg-paper p-3"
+              role="status"
+              aria-live="polite"
+            >
+              {householdInboxProposal.destination === "unknown" ? (
+                <p className="text-sm leading-relaxed text-muted">
+                  {t("household_inbox_unknown")}
+                </p>
+              ) : (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    {t("household_inbox_proposal")}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-ink">
+                    {householdInboxProposal.destination === "shopping"
+                      ? t("household_inbox_destination_shopping")
+                      : householdInboxProposal.destination === "task"
+                        ? t("household_inbox_destination_task")
+                        : householdInboxProposal.destination === "calendar"
+                          ? t("household_inbox_destination_calendar")
+                          : t("household_inbox_destination_finance")}
+                  </p>
+                </>
+              )}
+
+              <p className="mt-2 break-words text-sm leading-relaxed text-ink">
+                {householdInboxProposal.title}
+              </p>
+
+              {(householdInboxProposal.date || householdInboxProposal.time) && (
+                <p className="mt-1 text-xs text-muted">
+                  {[householdInboxProposal.date, householdInboxProposal.time]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+
+              <div className="mt-3">
+                <p className="mb-2 text-xs font-medium text-muted">
+                  {householdInboxProposal.destination === "unknown"
+                    ? t("household_inbox_choose_destination")
+                    : t("household_inbox_change_destination")}
+                </p>
+
+                <div
+                  className="grid grid-cols-2 gap-2"
+                  role="group"
+                  aria-label={t("household_inbox_choose_destination")}
+                >
+                  {(
+                    [
+                      ["shopping", "household_inbox_destination_shopping"],
+                      ["task", "household_inbox_destination_task"],
+                      ["calendar", "household_inbox_destination_calendar"],
+                      ["finance", "household_inbox_destination_finance"],
+                    ] as const
+                  ).map(([destination, label]) => {
+                    const selected =
+                      householdInboxProposal.destination === destination;
+
+                    return (
+                      <button
+                        key={destination}
+                        type="button"
+                        onClick={() => setHouseholdInboxDestination(destination)}
+                        aria-pressed={selected}
+                        className={`min-h-11 rounded-xl border px-3 py-2.5 text-sm font-semibold transition active:scale-[0.985] ${
+                          selected
+                            ? "border-ink bg-ink text-white"
+                            : "border-black/10 bg-white text-ink"
+                        }`}
+                      >
+                        {t(label)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {householdInboxProposal.destination === "finance" && (
+                <div className="mt-3 border-t border-black/5 pt-3">
+                  <p className="mb-2 text-xs font-medium text-muted">
+                    {t("household_inbox_finance_kind_label")}
+                  </p>
+
+                  <div
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+                    role="group"
+                    aria-label={t("household_inbox_finance_kind_label")}
+                  >
+                    {(
+                      [
+                        ["expense", "household_inbox_finance_expense"],
+                        ["bill", "household_inbox_finance_bill"],
+                        ["reference", "household_inbox_finance_reference"],
+                      ] as const
+                    ).map(([kind, label]) => {
+                      const selected =
+                        householdInboxProposal.financeKind === kind;
+
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          onClick={() => setHouseholdInboxFinanceKind(kind)}
+                          aria-pressed={selected}
+                          className={`min-h-11 rounded-xl border px-3 py-2.5 text-sm font-semibold transition active:scale-[0.985] ${
+                            selected
+                              ? "border-ink bg-ink text-white"
+                              : "border-black/10 bg-white text-ink"
+                          }`}
+                        >
+                          {t(label)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {householdInboxProposal.destination !== "unknown" && (
+                <button
+                  type="button"
+                  onClick={confirmHouseholdInbox}
+                  disabled={
+                    householdInboxProposal.destination === "finance" &&
+                    !householdInboxProposal.financeKind
+                  }
+                  className="dabo-primary-action mt-3 min-h-11 w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t("household_inbox_continue")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="px-5 pb-2">
         <SectionHeader title={t("today_essentials")} />
 
@@ -568,3 +817,4 @@ export default function TodayPage() {
     </div>
   );
 }
+

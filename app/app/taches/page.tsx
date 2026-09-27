@@ -20,6 +20,7 @@ import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { NativeNameInput } from "@/components/NativeNameInput";
 import { detectAdaptiveRoutineSuggestion, realignPendingRoutineDueDate, type AdaptiveRoutineSuggestion } from "@/lib/adaptive-routines";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
+import { readTaskInboxPrefill } from "@/lib/household-inbox";
 import { ContextualShareNudge } from "@/components/ContextualShareNudge";
 
 
@@ -169,11 +170,24 @@ export default function TasksPage() {
   const [routineAdaptationNow, setRoutineAdaptationNow] = useState<number>(0);
   const [showAdd, setShowAdd] = useState(false);
   const [showTaskDetails, setShowTaskDetails] = useState(false);
+  const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<TaskForm>(EMPTY_FORM);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("first") !== "1") return;
 
+    const inboxPrefill = readTaskInboxPrefill(url.searchParams);
+
     url.searchParams.delete("first");
+
+    if (inboxPrefill) {
+      url.searchParams.delete("inbox");
+      url.searchParams.delete("name");
+      url.searchParams.delete("date");
+    }
+
     window.history.replaceState(
       window.history.state,
       "",
@@ -183,12 +197,17 @@ export default function TasksPage() {
     setView("to_do");
     setEditingId(null);
     setShowTaskDetails(false);
+
+    if (inboxPrefill) {
+      setAddForm({
+        ...EMPTY_FORM,
+        name: inboxPrefill.name,
+        dueDate: inboxPrefill.dueDate,
+      });
+    }
+
     setShowAdd(true);
   }, []);
-
-  const [addForm, setAddForm] = useState<TaskForm>(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<TaskForm>(EMPTY_FORM);
   const [openComments, setOpenComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
