@@ -95,3 +95,7 @@ using (
 grant select, insert, delete
 on table public.calendar_event_completions
 to authenticated;
+
+grant select
+on table public.calendar_event_completions
+to service_role;
