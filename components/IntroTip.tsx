@@ -16,6 +16,11 @@ export function IntroTip({ id, title, text }: { id: string; title?: string; text
   useEffect(() => {
     let active = true;
     async function load() {
+      if (!navigator.onLine) {
+        if (active) setVisible(false);
+        return;
+      }
+
       const [{ data: userData }, enabled] = await Promise.all([supabase.auth.getUser(), getTutorialEnabled(supabase)]);
       const userId = userData.user?.id;
       if (!userId) { if (active) setVisible(false); return; }
