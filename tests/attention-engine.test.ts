@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
@@ -46,7 +46,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   };
 }
 
-test("Attention Engine sélectionne au maximum trois éléments et respecte les niveaux", () => {
+test("Attention Engine sÃ©lectionne au maximum trois Ã©lÃ©ments et respecte les niveaux", () => {
   const selected = selectHouseholdAttention({
     householdId: HOUSEHOLD,
     now: NOW,
@@ -76,7 +76,7 @@ test("Attention Engine isole strictement le foyer actif", () => {
   assert.deepEqual(selected.map((item) => item.id), ["a"]);
 });
 
-test("Attention Engine protège une attention privée", () => {
+test("Attention Engine protÃ¨ge une attention privÃ©e", () => {
   const privateItem = candidate({
     id: "private",
     level: "action_now",
@@ -88,7 +88,7 @@ test("Attention Engine protège une attention privée", () => {
   assert.equal(selectHouseholdAttention({ householdId: HOUSEHOLD, viewerMemberId: "ray", now: NOW, candidates: [privateItem] }).length, 1);
 });
 
-test("Attention Engine respecte snooze, résolution, expiration et déduplication", () => {
+test("Attention Engine respecte snooze, rÃ©solution, expiration et dÃ©duplication", () => {
   const selected = selectHouseholdAttention({
     householdId: HOUSEHOLD,
     now: NOW,
@@ -103,16 +103,16 @@ test("Attention Engine respecte snooze, résolution, expiration et déduplicatio
   assert.deepEqual(selected.map((item) => item.id), ["first"]);
 });
 
-test("une facture aujourd'hui passe devant une tâche à échéance aujourd'hui", () => {
+test("une facture aujourd'hui passe devant une tÃ¢che Ã  Ã©chÃ©ance aujourd'hui", () => {
   const bills = financeBillAttentionCandidates([{
-    id: "bill", label: "Électricité", amount: 64, due_on: "2026-09-10", status: "pending", currency: "EUR",
+    id: "bill", label: "Ã‰lectricitÃ©", amount: 64, due_on: "2026-09-10", status: "pending", currency: "EUR",
   }], HOUSEHOLD, "2026-09-10");
   const tasks = taskAttentionCandidates([task({ id: "task", name: "Poubelles", due_date: "2026-09-10" })], HOUSEHOLD, "2026-09-10");
   const selected = selectHouseholdAttention({ householdId: HOUSEHOLD, now: NOW, candidates: [...tasks, ...bills] });
   assert.deepEqual(selected.map((item) => item.source), ["finance", "tasks"]);
 });
 
-test("une facture payée et une tâche terminée disparaissent des candidats", () => {
+test("une facture payÃ©e et une tÃ¢che terminÃ©e disparaissent des candidats", () => {
   const bills = financeBillAttentionCandidates([{
     id: "paid", label: "Internet", amount: 50, due_on: "2026-09-10", status: "paid", currency: "EUR",
   }], HOUSEHOLD, "2026-09-10");
@@ -134,7 +134,7 @@ test("Courses Plus tard ne remonte pas avant la fin du snooze existant", () => {
 });
 
 
-test("une habitude Courses predictive devient une anticipation du foyer", () => {
+test("une habitude Courses predictive devient une suggestion du foyer", () => {
   const candidates = shoppingHabitAttentionCandidates([{
     productKey: "lait",
     label: "Lait",
@@ -153,7 +153,7 @@ test("une habitude Courses predictive devient une anticipation du foyer", () => 
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].source, "shopping");
   assert.equal(candidates[0].type, "shopping.recurring_purchase");
-  assert.equal(candidates[0].level, "anticipate");
+  assert.equal(candidates[0].level, "suggestion");
   assert.equal(candidates[0].title, "Lait");
   assert.equal(candidates[0].reason, "recurring_purchase");
   assert.equal(candidates[0].action, "open_shopping_suggestions");
@@ -162,3 +162,4 @@ test("une habitude Courses predictive devient une anticipation du foyer", () => 
   assert.equal(candidates[0].dedupeKey, "shopping-habit:lait");
   assert.equal(candidates[0].visibility, "household");
 });
+

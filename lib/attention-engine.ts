@@ -166,7 +166,7 @@ export function shoppingHabitAttentionCandidates(
     householdId,
     source: "shopping" as const,
     type: "shopping.recurring_purchase",
-    level: "anticipate" as const,
+    level: "suggestion" as const,
     priority: Math.min(75, Math.max(1, Math.round(suggestion.score))),
     title: suggestion.label,
     reason: suggestion.reason,

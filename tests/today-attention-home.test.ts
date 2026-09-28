@@ -49,6 +49,11 @@ test("Aujourd'hui fait remonter les habitudes Courses predictives dans Attention
 });
 
 
+test("une suggestion Courses predictive utilise un message distinct d'un rappel", () => {
+  assert.match(page, /attention\.action === "open_shopping_suggestions"/);
+  assert.match(page, /today_attention_shopping_predictive/);
+});
+
 test("une anticipation Courses ouvre directement la vue Suggestions", () => {
   assert.match(page, /attention\.action === "open_shopping_suggestions"/);
   assert.match(page, /router\.push\("\/app\/courses\?view=suggestions"\)/);

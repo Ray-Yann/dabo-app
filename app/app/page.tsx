@@ -519,7 +519,7 @@ export default function TodayPage() {
         return {
           icon: ShoppingBag,
           title: attention.title,
-          description: t("today_attention_shopping_due_today"),
+          description: t("today_attention_shopping_predictive"),
           meta: t("courses_title"),
           onAction: () => router.push("/app/courses?view=suggestions"),
         };
