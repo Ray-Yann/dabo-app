@@ -644,3 +644,15 @@ test("Household Inbox retire demain ponctue du titre d'une tache et conserve l'e
   assert.equal(result.title, "Nettoyer la salle de bain");
   assert.equal(result.date, "2026-09-29");
 });
+
+test("Household Inbox retire demain ponctue du libelle d'une facture et conserve l'echeance", async () => {
+  const { interpretHouseholdInbox } = await loadInbox();
+  const result = interpretHouseholdInbox("Payer la facture d'électricité demain.", {
+    referenceDate: "2026-09-28",
+  });
+
+  assert.equal(result.destination, "finance");
+  assert.equal(result.financeKind, "bill");
+  assert.equal(result.title, "Payer la facture d'électricité");
+  assert.equal(result.date, "2026-09-29");
+});

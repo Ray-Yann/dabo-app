@@ -131,7 +131,8 @@ export function interpretHouseholdInbox(
   }
 
   if (/\b(facture|loyer|echeance)\b/.test(normalized)) {
-    return baseResult("finance", text, "bill", date, time);
+    const title = clean(text.replace(/\s+\bdemain\b[\s.!?,;:]*$/i, ""));
+    return baseResult("finance", title || text, "bill", date, time);
   }
 
   if (
