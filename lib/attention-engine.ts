@@ -1,6 +1,7 @@
 import type { DaboInsight } from "@/lib/dabo-engine";
 import type { FinanceBillAttentionLike } from "@/lib/finance-engine";
 import type { ShoppingFinanceSession } from "@/lib/shopping-finance";
+import type { DaboShoppingSuggestion } from "@/lib/dabo-shopping-engine";
 import type { ShoppingItem, Task } from "@/lib/types";
 
 export type AttentionLevel = "action_now" | "anticipate" | "suggestion" | "information";
@@ -154,6 +155,32 @@ export function shoppingItemAttentionCandidates(items: ShoppingItem[], household
       visibility: "household" as const,
     }];
   });
+}
+
+export function shoppingHabitAttentionCandidates(
+  suggestions: DaboShoppingSuggestion[],
+  householdId: string,
+): AttentionCandidate[] {
+  return suggestions.map((suggestion) => ({
+    id: `shopping-habit:${suggestion.productKey}`,
+    householdId,
+    source: "shopping" as const,
+    type: "shopping.recurring_purchase",
+    level: "anticipate" as const,
+    priority: Math.min(75, Math.max(1, Math.round(suggestion.score))),
+    title: suggestion.label,
+    reason: suggestion.reason,
+    action: "open_shopping_suggestions",
+    dueAt: suggestion.expectedOn,
+    expiresAt: new Date(new Date(`${suggestion.suggestUntil}T00:00:00.000Z`).getTime() + 86_400_000).toISOString(),
+    dedupeKey: `shopping-habit:${suggestion.productKey}`,
+    visibility: "household" as const,
+    metadata: {
+      purchaseCount: suggestion.purchaseCount,
+      rhythmDays: suggestion.rhythmDays,
+      score: suggestion.score,
+    },
+  }));
 }
 
 export function financeBillAttentionCandidates(bills: FinanceBillAttentionLike[], householdId: string, today: string): AttentionCandidate[] {

@@ -27,7 +27,7 @@ import { LobaHouseholdChat } from "@/components/LobaHouseholdChat";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { notifyHousehold } from "@/lib/notifications";
 import { FinanceBillAttentionLike } from "@/lib/finance-engine";
-import { AttentionCandidate, daboInsightAttentionCandidates, financeBillAttentionCandidates, selectHouseholdAttention, shoppingItemAttentionCandidates, taskAttentionCandidates } from "@/lib/attention-engine";
+import { AttentionCandidate, daboInsightAttentionCandidates, financeBillAttentionCandidates, selectHouseholdAttention, shoppingHabitAttentionCandidates, shoppingItemAttentionCandidates, taskAttentionCandidates } from "@/lib/attention-engine";
 import { AttentionCard } from "@/components/dabo/AttentionCard";
 import { EmptyState as DaboEmptyState } from "@/components/dabo/EmptyState";
 import { SectionHeader } from "@/components/dabo/SectionHeader";
@@ -42,6 +42,7 @@ import {
   type HouseholdInboxFinanceKind,
   type HouseholdInboxInterpretation,
 } from "@/lib/household-inbox";
+import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 
 export default function TodayPage() {
   useEffect(() => {
@@ -64,6 +65,8 @@ export default function TodayPage() {
   const [allTasksForBalance, setAllTasksForBalance] = useState<Task[]>([]);
   const [balanceData, setBalanceData] = useState<ContributionBalanceData>({ contributions: [], participants: [] });
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [shoppingHistory, setShoppingHistory] = useState<ShoppingItem[]>([]);
+  const [shoppingSuggestionPreferences, setShoppingSuggestionPreferences] = useState<ShoppingSuggestionPreference[]>([]);
   const [totalItemsEver, setTotalItemsEver] = useState<number | null>(null);
   const [activeHouseholdShoppingCount, setActiveHouseholdShoppingCount] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -92,6 +95,8 @@ export default function TodayPage() {
         allTasksResult,
         contributionData,
         myItemsResult,
+        shoppingHistoryResult,
+        shoppingSuggestionPreferencesResult,
         totalShoppingResult,
         activeShoppingResult,
         eventsResult,
@@ -107,6 +112,8 @@ export default function TodayPage() {
           .eq("household_id", household.id)
           .eq("status", "to_buy")
           .or(`assigned_to.eq.${me.id},assigned_to.is.null`),
+        supabase.from("shopping_items").select("*").eq("household_id", household.id),
+        supabase.from("shopping_suggestion_preferences").select("*").eq("household_id", household.id),
         supabase.from("shopping_items").select("*", { count: "exact", head: true }).eq("household_id", household.id),
         supabase.from("shopping_items").select("*", { count: "exact", head: true }).eq("household_id", household.id).eq("status", "to_buy"),
         supabase.from("calendar_events").select("*").eq("household_id", household.id).eq("visibility", "household"),
@@ -133,6 +140,10 @@ export default function TodayPage() {
       setBalanceData(contributionData);
       setShowEquityInfo(countConfirmedContributionsSince(contributionData.contributions, contributionData.participants, new Date(0)) < 2);
       setItems((myItemsResult.data as ShoppingItem[]) || []);
+      setShoppingHistory((shoppingHistoryResult.data as ShoppingItem[]) || []);
+      setShoppingSuggestionPreferences(
+        (shoppingSuggestionPreferencesResult.data as ShoppingSuggestionPreference[]) || []
+      );
       setTotalItemsEver(totalShoppingResult.count ?? 0);
       setActiveHouseholdShoppingCount(activeShoppingResult.count ?? 0);
       setCalendarEvents(loadedCalendarEvents);
@@ -338,9 +349,15 @@ export default function TodayPage() {
       daboInsights,
       household.id
     );
+    const shoppingHabitSuggestions = generateShoppingSuggestions({
+      items: shoppingHistory,
+      preferences: shoppingSuggestionPreferences,
+      today,
+    });
     const candidates = [
       ...taskAttentionCandidates(tasks, household.id, today),
       ...shoppingItemAttentionCandidates(items, household.id, today),
+      ...shoppingHabitAttentionCandidates(shoppingHabitSuggestions, household.id),
       ...financeBillAttentionCandidates(financeBills, household.id, today),
       ...insightCandidates,
       ...(todayHouseholdIntelligence ? [todayHouseholdIntelligence] : []),
@@ -351,7 +368,7 @@ export default function TodayPage() {
       viewerMemberId: me.id,
       now: `${today}T12:00:00.000Z`,
     });
-  }, [household, me, tasks, items, financeBills, daboInsights, todayHouseholdIntelligence]);
+  }, [household, me, tasks, items, shoppingHistory, shoppingSuggestionPreferences, financeBills, daboInsights, todayHouseholdIntelligence]);
 
   if (loading || !household || !me) return <LoadingState />;
 
@@ -498,6 +515,16 @@ export default function TodayPage() {
     }
 
     if (attention.source === "shopping") {
+      if (attention.action === "open_shopping_suggestions") {
+        return {
+          icon: ShoppingBag,
+          title: attention.title,
+          description: t("today_attention_shopping_due_today"),
+          meta: t("courses_title"),
+          onAction: () => router.push("/app/courses?view=suggestions"),
+        };
+      }
+
       const item = attention.relatedEntityId ? items.find((candidate) => candidate.id === attention.relatedEntityId) : undefined;
       const description = attention.reason === "overdue"
         ? t("today_attention_shopping_overdue")

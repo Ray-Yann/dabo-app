@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   financeBillAttentionCandidates,
   selectHouseholdAttention,
+  shoppingHabitAttentionCandidates,
   shoppingSessionAttentionCandidate,
   taskAttentionCandidates,
   type AttentionCandidate,
@@ -130,4 +131,34 @@ test("Courses Plus tard ne remonte pas avant la fin du snooze existant", () => {
   const eligible = shoppingSessionPromptEligible(session, now, 10, 60);
   assert.equal(eligible, false);
   assert.equal(shoppingSessionAttentionCandidate(session, now, eligible), null);
+});
+
+
+test("une habitude Courses predictive devient une anticipation du foyer", () => {
+  const candidates = shoppingHabitAttentionCandidates([{
+    productKey: "lait",
+    label: "Lait",
+    purchaseCount: 4,
+    intervalsDays: [7, 7, 8],
+    rhythmDays: 7,
+    consistencyRatio: 0.143,
+    lastPurchasedOn: "2026-09-04",
+    expectedOn: "2026-09-11",
+    suggestFrom: "2026-09-10",
+    suggestUntil: "2026-09-14",
+    score: 92,
+    reason: "recurring_purchase",
+  }], HOUSEHOLD);
+
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].source, "shopping");
+  assert.equal(candidates[0].type, "shopping.recurring_purchase");
+  assert.equal(candidates[0].level, "anticipate");
+  assert.equal(candidates[0].title, "Lait");
+  assert.equal(candidates[0].reason, "recurring_purchase");
+  assert.equal(candidates[0].action, "open_shopping_suggestions");
+  assert.equal(candidates[0].dueAt, "2026-09-11");
+  assert.equal(candidates[0].expiresAt, "2026-09-15T00:00:00.000Z");
+  assert.equal(candidates[0].dedupeKey, "shopping-habit:lait");
+  assert.equal(candidates[0].visibility, "household");
 });

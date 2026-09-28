@@ -94,6 +94,13 @@ export default function CoursesPage() {
   const { loading, household, me, members, supabase, offlineFallback } = useHousehold();
   const t = useT();
   const [view, setView] = useState<"to_buy" | "suggestions" | "history">("to_buy");
+
+  useEffect(() => {
+    const requestedView = new URL(window.location.href).searchParams.get("view");
+    if (requestedView === "suggestions") {
+      setView("suggestions");
+    }
+  }, []);
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
