@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "corpus": "DABO Scan V3 - Real Receipts Series 1",
+  "purpose": "Ground-truth corpus for real-world receipt recognition and document classification.",
+  "documents": [
+    {
+      "id": "real-001",
+      "sourceImage": "IMG_2353.jpeg",
+      "expected": {
+        "documentType": "receipt",
+        "merchant": "Carrefour",
+        "purchaseDate": "2026-09-29",
+        "currency": "EUR",
+        "totalAmount": 1.12,
+        "items": [
+          {
+            "label": "SCHW.GRAPEFR.33CL",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 1.12
+          }
+        ]
+      }
+    },
+    {
+      "id": "real-002",
+      "sourceImage": "IMG_2351.jpeg",
+      "expected": {
+        "documentType": "payment_receipt",
+        "merchant": "RATP",
+        "purchaseDate": "2026-09-11",
+        "currency": "EUR",
+        "totalAmount": 12.2,
+        "items": []
+      }
+    },
+    {
+      "id": "real-003",
+      "sourceImage": "IMG_2350.jpeg",
+      "expected": {
+        "documentType": "receipt",
+        "merchant": "RATP",
+        "purchaseDate": "2026-09-11",
+        "currency": "EUR",
+        "totalAmount": 12.2,
+        "items": [
+          {
+            "label": "Passe Easy Souple",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 2
+          },
+          {
+            "label": "Métro-Train-RER Z1-5",
+            "quantity": 4,
+            "unit": "piece",
+            "totalPrice": 10.2
+          }
+        ]
+      }
+    },
+    {
+      "id": "real-004",
+      "sourceImage": "IMG_2349.jpeg",
+      "expected": {
+        "documentType": "payment_receipt",
+        "merchant": "Hopitaux Iris Sud",
+        "purchaseDate": "2026-09-15",
+        "currency": "EUR",
+        "totalAmount": 3,
+        "items": []
+      }
+    },
+    {
+      "id": "real-005",
+      "sourceImage": "IMG_2348.jpeg",
+      "expected": {
+        "documentType": "receipt",
+        "merchant": "Delhaize Karreveld",
+        "purchaseDate": "2026-09-28",
+        "currency": "EUR",
+        "totalAmount": 5.18,
+        "items": [
+          {
+            "label": "DLL. OEUFS 12PC",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 2.59
+          },
+          {
+            "label": "DLL. OEUFS 12PC",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 2.59
+          }
+        ]
+      }
+    },
+    {
+      "id": "real-006",
+      "sourceImage": "IMG_2346.jpeg",
+      "expected": {
+        "documentType": "gift_receipt",
+        "merchant": "Zara",
+        "purchaseDate": "2026-08-29",
+        "currency": "EUR",
+        "totalAmount": null,
+        "items": [],
+        "notes": "Ticket cadeau : ne pas inventer de prix absent du document."
+      }
+    },
+    {
+      "id": "real-007",
+      "sourceImage": "IMG_2345.jpeg",
+      "expected": {
+        "documentType": "gift_receipt",
+        "merchant": "Zara",
+        "purchaseDate": "2026-08-29",
+        "currency": "EUR",
+        "totalAmount": null,
+        "items": [],
+        "notes": "Ticket cadeau : ne pas inventer de prix absent du document."
+      }
+    },
+    {
+      "id": "real-008",
+      "sourceImage": "IMG_2344.jpeg",
+      "expected": {
+        "documentType": "receipt",
+        "merchant": "Delhaize Karreveld",
+        "purchaseDate": "2026-09-26",
+        "currency": "EUR",
+        "totalAmount": 28.48,
+        "items": [
+          {
+            "label": "24X33CL MAES PILS",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 18.99
+          },
+          {
+            "label": "VIDANGE/LEEGGOED",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 4.5
+          },
+          {
+            "label": "75 FILIPETI ASTI D",
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 4.99
+          }
+        ]
+      }
+    },
+    {
+      "id": "real-009",
+      "sourceImage": "IMG_2341.jpeg",
+      "expected": {
+        "documentType": "receipt",
+        "merchant": "Action",
+        "purchaseDate": "2026-09-26",
+        "currency": "EUR",
+        "totalAmount": 18.49,
+        "items": [
+          {
+            "label": null,
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 0.59
+          },
+          {
+            "label": null,
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 4.95
+          },
+          {
+            "label": null,
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 12.95
+          }
+        ],
+        "notes": "Les trois montants sont lisibles et vérifiés. Les libellés exacts restent à confirmer avant de devenir une vérité terrain."
+      }
+    },
+    {
+      "id": "real-010",
+      "sourceImage": "IMG_2339.jpeg",
+      "expected": {
+        "documentType": "receipt",
+        "merchant": "Brico",
+        "purchaseDate": "2026-09-29",
+        "currency": "EUR",
+        "totalAmount": 3.49,
+        "items": [
+          {
+            "label": null,
+            "quantity": 1,
+            "unit": "piece",
+            "totalPrice": 3.49
+          }
+        ],
+        "notes": "Le montant est vérifié. Le libellé exact de l'article reste à confirmer avant de devenir une vérité terrain."
+      }
+    }
+  ]
+}

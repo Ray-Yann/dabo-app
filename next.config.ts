@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: {
+      fs: "./lib/browser-shims/node-empty.ts",
+      path: "./lib/browser-shims/node-empty.ts",
+      "ort.bundle.min.mjs": "./node_modules/onnxruntime-web/dist/ort.bundle.min.mjs",
+    },
+  },
   async headers() {
     return [
       {

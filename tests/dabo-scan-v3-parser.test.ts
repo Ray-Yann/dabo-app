@@ -164,3 +164,264 @@ test("Scan V3 traite une ligne négative de fidélité comme un ajustement et no
   assert.equal(consistency.isConsistent, true);
   assert.equal(consistency.needsReview, false);
 });
+
+test("Scan V3 comprend une date européenne OCR avec une année sur deux chiffres", () => {
+  const parsed = parseReceiptText([
+    "LIDL",
+    "29.09.26",
+    "PAIN",
+    "1,99",
+    "Total",
+    "1,99",
+  ].join("\n"));
+
+  assert.equal(parsed.purchaseDate, "2026-09-29");
+});
+
+
+test("Scan V3 traite un arrondi OCR séparé sur deux lignes comme un ajustement", () => {
+  const receipt = parseReceiptText([
+    "LIDL",
+    "PAIN",
+    "15,97",
+    "Arrondi",
+    "-0,02",
+    "A payer",
+    "15,95",
+  ].join("\n"));
+
+  assert.equal(receipt.totalAmount, 15.95);
+  assert.equal(receipt.discounts.length, 1);
+  assert.equal(receipt.discounts[0].label, "Arrondi");
+  assert.equal(receipt.discounts[0].amount, -0.02);
+
+  const consistency = validateReceiptConsistency(receipt);
+
+  assert.equal(consistency.calculatedTotal, 15.95);
+  assert.equal(consistency.isConsistent, true);
+  assert.equal(consistency.needsReview, false);
+});
+
+test("Scan V3 reconstruit une quantité OCR quand prix unitaire, quantité et total sont sur trois lignes", () => {
+  const receipt = parseReceiptText([
+    "LIDL",
+    "BIO CONCOMBRE/BIO",
+    "1,35 x",
+    "2",
+    "2,70 B",
+    "Total",
+    "2,70",
+  ].join("\n"));
+
+  assert.equal(receipt.items.length, 1);
+  assert.equal(receipt.items[0].label, "BIO CONCOMBRE/BIO");
+  assert.equal(receipt.items[0].quantity, 2);
+  assert.equal(receipt.items[0].unit, "piece");
+  assert.equal(receipt.items[0].unitPrice, 1.35);
+  assert.equal(receipt.items[0].totalPrice, 2.70);
+
+  const consistency = validateReceiptConsistency(receipt);
+
+  assert.equal(consistency.isConsistent, true);
+  assert.equal(consistency.needsReview, false);
+});
+
+test("Scan V3 comprend une date OCR avec année, mois textuel et jour", () => {
+  const receipt = parseReceiptText([
+    "Brico",
+    "2026-sep-29 12:58",
+    "ARTICLE TEST",
+    "3,49",
+    "TOTAAL",
+    "3,49",
+  ].join("\n"));
+
+  assert.equal(receipt.purchaseDate, "2026-09-29");
+});
+
+test("reconstruit une quantité placée avant une description", () => {
+  const parsed = parseReceiptText([
+    "RATP",
+    "1 Passe Easy Souple",
+    "2,00€",
+    "TOTAL",
+    "2,00€",
+  ].join("\n"));
+
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0].label, "Passe Easy Souple");
+  assert.equal(parsed.items[0].quantity, 1);
+  assert.equal(parsed.items[0].totalPrice, 2);
+});
+
+test("reconstruit une description continuée après une quantité préfixée", () => {
+  const parsed = parseReceiptText([
+    "RATP",
+    "4 Métro-Train-RER",
+    "Z1-5",
+    "10,20€",
+    "TOTAL",
+    "10,20€",
+  ].join("\n"));
+
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0].label, "Métro-Train-RER Z1-5");
+  assert.equal(parsed.items[0].quantity, 4);
+  assert.equal(parsed.items[0].unitPrice, null);
+  assert.equal(parsed.items[0].totalPrice, 10.20);
+});
+
+test("ignore les montants HT et TVA comme articles mais conserve le total TTC", () => {
+  const parsed = parseReceiptText([
+    "RATP",
+    "1 Passe Easy Souple",
+    "2,00€",
+    "Montant total HT",
+    "1,82€",
+    "TVA : 10,00%",
+    "0,18€",
+    "Montant total TTC",
+    "2,00€",
+  ].join("\n"));
+
+  assert.equal(parsed.totalAmount, 2);
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0].label, "Passe Easy Souple");
+});
+
+test("Scan V3 retrouve un total OCR séparé de son libellé par plusieurs lignes", () => {
+  const parsed = parseReceiptText([
+    "HOPITAUX",
+    "15/09/2026",
+    "PAIEMENT",
+    "Total:",
+    "WORLDLINE.",
+    "Méthode de lecture: PUCE",
+    "Sans contact",
+    "DEBIT MASTERCARD",
+    "3,00 EUR",
+  ].join("\n"));
+
+  assert.equal(parsed.purchaseDate, "2026-09-15");
+  assert.equal(parsed.totalAmount, 3.00);
+  assert.equal(parsed.items.length, 0);
+});
+
+test("Scan V3 ne confond pas un en-tête Totaal avec le total final d'un ticket", () => {
+  const parsed = parseReceiptText([
+    "Brico",
+    "VERKOOP",
+    "2026-sep-29 12:58",
+    "Artikel",
+    "Prijs",
+    "Totaal",
+    "1",
+    "5400107465262",
+    "3,49",
+    "3,49",
+    "25 GLIJDERS WIT AVR4",
+    "TOTAAL",
+    "3,49",
+  ].join("\n"));
+
+  const item = parsed.items.find((candidate) =>
+    candidate.label.includes("25 GLIJDERS"),
+  );
+
+  assert.ok(item);
+  assert.equal(item.quantity, 1);
+  assert.equal(item.unitPrice, 3.49);
+  assert.equal(item.totalPrice, 3.49);
+  assert.equal(parsed.totalAmount, 3.49);
+});
+
+test("Scan V3 retrouve le montant final d'un reçu de paiement malgré un ordre OCR dispersé", () => {
+  const parsed = parseReceiptText([
+    "TICKET CLIENT",
+    "Date: 15/09/2026 13:47",
+    "PAIEMENT",
+    "Total:",
+    "WORLDLINE.",
+    "Méthode de lecture: PUCE",
+    "Sans contact",
+    "DEBIT MASTERCARD",
+    "HOPITAUX",
+    "Transaction:",
+    "ANDERLECHT",
+    "AU REVOIR",
+    "Commercant:",
+    "MERCI",
+    "IRIS",
+    "3,00 EUR",
+  ].join("\n"));
+
+  assert.equal(parsed.totalAmount, 3.00);
+  assert.equal(parsed.items.length, 0);
+});
+
+test("Scan V3 reconstruit un article quand le prix OCR precede sa description", () => {
+  const receipt = parseReceiptText(
+    "MAGASIN\n2,59\nOEUFS 12PC\nTOTAL 2,59",
+  );
+
+  assert.equal(receipt.items.length, 1);
+  assert.equal(receipt.items[0].label, "OEUFS 12PC");
+  assert.equal(receipt.items[0].quantity, 1);
+  assert.equal(receipt.items[0].unit, "piece");
+  assert.equal(receipt.items[0].unitPrice, 2.59);
+  assert.equal(receipt.items[0].totalPrice, 2.59);
+  assert.equal(receipt.totalAmount, 2.59);
+});
+
+test("Scan V3 ne transforme pas un libelle de paiement sans contact en article", () => {
+  const receipt = parseReceiptText(
+    "MAGASIN\nARTICLE TEST\n5,18\nTOTAL\n5,18\nPAIEMENT\n5,18 EUR\nSans contact\nMethode de lecture: PUCE\n5,18\nBANCONTACT",
+  );
+
+  assert.equal(receipt.items.length, 1);
+  assert.equal(receipt.items[0].label, "ARTICLE TEST");
+  assert.equal(receipt.items[0].totalPrice, 5.18);
+  assert.equal(receipt.totalAmount, 5.18);
+});
+
+test("Scan V3 n'invente pas de prix unitaire quand une quantite prefixee n'a qu'un montant", () => {
+  const receipt = parseReceiptText(
+    "MAGASIN\n50 PRODUIT TEST\n4,99\nTOTAL 4,99",
+  );
+
+  assert.equal(receipt.items.length, 1);
+  assert.equal(receipt.items[0].label, "PRODUIT TEST");
+  assert.equal(receipt.items[0].quantity, 50);
+  assert.equal(receipt.items[0].unitPrice, null);
+  assert.equal(receipt.items[0].totalPrice, 4.99);
+  assert.equal(receipt.totalAmount, 4.99);
+});
+
+test("Scan V3 realigne une sequence OCR alternee quand les prix precedent les descriptions", () => {
+  const receipt = parseReceiptText([
+    "MAGASIN",
+    "EN-TETE",
+    "10,00",
+    "PRODUIT A",
+    "5,00",
+    "PRODUIT B",
+    "2,50",
+    "PRODUIT C",
+    "TOTAL 17,50",
+  ].join("\n"));
+
+  assert.equal(receipt.totalAmount, 17.5);
+  assert.equal(receipt.items.length, 3);
+  assert.deepEqual(
+    receipt.items.map((item) => ({
+      label: item.label,
+      totalPrice: item.totalPrice,
+    })),
+    [
+      { label: "PRODUIT A", totalPrice: 10 },
+      { label: "PRODUIT B", totalPrice: 5 },
+      { label: "PRODUIT C", totalPrice: 2.5 },
+    ],
+  );
+});
+

@@ -42,3 +42,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# DABO Scan V3 - private real receipt benchmark images
+tests/fixtures/dabo-scan-v3/real-receipts/private-images/

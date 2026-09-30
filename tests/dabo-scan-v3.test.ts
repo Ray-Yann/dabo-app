@@ -130,3 +130,25 @@ test("Scan V3 marque une ligne incertaine à vérifier au lieu de prétendre qu'
 
   assert.equal(receipt.items[0].needsReview, true);
 });
+
+test("Scan V3 detecte une ligne dont quantite x prix unitaire ne correspond pas au total de ligne", () => {
+  const receipt = normalizeReceiptExtraction({
+    source: "photo",
+    totalAmount: 4.99,
+    items: [
+      {
+        label: "PRODUIT TEST",
+        quantity: 50,
+        unit: "piece",
+        unitPrice: 4.99,
+        totalPrice: 4.99,
+        confidence: 1,
+      },
+    ],
+  });
+
+  const consistency = validateReceiptConsistency(receipt);
+
+  assert.equal(consistency.isConsistent, false);
+  assert.equal(consistency.needsReview, true);
+});

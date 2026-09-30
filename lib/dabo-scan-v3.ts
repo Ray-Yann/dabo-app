@@ -1,4 +1,4 @@
-﻿export type ReceiptSource = "photo" | "digital_document";
+export type ReceiptSource = "photo" | "digital_document";
 
 export type ReceiptItemInput = {
   label: string;
@@ -51,8 +51,78 @@ export type ReceiptConsistency = {
 const REVIEW_CONFIDENCE_THRESHOLD = 0.85;
 const MONEY_TOLERANCE = 0.01;
 
+const NON_ITEM_LINE_PATTERN =
+  /^(?:MONTANT\s+TOTAL\s+HT|TOTAL\s+HT|SOUS[- ]?TOTAL|SUBTOTAL|SUB[- ]?TOTAL|SUBTOTAAL|TUSSENTOTAAL|TVA|VAT|BTW|BANCONTACT|BANCONTANT|CARTE|CARD|BANKKAART|PIN|MAESTRO|MASTERCARD|VISA|WORLDLINE|PAIEMENT|PAYMENT|BETALING|SANS\s+CONTACT|CONTACTLESS|M[ÉE]THODE\s+DE\s+LECTURE|READ\s+METHOD|LEESMETHODE|RENDU|TERUG|ANCIEN\s+SOLDE\s+DE\s+POINTS|NOUVEAU\s+SOLDE\s+DE\s+POINTS|\d+\s+POINTS?\s+SUR\s+MONTANT\s+DES\s+ACHATS|\d+\s+TOTAL\s+POINTS?\s+TICKET)(?:\b|\s|:|\/)/i;
+
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function reconstructAlternatingPriceDescriptionSequence(
+  lines: string[],
+  totalAmount: number | null,
+): ReceiptItemInput[] | null {
+  if (totalAmount === null) {
+    return null;
+  }
+
+  const standaloneMoneyPattern =
+    /^(-?\d+(?:[.,]\d{2}))\s*(?:€|EUR)?(?:\s*[A-Z])?$/i;
+  const totalLinePattern =
+    /^(?:TOTAL(?:\s+TTC)?|MONTANT\s+TOTAL\s+TTC|TOTAAL|TOTA\(A\)L|À PAYER|A PAYER|TE BETALEN|AMOUNT DUE|MONTANT)(?:\s*:?\s*-?\d+(?:[.,]\d{2})\s*(?:€|EUR)?)?$/i;
+
+  for (let start = 0; start < lines.length - 4; start += 1) {
+    const firstPriceMatch = lines[start].match(standaloneMoneyPattern);
+
+    if (!firstPriceMatch) {
+      continue;
+    }
+
+    const candidateItems: ReceiptItemInput[] = [];
+    let cursor = start;
+    let candidateTotal = 0;
+
+    while (cursor + 1 < lines.length) {
+      const priceMatch = lines[cursor].match(standaloneMoneyPattern);
+
+      if (!priceMatch) {
+        break;
+      }
+
+      const description = lines[cursor + 1];
+
+      if (
+        !/[A-Za-zÀ-ÿ]/.test(description) ||
+        totalLinePattern.test(description) ||
+        NON_ITEM_LINE_PATTERN.test(description)
+      ) {
+        break;
+      }
+
+      const price = roundMoney(parseReceiptNumber(priceMatch[1]));
+
+      candidateItems.push({
+        label: cleanReceiptLabel(description),
+        quantity: 1,
+        unit: "piece",
+        unitPrice: price,
+        totalPrice: price,
+        confidence: 1,
+      });
+
+      candidateTotal = roundMoney(candidateTotal + price);
+      cursor += 2;
+    }
+
+    if (
+      candidateItems.length >= 2 &&
+      Math.abs(candidateTotal - totalAmount) <= MONEY_TOLERANCE
+    ) {
+      return candidateItems;
+    }
+  }
+
+  return null;
 }
 
 export function normalizeReceiptExtraction(
@@ -131,9 +201,23 @@ export function validateReceiptConsistency(
     Math.abs(receipt.totalAmount - calculatedTotal),
   );
 
-  const hasIncompleteLine = receipt.items.some(
-    (item) => item.totalPrice === null || item.needsReview,
-  );
+  const hasIncompleteLine = receipt.items.some((item) => {
+    if (item.totalPrice === null || item.needsReview) {
+      return true;
+    }
+
+    if (
+      item.quantity !== null &&
+      item.unitPrice !== null &&
+      Math.abs(
+        roundMoney(item.quantity * item.unitPrice) - item.totalPrice
+      ) > MONEY_TOLERANCE
+    ) {
+      return true;
+    }
+
+    return false;
+  });
 
   const isConsistent =
     receipt.items.length > 0 &&
@@ -175,15 +259,46 @@ function normalizeOcrMoneyConfusions(text: string): string {
 }
 
 function parseEuropeanReceiptDate(text: string): string | null {
-  const match = text.match(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})\b/);
+  const numericMatch = text.match(
+    /\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})\b/,
+  );
+  const textualMatch = text.match(
+    /\b(\d{4})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)-(\d{1,2})\b/i,
+  );
 
-  if (!match) {
+  let day: number;
+  let month: number;
+  let year: number;
+
+  if (numericMatch) {
+    day = Number(numericMatch[1]);
+    month = Number(numericMatch[2]);
+    const parsedYear = Number(numericMatch[3]);
+    year =
+      numericMatch[3].length === 2 ? 2000 + parsedYear : parsedYear;
+  } else if (textualMatch) {
+    const monthNumbers: Record<string, number> = {
+      jan: 1,
+      feb: 2,
+      mar: 3,
+      apr: 4,
+      may: 5,
+      jun: 6,
+      jul: 7,
+      aug: 8,
+      sep: 9,
+      oct: 10,
+      nov: 11,
+      dec: 12,
+    };
+
+    year = Number(textualMatch[1]);
+    month = monthNumbers[textualMatch[2].toLowerCase()];
+    day = Number(textualMatch[3]);
+  } else {
     return null;
   }
 
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
   const candidate = new Date(Date.UTC(year, month - 1, day));
 
   if (
@@ -222,10 +337,17 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   const purchaseDate =
     lines.map(parseEuropeanReceiptDate).find((date) => date !== null) ?? null;
 
+  const paymentSignalCount = lines.filter((line) =>
+    /^(?:PAIEMENT|PAYMENT|BETALING|DEBIT|DÉBIT|CARTE|CARD|MASTERCARD|VISA|BANCONTACT|WORLDLINE)(?:\b|\s|:)/i.test(
+      line,
+    ),
+  ).length;
+  const isPaymentReceipt = paymentSignalCount >= 2;
+
   const money = String.raw`-?\d+(?:[.,]\d{2})`;
 
   const totalPattern = new RegExp(
-    String.raw`^(?:TOTAL|TOTAAL|À PAYER|A PAYER|TE BETALEN|AMOUNT DUE)\s+(${money})\s*(?:€|EUR)?$`,
+    String.raw`^(?:TOTAL|TOTAAL|TOTA\(A\)L|À PAYER|A PAYER|TE BETALEN|AMOUNT DUE|MONTANT)\s+(${money})\s*(?:€|EUR)?$`,
     "i",
   );
 
@@ -249,11 +371,48 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
     "i",
   );
 
-  const nonItemPattern =
-    /^(?:SOUS[- ]?TOTAL|SUBTOTAL|SUB[- ]?TOTAL|SUBTOTAAL|TUSSENTOTAAL|TVA|VAT|BTW|BANCONTACT|BANCONTANT|CARTE|CARD|BANKKAART|PIN|MAESTRO|MASTERCARD|VISA)(?:\b|\s|:)/i;
 
   let pendingDescription: string | null = null;
+  let pendingTotalLinesRemaining = 0;
+  let pendingDiscountLabel: string | null = null;
+  let pendingQuantity: number | null = null;
+  let pendingPrefixedQuantity = false;
+  let pendingUnitPrice: number | null = null;
+  let pendingStandalonePrices: number[] = [];
   let headerConsumed = false;
+
+  const standaloneMoneyPattern =
+    /^(-?\d+(?:[.,]\d{2}))\s*(?:€|EUR)?(?:\s*[A-Z])?$/i;
+  const standaloneQuantityPattern = /^\d+(?:[.,]\d+)?$/;
+  const barcodePattern = /^\d{7,14}$/;
+  const discountLabelPattern =
+    /^(?:PROMO|REMISE|REDUCTION|RÉDUCTION|KORTING|DISCOUNT|ARRONDI|AFRONDING|ROUNDING)\b/i;
+  const ignoredStandalonePattern =
+    /^(?:DESCRIPTION|ARTICLES?|ARTIKEL|PRIJS|TOTAAL|TOTA\(A\)L|EUR|€|VERKOOP|QTÉ.*|QTE.*)$/i;
+
+  const flushForwardItem = (price: number): boolean => {
+    if (!pendingDescription) {
+      return false;
+    }
+
+    items.push({
+      label: cleanReceiptLabel(pendingDescription),
+      quantity: pendingQuantity ?? 1,
+      unit: "piece",
+      unitPrice:
+        pendingUnitPrice ??
+        (pendingQuantity !== null && pendingQuantity !== 1 ? null : price),
+      totalPrice: price,
+      confidence: 1,
+    });
+
+    pendingDescription = null;
+    pendingQuantity = null;
+    pendingPrefixedQuantity = false;
+    pendingUnitPrice = null;
+    pendingStandalonePrices = [];
+    return true;
+  };
 
   const withPendingDescription = (label: string): string => {
     const currentLabel = cleanReceiptLabel(label);
@@ -273,12 +432,44 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   const dateLikePattern = /\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}\b/;
 
   for (const line of lines) {
+    if (pendingTotalLinesRemaining > 0) {
+      const standaloneTotal = line.match(
+        /^(-?\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$/i,
+      );
+
+      if (standaloneTotal) {
+        totalAmount = roundMoney(parseReceiptNumber(standaloneTotal[1]));
+        pendingTotalLinesRemaining = 0;
+        pendingDescription = null;
+        continue;
+      }
+
+      pendingTotalLinesRemaining -= 1;
+    }
+
+    const totalLabelMatch = line.match(
+      /^(TOTAL(?:\s+TTC)?|MONTANT\s+TOTAL\s+TTC|TOTAAL|TOTA\(A\)L|À PAYER|A PAYER|TE BETALEN|AMOUNT DUE|MONTANT)\s*:?$/i,
+    );
+
+    if (totalLabelMatch) {
+      const normalizedTotalLabel = totalLabelMatch[1].toUpperCase();
+
+      if ((normalizedTotalLabel === "TOTAAL" || normalizedTotalLabel === "TOTA(A)L") && items.length === 0) {
+        pendingTotalLinesRemaining = 0;
+      } else {
+        pendingTotalLinesRemaining = isPaymentReceipt ? 16 : 6;
+      }
+
+      pendingDescription = null;
+      continue;
+    }
+
     if (parseEuropeanReceiptDate(line) || dateLikePattern.test(line)) {
       pendingDescription = null;
       continue;
     }
 
-    if (nonItemPattern.test(line)) {
+    if (NON_ITEM_LINE_PATTERN.test(line)) {
       pendingDescription = null;
       continue;
     }
@@ -383,15 +574,185 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
       continue;
     }
 
-    if (!headerConsumed && items.length === 0) {
+    if (discountLabelPattern.test(line)) {
+      pendingDiscountLabel = cleanReceiptLabel(line);
+      pendingDescription = null;
+      continue;
+    }
+
+    const standaloneMoneyMatch = line.match(standaloneMoneyPattern);
+
+    if (standaloneMoneyMatch) {
+      const amount = roundMoney(parseReceiptNumber(standaloneMoneyMatch[1]));
+      const isUnitPriceMarker = /\bx\s*$/i.test(line);
+
+      if (
+        isUnitPriceMarker &&
+        amount >= 0 &&
+        pendingDescription &&
+        pendingUnitPrice === null
+      ) {
+        pendingUnitPrice = amount;
+        continue;
+      }
+
+      if (pendingDiscountLabel && amount < 0) {
+        discounts.push({
+          label: pendingDiscountLabel,
+          amount,
+        });
+        pendingDiscountLabel = null;
+        continue;
+      }
+
+      if (amount < 0) {
+        pendingDiscountLabel = null;
+        continue;
+      }
+
+      if (pendingDescription) {
+        if (pendingUnitPrice !== null) {
+          flushForwardItem(amount);
+          continue;
+        }
+
+        if (pendingQuantity !== null && pendingPrefixedQuantity) {
+          flushForwardItem(amount);
+          continue;
+        }
+
+        if (pendingQuantity !== null) {
+          pendingUnitPrice = amount;
+          continue;
+        }
+
+        flushForwardItem(amount);
+        continue;
+      }
+
+      pendingStandalonePrices.push(amount);
+      continue;
+    }
+
+    if (barcodePattern.test(line)) {
+      continue;
+    }
+
+    if (standaloneQuantityPattern.test(line)) {
+      const quantity = parseReceiptNumber(line);
+
+      if (pendingDescription) {
+        pendingQuantity = quantity;
+      } else if (pendingStandalonePrices.length === 0) {
+        pendingQuantity = quantity;
+      }
+
+      continue;
+    }
+
+    if (ignoredStandalonePattern.test(line) || /^\*+.*\*+$/.test(line)) {
+      pendingDescription = null;
+      pendingQuantity = null;
+      pendingUnitPrice = null;
+      pendingStandalonePrices = [];
+      continue;
+    }
+
+    if (
+      pendingStandalonePrices.length >= 2 &&
+      pendingQuantity !== null &&
+      /[A-Za-zÀ-ÿ]/.test(line)
+    ) {
+      const unitPrice = pendingStandalonePrices[0];
+      const totalPrice = pendingStandalonePrices[1];
+
+      items.push({
+        label: cleanReceiptLabel(line),
+        quantity: pendingQuantity,
+        unit: "piece",
+        unitPrice,
+        totalPrice,
+        confidence: 1,
+      });
+
+      pendingDescription = null;
+      pendingQuantity = null;
+      pendingUnitPrice = null;
+      pendingStandalonePrices = [];
+      continue;
+    }
+
+    if (
+      pendingStandalonePrices.length === 1 &&
+      pendingQuantity === null &&
+      pendingDescription === null &&
+      /[A-Za-zÀ-ÿ]/.test(line) &&
+      !NON_ITEM_LINE_PATTERN.test(line) &&
+      !dateLikePattern.test(line) &&
+      line !== merchant &&
+      !/^(?:TOTAL|TOTAAL|TOTA\(A\)L|TICKET|PAIEMENT|PAYMENT|BETALING|DEBIT|DÉBIT|CARTE|CARD|WORLDLINE|RENDU|TERUG|ANCIEN|NOUVEAU|POINTS?\b)/i.test(line)
+    ) {
+      const price = pendingStandalonePrices[0];
+
+      items.push({
+        label: cleanReceiptLabel(line),
+        quantity: 1,
+        unit: "piece",
+        unitPrice: price,
+        totalPrice: price,
+        confidence: 1,
+      });
+
+      pendingStandalonePrices = [];
       headerConsumed = true;
       continue;
     }
 
-    if (items.length === 0 && pendingDescription === null) {
+    if (
+      /[A-Za-zÀ-ÿ]/.test(line) &&
+      !NON_ITEM_LINE_PATTERN.test(line) &&
+      !dateLikePattern.test(line) &&
+      line !== merchant
+    ) {
+      const prefixedQuantityMatch = line.match(
+        /^(\d+(?:[.,]\d+)?)\s+(.+?[A-Za-zÀ-ÿ].*)$/,
+      );
+
+      if (prefixedQuantityMatch) {
+        pendingQuantity = parseReceiptNumber(prefixedQuantityMatch[1]);
+        pendingPrefixedQuantity = true;
+        pendingDescription = cleanReceiptLabel(prefixedQuantityMatch[2]);
+        pendingUnitPrice = null;
+        pendingStandalonePrices = [];
+        headerConsumed = true;
+        continue;
+      }
+
+      if (pendingDescription && pendingQuantity !== null) {
+        pendingDescription = cleanReceiptLabel(
+          pendingDescription + " " + line,
+        );
+        headerConsumed = true;
+        continue;
+      }
+
       pendingDescription = cleanReceiptLabel(line);
+      pendingQuantity = null;
+      pendingUnitPrice = null;
+      pendingStandalonePrices = [];
+      headerConsumed = true;
+      continue;
+    }
+
+    if (!headerConsumed && items.length === 0) {
+      headerConsumed = true;
     }
   }
+
+  const alternatingItems =
+    reconstructAlternatingPriceDescriptionSequence(lines, totalAmount);
+
+  const resolvedItems = alternatingItems ?? items;
 
   return {
     ...normalizeReceiptExtraction({
@@ -401,7 +762,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
       totalAmount,
       currency: "EUR",
       rawText,
-      items,
+      items: resolvedItems,
     }),
     discounts,
   };
