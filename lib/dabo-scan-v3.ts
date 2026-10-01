@@ -8,6 +8,7 @@ export type ReceiptItemInput = {
   totalPrice?: number | null;
   confidence?: number | null;
   needsReview?: boolean;
+  labelNeedsReview?: boolean;
 };
 
 export type ReceiptItem = {
@@ -18,6 +19,7 @@ export type ReceiptItem = {
   totalPrice: number | null;
   confidence: number | null;
   needsReview: boolean;
+  labelNeedsReview: boolean;
 };
 
 export type ReceiptExtractionInput = {
@@ -160,6 +162,7 @@ export function normalizeReceiptExtraction(
           item.needsReview === true ||
           confidence === null ||
           confidence < REVIEW_CONFIDENCE_THRESHOLD,
+        labelNeedsReview: item.labelNeedsReview === true,
       };
     }),
   };
@@ -205,6 +208,13 @@ export function validateReceiptConsistency(
 
   const hasIncompleteLine = receipt.items.some((item) => {
     if (item.totalPrice === null || item.needsReview) {
+      return true;
+    }
+
+    const hasQuantity = item.quantity !== null;
+    const hasUnitPrice = item.unitPrice !== null;
+
+    if (hasQuantity !== hasUnitPrice) {
       return true;
     }
 
@@ -576,6 +586,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
     if (unlabeledWeightedMatch) {
       items.push({
         label: "Article à identifier",
+        labelNeedsReview: true,
         quantity: parseReceiptNumber(unlabeledWeightedMatch[1]),
         unit: unlabeledWeightedMatch[2].toLowerCase(),
         unitPrice: roundMoney(parseReceiptNumber(unlabeledWeightedMatch[3])),
@@ -591,6 +602,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
     if (unlabeledPieceMatch) {
       items.push({
         label: "Article à identifier",
+        labelNeedsReview: true,
         quantity: parseReceiptNumber(unlabeledPieceMatch[1]),
         unit: null,
         unitPrice: roundMoney(parseReceiptNumber(unlabeledPieceMatch[2])),

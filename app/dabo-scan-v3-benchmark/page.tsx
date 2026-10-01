@@ -2,6 +2,9 @@
 
 import { useRef, useState } from "react";
 import { PaddleOCR } from "@paddleocr/paddleocr-js";
+import DaboScanV3Review from "@/components/DaboScanV3Review";
+import { buildReceiptReviewFromOcr } from "@/lib/dabo-scan-v3-pipeline";
+import type { ReceiptReview } from "@/lib/dabo-scan-v3-review";
 
 type BenchmarkResult = {
   fileName: string;
@@ -18,6 +21,7 @@ type BenchmarkResult = {
   detectedBoxes: number;
   recognizedCount: number;
   backend: string;
+  review?: ReceiptReview;
   error?: string;
 };
 
@@ -61,15 +65,25 @@ export default function DaboScanV3BenchmarkPage() {
           ? items.reduce((sum, item) => sum + item.score, 0) / items.length
           : null;
 
+      const rawText = items.map((item) => item.text).join("\n");
+      const geometryItems = items.map((item) => ({
+        text: item.text,
+        score: item.score,
+        poly: item.poly,
+      }));
+
+      const review = buildReceiptReviewFromOcr({
+        source: "photo",
+        rawText: rawText,
+        items: geometryItems,
+      });
+
       return {
         fileName: file.name,
-        text: items.map((item) => item.text).join("\n"),
-        items: items.map((item) => ({
-          text: item.text,
-          score: item.score,
-          poly: item.poly,
-        })),
+        text: rawText,
+        items: geometryItems,
         confidence,
+        review,
         elapsedMs,
         detMs: first.metrics.detMs,
         recMs: first.metrics.recMs,
@@ -225,6 +239,30 @@ export default function DaboScanV3BenchmarkPage() {
   2,
 )}
                   </pre>
+
+                  {result.review ? (
+                    <>
+                      <h3>Vérification humaine Scan V3</h3>
+                      <DaboScanV3Review
+                        initialReview={result.review}
+                        onConfirm={(confirmedReview) => {
+                          setResults((currentResults) =>
+                            currentResults.map((currentResult) =>
+                              currentResult.fileName === result.fileName
+                                ? {
+                                    ...currentResult,
+                                    review: confirmedReview,
+                                  }
+                                : currentResult,
+                            ),
+                          );
+                          setStatus(
+                            `Ticket vérifié dans le benchmark — aucune donnée enregistrée — ${result.fileName}`,
+                          );
+                        }}
+                      />
+                    </>
+                  ) : null}
 
                   <h3>Texte OCR</h3>
                   <pre style={{ whiteSpace: "pre-wrap" }}>{result.text}</pre>
