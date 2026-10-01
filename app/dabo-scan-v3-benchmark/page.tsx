@@ -6,6 +6,11 @@ import { PaddleOCR } from "@paddleocr/paddleocr-js";
 type BenchmarkResult = {
   fileName: string;
   text: string;
+  items: Array<{
+    text: string;
+    score: number;
+    poly: Array<[number, number]>;
+  }>;
   confidence: number | null;
   elapsedMs: number;
   detMs: number;
@@ -59,6 +64,11 @@ export default function DaboScanV3BenchmarkPage() {
       return {
         fileName: file.name,
         text: items.map((item) => item.text).join("\n"),
+        items: items.map((item) => ({
+          text: item.text,
+          score: item.score,
+          poly: item.poly,
+        })),
         confidence,
         elapsedMs,
         detMs: first.metrics.detMs,
@@ -71,6 +81,7 @@ export default function DaboScanV3BenchmarkPage() {
       return {
         fileName: file.name,
         text: "",
+        items: [],
         confidence: null,
         elapsedMs: performance.now() - startedAt,
         detMs: 0,
@@ -217,6 +228,40 @@ export default function DaboScanV3BenchmarkPage() {
 
                   <h3>Texte OCR</h3>
                   <pre style={{ whiteSpace: "pre-wrap" }}>{result.text}</pre>
+
+                  <h3>Zones OCR + géométrie</h3>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(
+                        JSON.stringify(
+                          {
+                            fileName: result.fileName,
+                            elapsedMs: Math.round(result.elapsedMs),
+                            confidence:
+                              result.confidence === null
+                                ? null
+                                : Math.round(result.confidence * 10000) / 100,
+                            detectedBoxes: result.detectedBoxes,
+                            recognizedCount: result.recognizedCount,
+                            backend: result.backend,
+                            text: result.text,
+                            items: result.items,
+                          },
+                          null,
+                          2,
+                        ),
+                      );
+                    }}
+                    style={{ marginBottom: 12 }}
+                  >
+                    Copier OCR + géométrie
+                  </button>
+
+                  <pre style={{ whiteSpace: "pre-wrap" }}>
+                    {JSON.stringify(result.items, null, 2)}
+                  </pre>
                 </>
               )}
             </section>

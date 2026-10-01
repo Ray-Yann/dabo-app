@@ -7,6 +7,7 @@ const RELOAD_GUARD = "dabo-pwa-controller-reload";
 
 export function PwaUpdater() {
   useEffect(() => {
+    if (process.env.NODE_ENV === "development") return;
     if (!("serviceWorker" in navigator)) return;
 
     let registration: ServiceWorkerRegistration | undefined;
@@ -15,7 +16,7 @@ export function PwaUpdater() {
 
     const checkForUpdate = () => {
       registration?.update().catch(() => {
-        // Une vérification manquée ne doit jamais empêcher DABO de démarrer.
+        // Une vÃ©rification manquÃ©e ne doit jamais empÃªcher DABO de dÃ©marrer.
       });
     };
 
@@ -23,8 +24,8 @@ export function PwaUpdater() {
       if (reloading) return;
       reloading = true;
 
-      // Un seul rechargement par prise de contrôle évite toute boucle si le
-      // navigateur émet plusieurs controllerchange pendant la même navigation.
+      // Un seul rechargement par prise de contrÃ´le Ã©vite toute boucle si le
+      // navigateur Ã©met plusieurs controllerchange pendant la mÃªme navigation.
       if (sessionStorage.getItem(RELOAD_GUARD) === "1") {
         sessionStorage.removeItem(RELOAD_GUARD);
         return;

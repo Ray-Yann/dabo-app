@@ -42,3 +42,7 @@ test("PWA V1 conserve des icônes versionnées et une icône maskable installabl
   assert.ok(manifest.icons.some((icon: { purpose?: string }) => icon.purpose === "maskable"));
   assert.equal(manifest.display, "standalone");
 });
+
+test("PWA V1 ne laisse pas le service worker polluer le d�veloppement local", () => {
+  assert.match(updater, /process\.env\.NODE_ENV === "development"/);
+});

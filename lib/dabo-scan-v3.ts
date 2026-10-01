@@ -7,6 +7,7 @@ export type ReceiptItemInput = {
   unitPrice?: number | null;
   totalPrice?: number | null;
   confidence?: number | null;
+  needsReview?: boolean;
 };
 
 export type ReceiptItem = {
@@ -156,6 +157,7 @@ export function normalizeReceiptExtraction(
             : null,
         confidence,
         needsReview:
+          item.needsReview === true ||
           confidence === null ||
           confidence < REVIEW_CONFIDENCE_THRESHOLD,
       };
@@ -265,6 +267,9 @@ function parseEuropeanReceiptDate(text: string): string | null {
   const textualMatch = text.match(
     /\b(\d{4})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)-(\d{1,2})\b/i,
   );
+  const dayFirstTextualMatch = text.match(
+    /\b(\d{1,2})[/.\-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[/.\-](\d{2}|\d{4})\b/i,
+  );
 
   let day: number;
   let month: number;
@@ -295,6 +300,27 @@ function parseEuropeanReceiptDate(text: string): string | null {
     year = Number(textualMatch[1]);
     month = monthNumbers[textualMatch[2].toLowerCase()];
     day = Number(textualMatch[3]);
+  } else if (dayFirstTextualMatch) {
+    const monthNumbers: Record<string, number> = {
+      jan: 1,
+      feb: 2,
+      mar: 3,
+      apr: 4,
+      may: 5,
+      jun: 6,
+      jul: 7,
+      aug: 8,
+      sep: 9,
+      oct: 10,
+      nov: 11,
+      dec: 12,
+    };
+
+    day = Number(dayFirstTextualMatch[1]);
+    month = monthNumbers[dayFirstTextualMatch[2].toLowerCase()];
+    const parsedYear = Number(dayFirstTextualMatch[3]);
+    year =
+      dayFirstTextualMatch[3].length === 2 ? 2000 + parsedYear : parsedYear;
   } else {
     return null;
   }
@@ -326,28 +352,48 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   const discounts: ReceiptDiscount[] = [];
   let totalAmount: number | null = null;
 
-  const merchant =
-    lines.find(
-      (line) =>
-        /[A-Za-zÀ-ÿ]/.test(line) &&
-        !parseEuropeanReceiptDate(line) &&
-        !/\d+[.,]\d{1,2}\s*(?:€|EUR)?$/i.test(line),
-    ) ?? null;
-
   const purchaseDate =
     lines.map(parseEuropeanReceiptDate).find((date) => date !== null) ?? null;
 
+  const paymentSignalPattern =
+    /^(?:PAIEMENT|PAYMENT|BETALING|DEBIT|DÉBIT|CARTE|CARD|MASTERCARD|VISA|BANCONTACT|WORLDLINE)(?:\b|\s|:)/i;
+
   const paymentSignalCount = lines.filter((line) =>
-    /^(?:PAIEMENT|PAYMENT|BETALING|DEBIT|DÉBIT|CARTE|CARD|MASTERCARD|VISA|BANCONTACT|WORLDLINE)(?:\b|\s|:)/i.test(
-      line,
-    ),
+    paymentSignalPattern.test(line),
   ).length;
   const isPaymentReceipt = paymentSignalCount >= 2;
+
+  const merchantMetadataPattern =
+    /^(?:TOTAL|TOTAAL|TOTA\(A\)L|SOUS[- ]?TOTAL|SUBTOTAL|TICKET(?:\s+CLIENT)?|COPIE\s+(?:MARCHAND|CLIENT)|MERCI(?:\b|\s)|THANK(?:\s+YOU)?\b|BEDANKT\b|PAIEMENT|PAYMENT|BETALING|BANCONTACT|WORLDLINE|SANS\s+CONTACT|CONTACTLESS|TERMINAL\s*:|MARCHAND\s*:|TRANSACTION\s*:|P[ÉE]RIODE\s*:|CODE\s+D['’]?AUTOR|NUM\.?\s*SEQ\.?\s*CARTE|VALIDE\s+JUSQUE|V[ÉE]RIFI[ÉE]|VERIFIE)(?:\b|\s|:)/i;
+
+  const isMerchantCandidate = (line: string) =>
+    /[A-Za-zÀ-ÿ]/.test(line) &&
+    !parseEuropeanReceiptDate(line) &&
+    !/\d+[.,]\d{1,2}\s*(?:€|EUR)?$/i.test(line) &&
+    !merchantMetadataPattern.test(line) &&
+    !/^\d{4}\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]+$/.test(line);
+
+  let merchant: string | null = null;
+
+  if (isPaymentReceipt) {
+    const postalAddressIndex = lines.findIndex((line) =>
+      /^\d{4}\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]+$/.test(line),
+    );
+
+    if (
+      postalAddressIndex > 0 &&
+      isMerchantCandidate(lines[postalAddressIndex - 1])
+    ) {
+      merchant = lines[postalAddressIndex - 1];
+    }
+  }
+
+  merchant ??= lines.find(isMerchantCandidate) ?? null;
 
   const money = String.raw`-?\d+(?:[.,]\d{2})`;
 
   const totalPattern = new RegExp(
-    String.raw`^(?:TOTAL|TOTAAL|TOTA\(A\)L|À PAYER|A PAYER|TE BETALEN|AMOUNT DUE|MONTANT)\s+(${money})\s*(?:€|EUR)?$`,
+    String.raw`^(?:TOTAL ARRONDI|AFGEROND TOTAAL|TOTAAL AFGEROND|ROUNDED TOTAL|TOTAL ROUNDED|TOTAL|TOTAAL|TOTA\(A\)L|À PAYER|A PAYER|TE BETALEN|AMOUNT DUE|MONTANT)\s+(${money})\s*(?:€|EUR)?$`,
     "i",
   );
 
@@ -361,8 +407,18 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
     "i",
   );
 
+  const unlabeledWeightedPattern = new RegExp(
+    String.raw`^(\d+(?:[.,]\d+)?)\s*(kg|g)\s*[x×]\s*(\d+(?:[.,]\d{2}))\s*(?:€\/?(?:kg|g))?\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$`,
+    "i",
+  );
+
   const multipliedPattern = new RegExp(
     String.raw`^(.+?)\s+(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d{2}))\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$`,
+    "i",
+  );
+
+  const unlabeledPiecePattern = new RegExp(
+    String.raw`^(\d+(?:[.,]\d+)?)\s*(?:st|pc|pcs|piece|pieces|pièce|pièces)?\s*[x×]\s*(\d+(?:[.,]\d{2}))\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$`,
     "i",
   );
 
@@ -379,6 +435,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   let pendingPrefixedQuantity = false;
   let pendingUnitPrice: number | null = null;
   let pendingStandalonePrices: number[] = [];
+  let previousStandalonePaymentAmount: number | null = null;
   let headerConsumed = false;
 
   const standaloneMoneyPattern =
@@ -454,6 +511,14 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
     if (totalLabelMatch) {
       const normalizedTotalLabel = totalLabelMatch[1].toUpperCase();
 
+      if (isPaymentReceipt && previousStandalonePaymentAmount !== null) {
+        totalAmount = previousStandalonePaymentAmount;
+        pendingTotalLinesRemaining = 0;
+        previousStandalonePaymentAmount = null;
+        pendingDescription = null;
+        continue;
+      }
+
       if ((normalizedTotalLabel === "TOTAAL" || normalizedTotalLabel === "TOTA(A)L") && items.length === 0) {
         pendingTotalLinesRemaining = 0;
       } else {
@@ -471,6 +536,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
 
     if (NON_ITEM_LINE_PATTERN.test(line)) {
       pendingDescription = null;
+      pendingDiscountLabel = null;
       continue;
     }
 
@@ -501,6 +567,36 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
         amount: roundMoney(
           parseReceiptNumber(genericNegativeAdjustmentMatch[2]),
         ),
+      });
+      continue;
+    }
+
+    const unlabeledWeightedMatch = line.match(unlabeledWeightedPattern);
+
+    if (unlabeledWeightedMatch) {
+      items.push({
+        label: "Article à identifier",
+        quantity: parseReceiptNumber(unlabeledWeightedMatch[1]),
+        unit: unlabeledWeightedMatch[2].toLowerCase(),
+        unitPrice: roundMoney(parseReceiptNumber(unlabeledWeightedMatch[3])),
+        totalPrice: roundMoney(parseReceiptNumber(unlabeledWeightedMatch[4])),
+        confidence: 1,
+        needsReview: true,
+      });
+      continue;
+    }
+
+    const unlabeledPieceMatch = line.match(unlabeledPiecePattern);
+
+    if (unlabeledPieceMatch) {
+      items.push({
+        label: "Article à identifier",
+        quantity: parseReceiptNumber(unlabeledPieceMatch[1]),
+        unit: null,
+        unitPrice: roundMoney(parseReceiptNumber(unlabeledPieceMatch[2])),
+        totalPrice: roundMoney(parseReceiptNumber(unlabeledPieceMatch[3])),
+        confidence: 1,
+        needsReview: true,
       });
       continue;
     }
@@ -560,6 +656,28 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
       }
     }
 
+    const inlineRoundingMatch = line.match(
+      /^(ARRONDI|AFRONDING|ROUNDING)\s+([+-]?\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$/i,
+    );
+
+    if (inlineRoundingMatch) {
+      discounts.push({
+        label: cleanReceiptLabel(inlineRoundingMatch[1]),
+        amount: roundMoney(parseReceiptNumber(inlineRoundingMatch[2])),
+      });
+      pendingDescription = null;
+      continue;
+    }
+
+    const inlineSubtotalMatch = line.match(
+      /^(?:SOUS[ -]?TOTAL|SOUSTOT|SUBTOTAL|SUB[ -]?TOTAL)\s+\d+(?:[.,]\d{2})\s*(?:€|EUR)?$/i,
+    );
+
+    if (inlineSubtotalMatch) {
+      pendingDescription = null;
+      continue;
+    }
+
     const simpleMatch = line.match(simplePattern);
 
     if (simpleMatch) {
@@ -586,6 +704,10 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
       const amount = roundMoney(parseReceiptNumber(standaloneMoneyMatch[1]));
       const isUnitPriceMarker = /\bx\s*$/i.test(line);
 
+      if (isPaymentReceipt && amount >= 0) {
+        previousStandalonePaymentAmount = amount;
+      }
+
       if (
         isUnitPriceMarker &&
         amount >= 0 &&
@@ -596,7 +718,7 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
         continue;
       }
 
-      if (pendingDiscountLabel && amount < 0) {
+      if (pendingDiscountLabel) {
         discounts.push({
           label: pendingDiscountLabel,
           amount,
@@ -752,7 +874,9 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   const alternatingItems =
     reconstructAlternatingPriceDescriptionSequence(lines, totalAmount);
 
-  const resolvedItems = alternatingItems ?? items;
+  const resolvedItems = (alternatingItems ?? items).filter(
+    (item) => item.quantity === null || item.quantity === undefined || item.quantity > 0,
+  );
 
   return {
     ...normalizeReceiptExtraction({
