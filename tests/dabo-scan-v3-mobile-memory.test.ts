@@ -49,3 +49,12 @@ test("le prétraitement OCR reste distinct de l'aperçu utilisateur", () => {
   assert.match(viewSource, /prepareReceiptImageForOcr/);
 });
 
+
+
+test("Scan V3 limite PaddleOCR à un thread WASM pour réduire le pic mémoire mobile", () => {
+  assert.match(
+    viewSource,
+    /ortOptions\s*:\s*\{[\s\S]*?numThreads\s*:\s*1[\s\S]*?\}/,
+    "PaddleOCR doit limiter ONNX Runtime WASM à un thread sur le flux Scan V3",
+  );
+});

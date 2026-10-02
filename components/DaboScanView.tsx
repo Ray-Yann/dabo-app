@@ -87,6 +87,9 @@ export function DaboScanView({
       ocrRef.current = await PaddleOCR.create({
         lang: "fr",
         ocrVersion: "PP-OCRv6",
+        ortOptions: {
+          numThreads: 1,
+        },
       });
     }
 
