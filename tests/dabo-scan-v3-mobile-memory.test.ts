@@ -28,7 +28,7 @@ test("DaboScanView n'envoie plus directement la photo originale à PaddleOCR", (
 test("Scan V3 libère la photo originale avant d'initialiser PaddleOCR sur mobile", () => {
   const imageBranch = viewSource.slice(
     viewSource.indexOf("} else {", viewSource.indexOf("if (isPdf)")),
-    viewSource.indexOf("const predictions = await ocr.predict(ocrImageFile)") + 60,
+    viewSource.indexOf("const predictions = await predictReceipt(ocr, ocrImageFile)") + 70,
   );
 
   const prepareIndex = imageBranch.indexOf(
@@ -56,5 +56,19 @@ test("Scan V3 limite PaddleOCR à un thread WASM pour réduire le pic mémoire m
     viewSource,
     /ortOptions\s*:\s*\{[\s\S]*?numThreads\s*:\s*1[\s\S]*?\}/,
     "PaddleOCR doit limiter ONNX Runtime WASM à un thread sur le flux Scan V3",
+  );
+});
+
+
+test("Scan V3 distingue un échec d'initialisation OCR d'un échec de prédiction", () => {
+  assert.match(
+    viewSource,
+    /SCAN_INIT_FAILED/,
+    "Scan V3 doit identifier explicitement un échec pendant PaddleOCR.create",
+  );
+  assert.match(
+    viewSource,
+    /SCAN_PREDICT_FAILED/,
+    "Scan V3 doit identifier explicitement un échec pendant ocr.predict",
   );
 });

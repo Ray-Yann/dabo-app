@@ -84,16 +84,35 @@ export function DaboScanView({
 
   async function getOcr() {
     if (!ocrRef.current) {
-      ocrRef.current = await PaddleOCR.create({
-        lang: "fr",
-        ocrVersion: "PP-OCRv6",
-        ortOptions: {
-          numThreads: 1,
-        },
-      });
+      try {
+        ocrRef.current = await PaddleOCR.create({
+          lang: "fr",
+          ocrVersion: "PP-OCRv6",
+          ortOptions: {
+            numThreads: 1,
+          },
+        });
+      } catch (cause) {
+        const detail =
+          cause instanceof Error ? cause.message : "Unknown OCR initialization error";
+        throw new Error(`SCAN_INIT_FAILED: ${detail}`, { cause });
+      }
     }
 
     return ocrRef.current;
+  }
+
+  async function predictReceipt(
+    ocr: Awaited<ReturnType<typeof PaddleOCR.create>>,
+    input: File,
+  ) {
+    try {
+      return await ocr.predict(input);
+    } catch (cause) {
+      const detail =
+        cause instanceof Error ? cause.message : "Unknown OCR prediction error";
+      throw new Error(`SCAN_PREDICT_FAILED: ${detail}`, { cause });
+    }
   }
 
   async function analyze() {
@@ -122,7 +141,7 @@ export function DaboScanView({
         const pages = [];
 
         for (const pageFile of pageFiles) {
-          const predictions = await ocr.predict(pageFile);
+          const predictions = await predictReceipt(ocr, pageFile);
           const first = predictions[0];
 
           if (!first) {
@@ -157,7 +176,7 @@ export function DaboScanView({
       } else {
         const ocrImageFile = await prepareReceiptImageForOcr(file);
         const ocr = await getOcr();
-        const predictions = await ocr.predict(ocrImageFile);
+        const predictions = await predictReceipt(ocr, ocrImageFile);
         const first = predictions[0];
 
         if (!first) {

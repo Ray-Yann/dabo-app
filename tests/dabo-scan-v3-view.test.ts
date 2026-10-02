@@ -21,7 +21,7 @@ test("DaboScanView utilise exclusivement le pipeline OCR Scan V3", () => {
   );
   assert.match(source, /PaddleOCR\.create\(/);
   assert.match(source, /prepareReceiptImageForOcr\(file\)/);
-  assert.match(source, /ocr\.predict\(ocrImageFile\)/);
+  assert.match(source, /predictReceipt\(ocr, ocrImageFile\)/);
   assert.doesNotMatch(source, /ocr\.predict\(file\)/);
   assert.match(source, /buildReceiptReviewFromOcr\(/);
   assert.match(source, /<DaboScanV3Review/);
