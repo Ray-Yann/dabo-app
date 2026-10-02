@@ -105,6 +105,7 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddChoice, setShowAddChoice] = useState(false);
   const [showScanV3, setShowScanV3] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [bulkImportText, setBulkImportText] = useState("");
@@ -946,19 +947,100 @@ export default function CoursesPage() {
         </div>
         {!offlineShoppingMode && (
           <div className="relative z-[1] flex flex-col items-end gap-2">
-            <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
-              <Plus size={15} /> {t("add")}
-            </button>
             <button
+              ref={headerAddButtonRef}
               type="button"
-              onClick={() => setShowScanV3(true)}
-              className="text-xs font-medium text-muted underline-offset-4 hover:underline"
+              onClick={() => setShowAddChoice(true)}
+              className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5"
+              aria-haspopup="dialog"
             >
-              {t("courses_scan_receipt")}
+              <Plus size={15} /> {t("add")}
             </button>
           </div>
         )}
       </div>
+
+      {showAddChoice && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/35"
+            onClick={() => setShowAddChoice(false)}
+            aria-label={t("close")}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="courses-add-choice-title"
+            className="relative z-[1] w-full max-w-lg rounded-t-[2rem] bg-white2 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="courses-add-choice-title" className="font-serif text-xl text-ink">
+                  {t("courses_add_choice_title")}
+                </h2>
+                <p className="mt-1 text-sm text-muted">{t("courses_add_choice_help")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddChoice(false)}
+                className="shrink-0 rounded-full p-2 text-muted"
+                aria-label={t("close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddChoice(false);
+                  setEditingId(null);
+                  setShowAdd(true);
+                }}
+                className="flex w-full items-center gap-4 rounded-2xl border border-borderLight bg-paper/60 p-4 text-left transition hover:bg-paper"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-paper">
+                  <Plus size={20} />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-ink">{t("courses_add_manual")}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-muted">{t("courses_add_manual_help")}</span>
+                </span>
+              </button>
+
+              {isOnline && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddChoice(false);
+                    setShowScanV3(true);
+                  }}
+                  className="flex w-full items-center gap-4 rounded-2xl border border-borderLight bg-paper/60 p-4 text-left transition hover:bg-paper"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-paper">
+                    <Sparkles size={20} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-ink">{t("courses_scan_receipt")}</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-muted">{t("courses_scan_receipt_help")}</span>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAddChoice(false)}
+              className="mt-3 w-full rounded-2xl px-4 py-3 text-sm font-medium text-muted"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
+      )}
 
       <IntroTip id="courses" title={t("intro_courses_title")} text={t("intro_courses")} />
 
@@ -1463,8 +1545,9 @@ export default function CoursesPage() {
       {!offlineShoppingMode && effectiveView === "to_buy" && !showAdd && !headerAddButtonVisible && (
         <button
           type="button"
-          onClick={() => { setEditingId(null); setShowAdd(true); }}
+          onClick={() => setShowAddChoice(true)}
           className="md:hidden fixed right-5 bottom-24 z-20 rounded-full bg-ink px-4 py-3 text-sm font-medium text-paper shadow-lg"
+          aria-haspopup="dialog"
         >
           <Plus size={15} className="inline mr-1" />{t("add")}
         </button>

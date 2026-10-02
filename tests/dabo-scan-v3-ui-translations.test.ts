@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { translations } from "../lib/i18n";
 
 const keys = [
+  "courses_add_choice_title",
+  "courses_add_choice_help",
+  "courses_add_manual",
+  "courses_add_manual_help",
   "scan_v3_intro",
   "scan_v3_import_image_or_pdf",
   "scan_v3_file_type_error",
