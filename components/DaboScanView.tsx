@@ -11,6 +11,7 @@ import {
   buildReceiptReviewFromOcrPages,
 } from "@/lib/dabo-scan-v3-pipeline";
 import { renderReceiptPdfPages } from "@/lib/dabo-scan-v3-pdf";
+import { prepareReceiptImageForOcr } from "@/lib/dabo-scan-v3-image";
 import type { ReceiptReview } from "@/lib/dabo-scan-v3-review";
 import type { Household, Member } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -112,9 +113,8 @@ export function DaboScanView({
     resetConfirmationController();
 
     try {
-      const ocr = await getOcr();
-
       if (isPdf) {
+        const ocr = await getOcr();
         const pageFiles = await renderReceiptPdfPages(file);
         const pages = [];
 
@@ -152,7 +152,9 @@ export function DaboScanView({
 
         setReview(nextReview);
       } else {
-        const predictions = await ocr.predict(file);
+        const ocrImageFile = await prepareReceiptImageForOcr(file);
+        const ocr = await getOcr();
+        const predictions = await ocr.predict(ocrImageFile);
         const first = predictions[0];
 
         if (!first) {
