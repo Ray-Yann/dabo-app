@@ -433,10 +433,26 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   );
 
   const simplePattern = new RegExp(
-    String.raw`^(.+?)\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$`,
+    String.raw`^(.+?)\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?(?:\s+[A-Z])?$`,
     "i",
   );
 
+  const trailingWeightDetailPattern = new RegExp(
+    String.raw`^(\d+(?:[.,]\d+)?)\s*(kg|g)\s*[x×]\s*(\d+(?:[.,]\d{2}))\s*(?:€\/?(?:kg|g))?$`,
+    "i",
+  );
+
+  const receiptSummaryLinePattern =
+    /^(?:NOMBRE\s+\d+\s+ART\.?|R[ÉE]DUCTION\s+DE\s+PRIX\s+TOTAL\s+\d+(?:[.,]\d{2})|TOTAL\s+BEFORE\s+ROUNDING\s+\d+(?:[.,]\d{2}))(?:\s*(?:€|EUR))?$/i;
+
+  const receiptSubtotal =
+    lines
+      .map((candidate) =>
+        candidate.match(
+          /^(?:SOUS[ -]?TOTAL|SOUSTOT|SUBTOTAL|SUB[ -]?TOTAL)\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$/i,
+        ),
+      )
+      .find((match) => match !== null)?.[1] ?? null;
 
   let pendingDescription: string | null = null;
   let pendingTotalLinesRemaining = 0;
@@ -499,6 +515,15 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
   const dateLikePattern = /\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}\b/;
 
   for (const line of lines) {
+    if (receiptSummaryLinePattern.test(line)) {
+      pendingDescription = null;
+      pendingQuantity = null;
+      pendingPrefixedQuantity = false;
+      pendingUnitPrice = null;
+      pendingStandalonePrices = [];
+      continue;
+    }
+
     if (pendingTotalLinesRemaining > 0) {
       const standaloneTotal = line.match(
         /^(-?\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$/i,
@@ -579,6 +604,28 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
         ),
       });
       continue;
+    }
+
+    const trailingWeightDetailMatch = line.match(trailingWeightDetailPattern);
+
+    if (trailingWeightDetailMatch && items.length > 0) {
+      const previousItem = items[items.length - 1];
+      const quantity = parseReceiptNumber(trailingWeightDetailMatch[1]);
+      const unit = trailingWeightDetailMatch[2].toLowerCase();
+      const unitPrice = roundMoney(
+        parseReceiptNumber(trailingWeightDetailMatch[3]),
+      );
+      const expectedTotal = roundMoney(quantity * unitPrice);
+
+      if (
+        typeof previousItem.totalPrice === "number" &&
+        Math.abs(previousItem.totalPrice - expectedTotal) <= MONEY_TOLERANCE
+      ) {
+        previousItem.quantity = quantity;
+        previousItem.unit = unit;
+        previousItem.unitPrice = unitPrice;
+        continue;
+      }
     }
 
     const unlabeledWeightedMatch = line.match(unlabeledWeightedPattern);
@@ -682,11 +729,45 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
     }
 
     const inlineSubtotalMatch = line.match(
-      /^(?:SOUS[ -]?TOTAL|SOUSTOT|SUBTOTAL|SUB[ -]?TOTAL)\s+\d+(?:[.,]\d{2})\s*(?:€|EUR)?$/i,
+      /^(?:SOUS[ -]?TOTAL|SOUSTOT|SUBTOTAL|SUB[ -]?TOTAL)\s+(\d+(?:[.,]\d{2}))\s*(?:€|EUR)?$/i,
     );
 
     if (inlineSubtotalMatch) {
+      const subtotal = roundMoney(parseReceiptNumber(inlineSubtotalMatch[1]));
+
+      for (let parentIndex = 0; parentIndex < items.length - 1; parentIndex += 1) {
+        const parentTotal = items[parentIndex].totalPrice;
+
+        if (
+          typeof parentTotal !== "number" ||
+          parentTotal <= 0 ||
+          Math.abs(parentTotal - subtotal) > MONEY_TOLERANCE
+        ) {
+          continue;
+        }
+
+        const childTotal = roundMoney(
+          items
+            .slice(parentIndex + 1)
+            .reduce(
+              (sum, item) =>
+                sum +
+                (typeof item.totalPrice === "number" ? item.totalPrice : 0),
+              0,
+            ),
+        );
+
+        if (Math.abs(childTotal - parentTotal) <= MONEY_TOLERANCE) {
+          items.splice(parentIndex + 1);
+          break;
+        }
+      }
+
       pendingDescription = null;
+      pendingQuantity = null;
+      pendingPrefixedQuantity = false;
+      pendingUnitPrice = null;
+      pendingStandalonePrices = [];
       continue;
     }
 
@@ -885,6 +966,37 @@ export function parseReceiptText(rawText: string): ParsedReceiptText {
 
   const alternatingItems =
     reconstructAlternatingPriceDescriptionSequence(lines, totalAmount);
+
+  if (receiptSubtotal !== null && items.length > 1) {
+    const subtotal = roundMoney(parseReceiptNumber(receiptSubtotal));
+
+    for (let parentIndex = 0; parentIndex < items.length - 1; parentIndex += 1) {
+      const parentTotal = items[parentIndex].totalPrice;
+
+      if (
+        typeof parentTotal !== "number" ||
+        parentTotal <= 0 ||
+        Math.abs(parentTotal - subtotal) > MONEY_TOLERANCE
+      ) {
+        continue;
+      }
+
+      const childTotal = roundMoney(
+        items
+          .slice(parentIndex + 1)
+          .reduce(
+            (sum, item) =>
+              sum + (typeof item.totalPrice === "number" ? item.totalPrice : 0),
+            0,
+          ),
+      );
+
+      if (Math.abs(childTotal - parentTotal) <= MONEY_TOLERANCE) {
+        items.splice(parentIndex + 1);
+        break;
+      }
+    }
+  }
 
   const resolvedItems = (alternatingItems ?? items).filter(
     (item) => item.quantity === null || item.quantity === undefined || item.quantity > 0,

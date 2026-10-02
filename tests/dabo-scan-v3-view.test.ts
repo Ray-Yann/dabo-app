@@ -13,7 +13,7 @@ test("DaboScanView utilise exclusivement le pipeline OCR Scan V3", () => {
   );
   assert.match(
     source,
-    /import \{ buildReceiptReviewFromOcr \} from "@\/lib\/dabo-scan-v3-pipeline"/,
+    /import \{[\s\S]*?buildReceiptReviewFromOcr,[\s\S]*?buildReceiptReviewFromOcrPages,[\s\S]*?\} from "@\/lib\/dabo-scan-v3-pipeline"/,
   );
   assert.match(
     source,

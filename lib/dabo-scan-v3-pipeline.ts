@@ -17,6 +17,50 @@ export type ReceiptOcrInput = {
   items: ReceiptOcrGeometryItem[];
 };
 
+export type ReceiptOcrPageInput = {
+  rawText: string;
+  items: ReceiptOcrGeometryItem[];
+};
+
+export type ReceiptOcrPagesInput = {
+  source: ReceiptSource;
+  pages: ReceiptOcrPageInput[];
+};
+
+export function buildReceiptReviewFromOcrPages(
+  input: ReceiptOcrPagesInput,
+): ReceiptReview {
+  const reconstructedPages = input.pages.map((page) => {
+    const reconstructedLines =
+      reconstructReceiptLinesFromOcrGeometry(page.items);
+
+    const reconstructedText = reconstructedLines.join("\n").trim();
+
+    return {
+      reconstructedText,
+      rawText: page.rawText.trim(),
+    };
+  });
+
+  const textForParsing = reconstructedPages
+    .map((page) => page.reconstructedText || page.rawText)
+    .filter(Boolean)
+    .join("\n");
+
+  const rawText = reconstructedPages
+    .map((page) => page.rawText)
+    .filter(Boolean)
+    .join("\n");
+
+  const parsed = parseReceiptText(textForParsing);
+
+  return buildReceiptReview({
+    ...parsed,
+    source: input.source,
+    rawText,
+  });
+}
+
 export function buildReceiptReviewFromOcr(
   input: ReceiptOcrInput,
 ): ReceiptReview {

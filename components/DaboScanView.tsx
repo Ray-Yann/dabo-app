@@ -3,9 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Check, FileImage, LoaderCircle, Upload, X } from "lucide-react";
 import { PaddleOCR } from "@paddleocr/paddleocr-js";
+import { useT } from "@/lib/language-context";
 import DaboScanV3Review from "@/components/DaboScanV3Review";
 import { createScanV3ConfirmationController } from "@/lib/dabo-scan-v3-controller";
-import { buildReceiptReviewFromOcr } from "@/lib/dabo-scan-v3-pipeline";
+import {
+  buildReceiptReviewFromOcr,
+  buildReceiptReviewFromOcrPages,
+} from "@/lib/dabo-scan-v3-pipeline";
+import { renderReceiptPdfPages } from "@/lib/dabo-scan-v3-pdf";
 import type { ReceiptReview } from "@/lib/dabo-scan-v3-review";
 import type { Household, Member } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -25,6 +30,7 @@ export function DaboScanView({
   supabase: SupabaseClient;
   onSaved?: () => void;
 }) {
+  const t = useT();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const ocrRef = useRef<Awaited<ReturnType<typeof PaddleOCR.create>> | null>(null);
@@ -91,8 +97,11 @@ export function DaboScanView({
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setError("Le Scan V3 accepte actuellement les images de tickets.");
+    const isPdf =
+      file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+
+    if (!file.type.startsWith("image/") && !isPdf) {
+      setError(t("scan_v3_file_type_error"));
       return;
     }
 
@@ -104,34 +113,74 @@ export function DaboScanView({
 
     try {
       const ocr = await getOcr();
-      const predictions = await ocr.predict(file);
-      const first = predictions[0];
 
-      if (!first) {
-        throw new Error("PaddleOCR n'a retournÃ© aucun rÃ©sultat.");
+      if (isPdf) {
+        const pageFiles = await renderReceiptPdfPages(file);
+        const pages = [];
+
+        for (const pageFile of pageFiles) {
+          const predictions = await ocr.predict(pageFile);
+          const first = predictions[0];
+
+          if (!first) {
+            continue;
+          }
+
+          const items = first.items ?? [];
+
+          pages.push({
+            rawText: items.map((item) => item.text).join("\n"),
+            items: items.map((item) => ({
+              text: item.text,
+              score: item.score,
+              poly: item.poly,
+            })),
+          });
+        }
+
+        if (
+          pages.length === 0 ||
+          pages.every((page) => page.rawText.trim().length === 0)
+        ) {
+          throw new Error(t("scan_v3_ocr_empty_error"));
+        }
+
+        const nextReview = buildReceiptReviewFromOcrPages({
+          source: isPdf ? "digital_document" : "photo",
+          pages,
+        });
+
+        setReview(nextReview);
+      } else {
+        const predictions = await ocr.predict(file);
+        const first = predictions[0];
+
+        if (!first) {
+          throw new Error(t("scan_v3_ocr_empty_error"));
+        }
+
+        const items = first.items ?? [];
+        const rawText = items.map((item) => item.text).join("\n");
+        const geometryItems = items.map((item) => ({
+          text: item.text,
+          score: item.score,
+          poly: item.poly,
+        }));
+
+        const nextReview = buildReceiptReviewFromOcr({
+          source: isPdf ? "digital_document" : "photo",
+          rawText,
+          items: geometryItems,
+        });
+
+        setReview(nextReview);
       }
-
-      const items = first.items ?? [];
-      const rawText = items.map((item) => item.text).join("\n");
-      const geometryItems = items.map((item) => ({
-        text: item.text,
-        score: item.score,
-        poly: item.poly,
-      }));
-
-      const nextReview = buildReceiptReviewFromOcr({
-        source: "photo",
-        rawText,
-        items: geometryItems,
-      });
-
-      setReview(nextReview);
     } catch (cause) {
       console.error(cause);
       setError(
         cause instanceof Error
           ? cause.message
-          : "Impossible d'analyser ce ticket.",
+          : t("scan_v3_analyze_error"),
       );
     } finally {
       setBusy(false);
@@ -140,7 +189,7 @@ export function DaboScanView({
 
   function getController(): ScanV3Controller {
     if (!shopperId.trim()) {
-      throw new Error("Choisissez la personne qui a effectuÃ© les achats.");
+      throw new Error(t("scan_choose_member"));
     }
 
     if (!controllerRef.current) {
@@ -161,7 +210,7 @@ export function DaboScanView({
     }
 
     if (!shopperId.trim()) {
-      setError("Choisissez la personne qui a effectuÃ© les achats.");
+      setError(t("scan_choose_member"));
       return;
     }
 
@@ -178,7 +227,7 @@ export function DaboScanView({
       setError(
         cause instanceof Error
           ? cause.message
-          : "Impossible d'enregistrer ce ticket.",
+          : t("scan_v3_save_error"),
       );
     } finally {
       setSaving(false);
@@ -201,11 +250,10 @@ export function DaboScanView({
       <div className="rounded-2xl bg-white2 border border-border p-4 space-y-5">
         <div>
           <div className="text-lg font-semibold text-ink">
-            Scanner un ticket
+            {t("courses_scan_receipt")}
           </div>
           <p className="text-sm text-muted mt-1">
-            DABO lit le ticket, puis vous demande de vÃ©rifier les informations
-            avant tout enregistrement.
+            {t("scan_v3_intro")}
           </p>
         </div>
 
@@ -223,7 +271,7 @@ export function DaboScanView({
           ref={fileRef}
           className="hidden"
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           disabled={busy || saving}
           onChange={(event) => choose(event.target.files?.[0] ?? null)}
         />
@@ -237,7 +285,7 @@ export function DaboScanView({
               className="rounded-xl bg-ink text-paper py-3 px-4 flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-60"
             >
               <Camera size={18} />
-              Photographier le ticket
+              {t("scan_v3_take_receipt_photo")}
             </button>
 
             <button
@@ -247,7 +295,7 @@ export function DaboScanView({
               className="rounded-xl border border-border py-3 px-4 flex items-center justify-center gap-2 text-sm disabled:opacity-60"
             >
               <Upload size={18} />
-              Importer une image
+              {t("scan_v3_import_image_or_pdf")}
             </button>
           </div>
         ) : (
@@ -255,7 +303,7 @@ export function DaboScanView({
             {preview ? (
               <img
                 src={preview}
-                alt="Ticket Ã  analyser"
+                alt={t("scan_v3_preview_alt")}
                 className="w-full max-h-80 object-contain bg-paper"
               />
             ) : (
@@ -277,7 +325,7 @@ export function DaboScanView({
                 disabled={busy || saving}
                 onClick={() => choose(null)}
                 className="p-2 rounded-lg hover:bg-paper disabled:opacity-60"
-                aria-label="Retirer le ticket"
+                aria-label={t("scan_v3_remove_receipt")}
               >
                 <X size={18} />
               </button>
@@ -295,10 +343,10 @@ export function DaboScanView({
             {busy ? (
               <>
                 <LoaderCircle size={18} className="animate-spin" />
-                Analyse du ticketâ€¦
+                {t("scan_v3_analyzing")}
               </>
             ) : (
-              "Analyser le ticket"
+              t("scan_v3_analyze")
             )}
           </button>
         ) : null}
@@ -313,7 +361,7 @@ export function DaboScanView({
           <div className="space-y-4 border-t border-border pt-4">
             <label className="block text-sm">
               <span className="block font-medium mb-1">
-                Qui a effectuÃ© les achats ?
+                {t("scan_who_shopped")}
               </span>
               <select
                 value={shopperId}
@@ -321,7 +369,7 @@ export function DaboScanView({
                 onChange={(event) => changeShopper(event.target.value)}
                 className="w-full rounded-lg border border-border bg-white2 px-3 py-2"
               >
-                <option value="">Choisir un membre</option>
+                <option value="">{t("scan_choose_member")}</option>
                 {members.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.first_name}
@@ -333,7 +381,7 @@ export function DaboScanView({
             {saving ? (
               <p role="status" className="text-sm text-muted flex items-center gap-2">
                 <LoaderCircle size={16} className="animate-spin" />
-                Enregistrement des achatsâ€¦
+                {t("scan_saving")}
               </p>
             ) : null}
 
@@ -356,17 +404,17 @@ export function DaboScanView({
           >
             <div className="flex items-center gap-2 font-medium">
               <Check size={18} />
-              Achats enregistrÃ©s
+              {t("scan_v3_saved_title")}
             </div>
             <p className="text-sm text-muted">
-              Le ticket a Ã©tÃ© vÃ©rifiÃ© puis enregistrÃ© dans les Courses.
+              {t("scan_v3_saved_note")}
             </p>
             <button
               type="button"
               onClick={() => choose(null)}
               className="rounded-xl border border-border px-4 py-2 text-sm"
             >
-              Scanner un autre ticket
+              {t("scan_v3_scan_another")}
             </button>
           </div>
         ) : null}

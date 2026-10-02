@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage, useT } from "@/lib/language-context";
+import { translateWithParams } from "@/lib/i18n";
 import {
   applyReceiptItemCorrection,
   applyReceiptReviewCorrection,
@@ -35,6 +37,11 @@ export default function DaboScanV3Review({
   disabled = false,
 }: DaboScanV3ReviewProps) {
   const [review, setReview] = useState(initialReview);
+  const t = useT();
+  const lang = useLanguage();
+
+  const itemAria = (key: string, index: number) =>
+    translateWithParams(lang, key, { index: String(index + 1) });
 
   function updateReceiptMerchant(value: string) {
     setReview(
@@ -86,31 +93,28 @@ export default function DaboScanV3Review({
 
   return (
     <section aria-labelledby="dabo-scan-v3-review-title">
-      <h2 id="dabo-scan-v3-review-title">Vérifier le ticket</h2>
+      <h2 id="dabo-scan-v3-review-title">{t("scan_v3_review_title")}</h2>
 
-      <p>
-        Vérifiez les informations reconnues avant de confirmer. DABO
-        n'enregistrera pas silencieusement une donnée incertaine.
-      </p>
+      <p>{t("scan_v3_review_intro")}</p>
 
       <dl>
         <div>
-          <dt>Commerce</dt>
+          <dt>{t("scan_merchant")}</dt>
           <dd>
             <input
               disabled={disabled}
-              aria-label="Commerce"
+              aria-label={t("scan_merchant")}
               value={review.merchant}
               onChange={(event) => updateReceiptMerchant(event.target.value)}
             />
           </dd>
         </div>
         <div>
-          <dt>Date</dt>
+          <dt>{t("scan_date")}</dt>
           <dd>
             <input
               disabled={disabled}
-              aria-label="Date d'achat"
+              aria-label={t("scan_v3_purchase_date")}
               type="date"
               value={review.purchaseDate ?? ""}
               onChange={(event) => updateReceiptDate(event.target.value)}
@@ -118,11 +122,11 @@ export default function DaboScanV3Review({
           </dd>
         </div>
         <div>
-          <dt>Total du ticket</dt>
+          <dt>{t("scan_v3_receipt_total")}</dt>
           <dd>
             <input
               disabled={disabled}
-              aria-label="Total du ticket"
+              aria-label={t("scan_v3_receipt_total")}
               inputMode="decimal"
               value={numberValue(review.totalAmount)}
               onChange={(event) => updateReceiptTotal(event.target.value)}
@@ -136,16 +140,16 @@ export default function DaboScanV3Review({
         {review.items.map((item, index) => (
           <fieldset key={index}>
             <legend>
-              Article {index + 1}
-              {item.needsReview ? " — à vérifier" : ""}
+              {t("scan_v3_item")} {index + 1}
+              {item.needsReview ? ` — ${t("scan_v3_needs_review")}` : ""}
             </legend>
 
             <label>
-              Article
+              {t("scan_v3_item_label")}
               <input
                 disabled={disabled}
-                aria-label={`Article ${index + 1} — libellé`}
-                value={item.label}
+                aria-label={itemAria("scan_v3_item_label_aria", index)}
+                value={item.labelNeedsReview ? "" : item.label}
                 onChange={(event) =>
                   updateItem(index, "label", event.target.value)
                 }
@@ -153,10 +157,10 @@ export default function DaboScanV3Review({
             </label>
 
             <label>
-              Quantité / poids
+              {t("scan_v3_quantity_weight")}
               <input
                 disabled={disabled}
-                aria-label={`Article ${index + 1} — quantité ou poids`}
+                aria-label={itemAria("scan_v3_item_quantity_aria", index)}
                 inputMode="decimal"
                 value={numberValue(item.quantity)}
                 onChange={(event) =>
@@ -166,10 +170,10 @@ export default function DaboScanV3Review({
             </label>
 
             <label>
-              Unité
+              {t("scan_v3_unit")}
               <input
                 disabled={disabled}
-                aria-label={`Article ${index + 1} — unité`}
+                aria-label={itemAria("scan_v3_item_unit_aria", index)}
                 value={item.unit ?? ""}
                 onChange={(event) =>
                   updateItem(index, "unit", event.target.value)
@@ -178,10 +182,10 @@ export default function DaboScanV3Review({
             </label>
 
             <label>
-              Prix unitaire
+              {t("scan_v3_unit_price")}
               <input
                 disabled={disabled}
-                aria-label={`Article ${index + 1} — prix unitaire`}
+                aria-label={itemAria("scan_v3_item_unit_price_aria", index)}
                 inputMode="decimal"
                 value={numberValue(item.unitPrice)}
                 onChange={(event) =>
@@ -191,10 +195,10 @@ export default function DaboScanV3Review({
             </label>
 
             <label>
-              Total de la ligne
+              {t("scan_v3_line_total")}
               <input
                 disabled={disabled}
-                aria-label={`Article ${index + 1} — total`}
+                aria-label={itemAria("scan_v3_item_total_aria", index)}
                 inputMode="decimal"
                 value={numberValue(item.totalPrice)}
                 onChange={(event) =>
@@ -211,7 +215,7 @@ export default function DaboScanV3Review({
                   setReview(confirmReceiptReviewItem(review, index));
                 }}
               >
-                Valider cet article
+                {t("scan_v3_validate_item")}
               </button>
             ) : null}
           </fieldset>
@@ -219,12 +223,9 @@ export default function DaboScanV3Review({
       </div>
 
       {!review.canConfirm ? (
-        <p role="status">
-          Vérification requise : corrigez les informations signalées avant de
-          confirmer ce ticket.
-        </p>
+        <p role="status">{t("scan_v3_review_required")}</p>
       ) : (
-        <p role="status">Le ticket est cohérent et prêt à être confirmé.</p>
+        <p role="status">{t("scan_v3_review_ready")}</p>
       )}
 
       <button
@@ -236,7 +237,7 @@ export default function DaboScanV3Review({
           }
         }}
       >
-        Confirmer les achats
+        {t("scan_v3_confirm_purchases")}
       </button>
     </section>
   );

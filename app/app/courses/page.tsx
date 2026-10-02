@@ -17,6 +17,7 @@ import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { NativeNameInput } from "@/components/NativeNameInput";
+import { DaboScanView } from "@/components/DaboScanView";
 import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
@@ -104,6 +105,7 @@ export default function CoursesPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [householdStores, setHouseholdStores] = useState<HouseholdStore[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [showScanV3, setShowScanV3] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportBusy, setBulkImportBusy] = useState(false);
@@ -316,6 +318,11 @@ export default function CoursesPage() {
       setItems(mergePendingShoppingChanges(snapshot.items, queue, household.id));
     }
   }, [household, supabase]);
+
+  const onScanV3Saved = useCallback(async () => {
+    await loadItems();
+    void loadShoppingFinancePrompt();
+  }, [loadItems, loadShoppingFinancePrompt]);
 
   const syncPendingShoppingChanges = useCallback(async () => {
     if (!household || !navigator.onLine) return;
@@ -938,13 +945,48 @@ export default function CoursesPage() {
           <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
         </div>
         {!offlineShoppingMode && (
-          <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
-            <Plus size={15} /> {t("add")}
-          </button>
+          <div className="relative z-[1] flex flex-col items-end gap-2">
+            <button ref={headerAddButtonRef} onClick={() => { setEditingId(null); setShowAdd(true); }} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5">
+              <Plus size={15} /> {t("add")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowScanV3(true)}
+              className="text-xs font-medium text-muted underline-offset-4 hover:underline"
+            >
+              {t("courses_scan_receipt")}
+            </button>
+          </div>
         )}
       </div>
 
       <IntroTip id="courses" title={t("intro_courses_title")} text={t("intro_courses")} />
+
+      {!offlineShoppingMode && showScanV3 && household && me && (
+        <div className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="font-serif text-lg text-ink">{t("courses_scan_receipt_title")}</div>
+              <div className="mt-1 text-xs text-muted">{t("courses_scan_receipt_help")}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowScanV3(false)}
+              className="shrink-0 rounded-full p-2 text-muted"
+              aria-label={t("close")}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <DaboScanView
+            household={household}
+            me={me}
+            members={members}
+            supabase={supabase}
+            onSaved={onScanV3Saved}
+          />
+        </div>
+      )}
 
       {(offlineShoppingMode || isSyncingOfflineChanges || pendingOfflineChanges > 0) && (
         <div

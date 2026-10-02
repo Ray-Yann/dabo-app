@@ -397,6 +397,100 @@ test("Scan V3 n'invente pas de prix unitaire quand une quantite prefixee n'a qu'
   assert.equal(receipt.totalAmount, 4.99);
 });
 
+
+test("Scan V3 reconstruit le ticket Lidl reel avec produit au poids et reduction globale", () => {
+  const receipt = parseReceiptText([
+    "LIDL",
+    "Gosselies",
+    "OIGNONS 3P ROUGES-ROSE 1,35 B",
+    "TOMATES ROMA 2,69 B",
+    "NUTELLA 3,39 B",
+    "RAISINS FONCES SANS PEPIN 2,19 B",
+    "AVOCAT RTE 2,99 B",
+    "Réduction -0,20",
+    "BOSTO BASMATI RIZ 5,15 B",
+    "POIVRON ROUGE 1,87 B",
+    "0,568 kg x 3,29 €/kg",
+    "OEUFS PLEIN AIR 3,99 B",
+    "SUCRE FIN 0,69 B",
+    "Nombre 9 art.",
+    "A payer 24,11",
+    "Réduction de prix total 0,20",
+    "01.10.26 12:52",
+  ].join("\n"));
+
+  assert.equal(receipt.purchaseDate, "2026-10-01");
+  assert.equal(receipt.totalAmount, 24.11);
+  assert.equal(receipt.items.length, 9);
+
+  const pepper = receipt.items.find((item) =>
+    item.label.includes("POIVRON ROUGE"),
+  );
+
+  assert.ok(pepper);
+  assert.equal(pepper.quantity, 0.568);
+  assert.equal(pepper.unit, "kg");
+  assert.equal(pepper.unitPrice, 3.29);
+  assert.equal(pepper.totalPrice, 1.87);
+
+  assert.equal(receipt.discounts.length, 1);
+  assert.equal(receipt.discounts[0].amount, -0.20);
+
+  const consistency = validateReceiptConsistency(receipt);
+
+  assert.equal(consistency.calculatedTotal, 24.11);
+  assert.equal(consistency.isConsistent, true);
+  assert.equal(consistency.needsReview, false);
+});
+
+test("Scan V3 reconstruit le ticket McDonalds reel avec remise arrondi et modificateurs gratuits", () => {
+  const receipt = parseReceiptText([
+    "McDonald's Gosselies",
+    "01/10/2026 13:01",
+    "1 MM FOF De Luxe 9,30",
+    "1 FOF De Luxe 6,90",
+    "1 Moyen Frites 0,00",
+    "1 Sans sauce 0,00",
+    "1 Fanta Moyen McMenu 2,40",
+    "-1 Glacon 0,00",
+    "1 Sans extra 0,00",
+    "SUBTOTAL 9,30",
+    "30% Off -2,79",
+    "TOTAL before rounding 6,51",
+    "ROUNDING -0,01",
+    "TOTAL 6,50",
+  ].join("\n"));
+
+  assert.equal(receipt.purchaseDate, "2026-10-01");
+  assert.equal(receipt.totalAmount, 6.50);
+
+  assert.equal(
+    receipt.items.some((item) => item.label.includes("Sans sauce")),
+    false,
+  );
+  assert.equal(
+    receipt.items.some((item) => item.label.includes("Glacon")),
+    false,
+  );
+  assert.equal(
+    receipt.items.some((item) => item.label.includes("Sans extra")),
+    false,
+  );
+
+  assert.ok(
+    receipt.discounts.some((adjustment) => adjustment.amount === -2.79),
+  );
+  assert.ok(
+    receipt.discounts.some((adjustment) => adjustment.amount === -0.01),
+  );
+
+  const consistency = validateReceiptConsistency(receipt);
+
+  assert.equal(consistency.calculatedTotal, 6.50);
+  assert.equal(consistency.isConsistent, true);
+  assert.equal(consistency.needsReview, false);
+});
+
 test("Scan V3 realigne une sequence OCR alternee quand les prix precedent les descriptions", () => {
   const receipt = parseReceiptText([
     "MAGASIN",

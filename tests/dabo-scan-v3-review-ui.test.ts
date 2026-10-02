@@ -46,7 +46,7 @@ test("Scan V3 Review UI permet de valider explicitement une ligne OCR vÃ©rifi�
   const source = fs.readFileSync(componentPath, "utf8");
 
   assert.match(source, /confirmReceiptReviewItem/);
-  assert.match(source, /Valider cet article/);
+  assert.match(source, /scan_v3_validate_item/);
   assert.match(source, /item\.needsReview/);
   assert.match(source, /item\.labelNeedsReview/);
 });
@@ -56,7 +56,7 @@ test("Scan V3 Review UI permet de corriger le total global du ticket", () => {
   const source = fs.readFileSync(componentPath, "utf8");
 
   assert.match(source, /applyReceiptReviewCorrection/);
-  assert.match(source, /aria-label=["`]Total du ticket["`]/);
+  assert.match(source, /scan_v3_receipt_total/);
   assert.match(source, /updateReceiptTotal/);
   assert.match(source, /totalAmount/);
 });
@@ -65,8 +65,8 @@ test("Scan V3 Review UI permet de corriger le total global du ticket", () => {
 test("Scan V3 Review UI permet de corriger le commerce et la date du ticket", () => {
   const source = fs.readFileSync(componentPath, "utf8");
 
-  assert.match(source, /aria-label=["`]Commerce["`]/);
-  assert.match(source, /aria-label=["`]Date d'achat["`]/);
+  assert.match(source, /scan_merchant/);
+  assert.match(source, /scan_v3_purchase_date/);
   assert.match(source, /updateReceiptMerchant/);
   assert.match(source, /updateReceiptDate/);
   assert.match(source, /applyReceiptReviewCorrection/);
