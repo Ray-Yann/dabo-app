@@ -60,6 +60,19 @@ test("Scan V3 limite PaddleOCR à un thread WASM pour réduire le pic mémoire m
 });
 
 
+test("Scan V3 utilise les modèles PP-OCRv6 tiny pour réduire la mémoire d'initialisation mobile", () => {
+  assert.match(
+    viewSource,
+    /textDetectionModelName\s*:\s*["']PP-OCRv6_tiny_det["']/,
+    "Scan V3 doit utiliser le modèle de détection PP-OCRv6 tiny",
+  );
+  assert.match(
+    viewSource,
+    /textRecognitionModelName\s*:\s*["']PP-OCRv6_tiny_rec["']/,
+    "Scan V3 doit utiliser le modèle de reconnaissance PP-OCRv6 tiny",
+  );
+});
+
 test("Scan V3 distingue un échec d'initialisation OCR d'un échec de prédiction", () => {
   assert.match(
     viewSource,
