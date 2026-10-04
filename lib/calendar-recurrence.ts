@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "./types";
+﻿import type { CalendarEvent } from "./types";
 
 export type CalendarRecurrenceFrequency = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
@@ -14,7 +14,7 @@ export function isRecurringCalendarEvent(e: RecurrenceLike): boolean { return no
 export function occurrenceOnOrAfter(e: RecurrenceLike, from = new Date()): Date | null {
   const anchor=civil(e.event_date); const target=startOfDay(from); const {frequency,interval,end}=normalized(e);
   let out: Date;
-  if (frequency === "none") out=anchor;
+  if (frequency === "none") { if (anchor < target) return null; out=anchor; }
   else if (frequency === "daily") { const diff=Math.max(0,daysBetween(anchor,target)); out=new Date(anchor); out.setDate(anchor.getDate()+Math.ceil(diff/interval)*interval); }
   else if (frequency === "weekly") { const step=7*interval; const diff=Math.max(0,daysBetween(anchor,target)); out=new Date(anchor); out.setDate(anchor.getDate()+Math.ceil(diff/step)*step); }
   else if (frequency === "monthly") { const diff=Math.max(0,monthsBetween(anchor,target)); out=addMonthsClamped(anchor,Math.ceil(diff/interval)*interval); if(out<target) out=addMonthsClamped(anchor,(Math.ceil(diff/interval)+1)*interval); }
@@ -25,3 +25,4 @@ export function occurrencesInRange(e: RecurrenceLike, start: Date, end: Date, ma
   const result: Date[]=[]; let cursor=startOfDay(start); for(let i=0;i<max;i++){ const next=occurrenceOnOrAfter(e,cursor); if(!next || next>end) break; result.push(next); cursor=new Date(next); cursor.setDate(cursor.getDate()+1); } return result;
 }
 export function recurrenceSummary(e: RecurrenceLike, unit:(f:CalendarRecurrenceFrequency,n:number)=>string): string { const {frequency,interval}=normalized(e); return unit(frequency,interval); }
+

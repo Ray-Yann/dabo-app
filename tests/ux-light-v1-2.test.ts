@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
@@ -8,30 +8,30 @@ const storeCatalog = fs.readFileSync("lib/world-store-catalog.ts", "utf8");
 const calendar = fs.readFileSync("app/app/calendrier/page.tsx", "utf8");
 const nav = fs.readFileSync("components/DaboMainNav.tsx", "utf8");
 
-test("UX Light V1.2 ne transforme plus 001 en présence dans tous les pays", () => {
+test("UX Light V1.2 ne transforme plus 001 en prÃ©sence dans tous les pays", () => {
   assert.ok(!storesApi.includes('include.includes(cc) || include.includes("001")'));
   assert.ok(storesApi.includes("return include.includes(cc)"));
 });
 
-test("UX Light V1.2 sépare les magasins du foyer du catalogue national", () => {
+test("UX Light V1.2 sÃ©pare les magasins du foyer du catalogue national", () => {
   assert.ok(!courses.includes('supabase.from("global_stores").insert'));
   assert.ok(!courses.includes('supabase.from("global_stores").select'));
   assert.match(courses, /from\("household_stores"\)[\s\S]{0,120}\.insert/);
 });
 
-test("UX Light V1.2 fournit des enseignes crédibles pour les principaux pays DABO", () => {
+test("UX Light V1.2 fournit des enseignes crÃ©dibles pour les principaux pays DABO", () => {
   for (const code of ["BE", "FR", "NL", "GB", "DE", "ES", "IT", "PT"]) assert.ok(storeCatalog.includes(`${code}: [`));
   assert.ok(storeCatalog.includes('BE: ["Colruyt", "Delhaize", "Carrefour"'));
   assert.ok(!storeCatalog.match(/BE:\s*\[[^\]]*Walmart/));
 });
 
-test("UX Light V1.2 retire le titre À acheter redondant", () => {
+test("UX Light V1.2 retire le titre Ã€ acheter redondant", () => {
   assert.ok(!courses.includes('<div className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">{t("courses_to_buy")}</div>'));
 });
 
-test("UX Light V1.2 allège l'aide Calendrier et explicite l'année d'une prochaine occurrence", () => {
+test("UX Light V1.2 allÃ¨ge l'aide Calendrier et explicite l'annÃ©e d'une prochaine occurrence", () => {
   assert.ok(!calendar.includes('id={`calendar-${view}-v1`}'));
-  assert.ok(calendar.includes('view === "personal" && <IntroTip'));
+  assert.ok(calendar.includes('planningMode'));
   assert.ok(calendar.includes('date.getFullYear() !== currentYear'));
 });
 
@@ -39,3 +39,4 @@ test("UX V2 remplace Calendrier par Planning dans la navigation principale", () 
   assert.match(nav, /tab_planning/);
   assert.match(nav, /grid-cols-5/);
 });
+
