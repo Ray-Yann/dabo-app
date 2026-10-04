@@ -18,17 +18,19 @@ import {
 } from "@/lib/calendar-completions";
 import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
+import { addMinutesToTime, durationMinutes, taskVisibleInPlanningScope, type PlanningTaskSlot } from "@/lib/planning-v2";
 import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { readCalendarInboxPrefill } from "@/lib/household-inbox";
-import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users, ListChecks, ReceiptText } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users, ListChecks, ReceiptText, Clock3, UserRoundCheck, Sparkles } from "lucide-react";
 
 type CalendarView = "upcoming" | "month" | "personal";
 type PlanningMode = "day" | "week" | "month";
 type PlanningScope = "all" | "me" | "household";
+type PlanningResponsibility = { id:string; event_id:string; label:string; responsibility_kind:"preparation"|"transport"|"decision"; assigned_to:string|null; due_date:string|null; due_time:string|null; status:"pending"|"done" };
 type PlanningBill = { id: string; label: string; due_on: string; status: "pending" | "paid" | "cancelled"; amount: number | null; currency: string };
 
 export default function CalendarPage() {
-  const { loading, household, me, supabase } = useHousehold();
+  const { loading, household, me, members, supabase } = useHousehold();
   const t = useT();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [completedOccurrences, setCompletedOccurrences] = useState<CalendarEventCompletion[]>([]);
@@ -37,6 +39,11 @@ export default function CalendarPage() {
   const [planningScope, setPlanningScope] = useState<PlanningScope>("all");
   const [planningTasks, setPlanningTasks] = useState<Task[]>([]);
   const [planningBills, setPlanningBills] = useState<PlanningBill[]>([]);
+  const [planningSlots, setPlanningSlots] = useState<PlanningTaskSlot[]>([]);
+  const [planningResponsibilities, setPlanningResponsibilities] = useState<PlanningResponsibility[]>([]);
+  const [planningDate, setPlanningDate] = useState(() => todayCivilDate());
+  const [slotTaskId, setSlotTaskId] = useState<string | null>(null);
+  const [slotTime, setSlotTime] = useState("18:00");
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
   const [newVisibility, setNewVisibility] = useState<"household" | "personal">("household");
@@ -45,6 +52,12 @@ export default function CalendarPage() {
   const [eventDate, setEventDate] = useState("");
   const [eventKind, setEventKind] = useState<"event" | "reminder">("event");
   const [eventTime, setEventTime] = useState("");
+  const [eventEndTime, setEventEndTime] = useState("");
+  const [responsibilityLabel, setResponsibilityLabel] = useState("");
+  const [responsibilityAssignee, setResponsibilityAssignee] = useState("");
+  const [responsibilityEventId, setResponsibilityEventId] = useState<string | null>(null);
+  const [responsibilityDraft, setResponsibilityDraft] = useState("");
+  const [responsibilityDraftAssignee, setResponsibilityDraftAssignee] = useState("");
   const [notes, setNotes] = useState("");
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
@@ -56,6 +69,7 @@ export default function CalendarPage() {
   const [editDate, setEditDate] = useState("");
   const [editEventKind, setEditEventKind] = useState<"event" | "reminder">("event");
   const [editEventTime, setEditEventTime] = useState("");
+  const [editEventEndTime, setEditEventEndTime] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editRecurrenceFrequency, setEditRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
   const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(1);
@@ -103,13 +117,17 @@ export default function CalendarPage() {
 
   async function loadEvents() {
     if (!household) return;
-    const [{ data, error }, taskResult, billResult] = await Promise.all([
+    const [{ data, error }, taskResult, billResult, slotResult, responsibilityResult] = await Promise.all([
       supabase.from("calendar_events").select("*").eq("household_id", household.id),
       supabase.from("tasks").select("id,household_id,routine_id,name,weight_points,duration_key,effort_level,assigned_to,status,urgent,due_date,completed_at,created_at").eq("household_id", household.id).eq("status", "pending"),
       supabase.from("finance_bills").select("id,label,due_on,status,amount,currency").eq("household_id", household.id).eq("status", "pending"),
+      supabase.from("planning_task_slots").select("id,household_id,task_id,occurrence_date,start_time,end_time,created_by").eq("household_id", household.id),
+      supabase.from("calendar_event_responsibilities").select("id,event_id,label,responsibility_kind,assigned_to,due_date,due_time,status").eq("household_id", household.id).eq("status", "pending"),
     ]);
     setPlanningTasks((taskResult.data as Task[]) || []);
     setPlanningBills((billResult.data as PlanningBill[]) || []);
+    setPlanningSlots((slotResult.data as PlanningTaskSlot[]) || []);
+    setPlanningResponsibilities((responsibilityResult.data as PlanningResponsibility[]) || []);
     if (error) {
       setErrorMessage(t("calendar_error_load"));
       return;
@@ -145,7 +163,7 @@ export default function CalendarPage() {
 
   async function addEvent() {
     if (!title.trim() || !eventDate || !household || !me) return;
-    const { error } = await supabase.from("calendar_events").insert({
+    const { data: createdEvent, error } = await supabase.from("calendar_events").insert({
       household_id: household.id,
       created_by: me.id,
       title: title.trim(),
@@ -155,6 +173,7 @@ export default function CalendarPage() {
       recurrence_interval: recurrenceInterval,
       recurrence_end_date: recurrenceEndDate || null,
       event_time: eventTime || null,
+      end_time: eventEndTime || null,
       time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       all_day: !eventTime,
       notes: notes.trim() || null,
@@ -162,10 +181,17 @@ export default function CalendarPage() {
       reminder_days_before: reminderDays,
       visibility: newVisibility,
       private_owner_id: newVisibility === "personal" ? me.id : null,
-    });
+    }).select("id").single();
     if (error) {
       setErrorMessage(t("calendar_error_save"));
       return;
+    }
+    if (createdEvent?.id && responsibilityLabel.trim() && newVisibility === "household") {
+      await supabase.from("calendar_event_responsibilities").insert({
+        household_id: household.id, event_id: createdEvent.id, label: responsibilityLabel.trim(),
+        responsibility_kind: "preparation", assigned_to: responsibilityAssignee || null,
+        due_date: eventDate, due_time: eventTime || null, created_by: me.id,
+      });
     }
     void trackAcquisitionEvent("first_value", { householdId: household.id, valueType: "calendar" });
     if (completeFirstValueGuidance("calendar")) {
@@ -177,6 +203,9 @@ export default function CalendarPage() {
     setEventDate("");
     setEventKind("event");
     setEventTime("");
+    setEventEndTime("");
+    setResponsibilityLabel("");
+    setResponsibilityAssignee("");
     setNotes("");
     setRecurrenceFrequency("none");
     setRecurrenceInterval(1);
@@ -243,6 +272,7 @@ export default function CalendarPage() {
     setEditDate(event.event_date);
     setEditEventKind(event.event_kind || "event");
     setEditEventTime(event.event_time?.slice(0, 5) || "");
+    setEditEventEndTime(event.end_time?.slice(0, 5) || "");
     setEditNotes(event.notes || "");
     setEditRecurrenceFrequency(event.recurrence_frequency || (event.recurring ? "yearly" : "none"));
     setEditRecurrenceInterval(event.recurrence_interval || 1);
@@ -279,6 +309,7 @@ export default function CalendarPage() {
         recurrence_interval: editRecurrenceInterval,
         recurrence_end_date: editRecurrenceEndDate || null,
         event_time: editEventTime || null,
+        end_time: editEventEndTime || null,
         time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         all_day: !editEventTime,
         notes: editNotes.trim() || null,
@@ -361,8 +392,7 @@ export default function CalendarPage() {
 
   const planningTaskItems = planningTasks
     .filter((task) => Boolean(task.due_date))
-    .filter((task) => planningScope !== "me" || task.assigned_to === me?.id)
-    .filter((task) => planningScope !== "household" || task.assigned_to !== me?.id)
+    .filter((task) => taskVisibleInPlanningScope(task, planningScope, me?.id))
     .filter((task) => {
       const date = new Date(`${task.due_date}T12:00:00`);
       const delta = daysUntil(date);
@@ -377,6 +407,43 @@ export default function CalendarPage() {
       return planningMode === "day" ? delta === 0 : planningMode === "week" ? delta >= 0 && delta <= 6 : true;
     })
     .sort((a,b) => a.due_on.localeCompare(b.due_on));
+
+  const selectedPlanningDate = new Date(`${planningDate}T12:00:00`);
+  const dayStart = new Date(`${planningDate}T00:00:00`);
+  const dayEnd = new Date(`${planningDate}T23:59:59`);
+  const dayEvents = visibleEvents.flatMap((event) => occurrencesInRange(event, dayStart, dayEnd).map((occurrence) => ({ ...event, occurrence, occurrenceDate: calendarOccurrenceDate(occurrence) })))
+    .filter((event) => !isCalendarOccurrenceCompleted(completedOccurrenceKeys, event.id, event.occurrenceDate))
+    .sort((a,b) => (a.event_time || "99:99").localeCompare(b.event_time || "99:99"));
+  const daySlots = planningSlots.filter((slot) => slot.occurrence_date === planningDate).sort((a,b) => a.start_time.localeCompare(b.start_time));
+  const dayTaskIds = new Set(daySlots.map((slot) => slot.task_id));
+  const dayUnscheduledTasks = planningTasks.filter((task) => task.due_date === planningDate && !dayTaskIds.has(task.id) && taskVisibleInPlanningScope(task, planningScope, me?.id));
+  const dayBills = planningBills.filter((bill) => bill.due_on === planningDate && planningScope !== "me");
+
+  function movePlanningDay(delta:number) {
+    const next = new Date(`${planningDate}T12:00:00`); next.setDate(next.getDate()+delta);
+    setPlanningDate(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,"0")}-${String(next.getDate()).padStart(2,"0")}`);
+  }
+
+  async function addResponsibility(eventId:string) {
+    if (!household || !me || !responsibilityDraft.trim()) return;
+    const { error } = await supabase.from("calendar_event_responsibilities").insert({ household_id:household.id, event_id:eventId, label:responsibilityDraft.trim(), responsibility_kind:"preparation", assigned_to:responsibilityDraftAssignee || null, due_date:planningDate, created_by:me.id });
+    if (error) { setErrorMessage(t("calendar_error_save")); return; }
+    setResponsibilityDraft(""); setResponsibilityDraftAssignee(""); setResponsibilityEventId(null); await loadEvents();
+  }
+
+  async function completeResponsibility(id:string) {
+    const { error } = await supabase.from("calendar_event_responsibilities").update({ status:"done" }).eq("id",id);
+    if (error) { setErrorMessage(t("calendar_error_save")); return; }
+    await loadEvents();
+  }
+
+  async function saveTaskSlot(task: Task) {
+    if (!household || !me || !slotTime) return;
+    const end = addMinutesToTime(slotTime, durationMinutes(task.duration_key));
+    const { error } = await supabase.from("planning_task_slots").upsert({ household_id:household.id, task_id:task.id, occurrence_date:planningDate, start_time:slotTime, end_time:end, created_by:me.id }, { onConflict:"task_id,occurrence_date" });
+    if (error) { setErrorMessage(t("calendar_error_save")); return; }
+    setSlotTaskId(null); await loadEvents();
+  }
 
   const monthDate = monthCursor;
   const monthYear = monthDate.getFullYear();
@@ -396,6 +463,11 @@ export default function CalendarPage() {
   );
   const householdEventDays = new Set(monthEvents.filter((event) => event.visibility === "household").map((event) => event.monthOccurrence.getDate()));
   const personalEventDays = new Set(monthEvents.filter((event) => event.visibility === "personal").map((event) => event.monthOccurrence.getDate()));
+  const monthTaskItems = planningTasks.filter((task) => task.due_date?.startsWith(`${monthYear}-${String(monthIndex+1).padStart(2,"0")}-`) && taskVisibleInPlanningScope(task, planningScope, me?.id));
+  const monthBillItems = planningBills.filter((bill) => bill.due_on.startsWith(`${monthYear}-${String(monthIndex+1).padStart(2,"0")}-`) && planningScope !== "me");
+  const actionDays = new Set([...monthTaskItems.map((task)=>Number(task.due_date?.slice(-2))), ...monthBillItems.map((bill)=>Number(bill.due_on.slice(-2)))]);
+  const selectedMonthTasks = selectedMonthDay === null ? [] : monthTaskItems.filter((task)=>Number(task.due_date?.slice(-2))===selectedMonthDay);
+  const selectedMonthBills = selectedMonthDay === null ? [] : monthBillItems.filter((bill)=>Number(bill.due_on.slice(-2))===selectedMonthDay);
   const selectedMonthEvents = selectedMonthDay === null
     ? []
     : monthEvents
@@ -442,6 +514,28 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {planningMode === "day" && (
+        <section className="dabo-day-planner" aria-label={t("planning_day_agenda")}>
+          <div className="dabo-day-nav">
+            <button type="button" onClick={() => movePlanningDay(-1)} aria-label={t("planning_previous_day")}><ChevronLeft size={18}/></button>
+            <button type="button" className="dabo-day-date" onClick={() => setPlanningDate(todayCivilDate())}>
+              <strong>{new Intl.DateTimeFormat(locale,{weekday:"long",day:"numeric",month:"long"}).format(selectedPlanningDate)}</strong>
+              <span>{planningDate === todayCivilDate() ? t("event_today") : t("planning_back_today")}</span>
+            </button>
+            <button type="button" onClick={() => movePlanningDay(1)} aria-label={t("planning_next_day")}><ChevronRight size={18}/></button>
+          </div>
+          <div className="dabo-day-summary"><Sparkles size={16}/><span>{t("planning_day_summary")}</span><strong>{dayEvents.length + daySlots.length + dayUnscheduledTasks.length + dayBills.length}</strong></div>
+          <div className="dabo-timeline">
+            {[...dayEvents.map((event) => ({ kind:"event" as const, time:event.event_time?.slice(0,5)||null, sort:event.event_time||"99:98", event })), ...daySlots.map((slot) => ({ kind:"task" as const, time:slot.start_time.slice(0,5), sort:slot.start_time, slot }))].sort((a,b)=>a.sort.localeCompare(b.sort)).map((item) => {
+              if (item.kind === "event") { const event=item.event; const responsibilities=planningResponsibilities.filter((r)=>r.event_id===event.id); return <article key={`timeline-event-${event.id}-${event.occurrenceDate}`} className="dabo-timeline-item"><div className="dabo-timeline-time">{item.time || t("planning_all_day")}</div><div className="dabo-timeline-card"><div className="dabo-timeline-card-top"><span className="dabo-timeline-icon"><CalendarDays size={16}/></span><div><strong>{event.title}</strong><small>{event.event_time ? `${event.event_time.slice(0,5)}${event.end_time ? `–${event.end_time.slice(0,5)}`:""}` : t("planning_all_day")}</small></div></div>{responsibilities.map((r)=><div key={r.id} className="dabo-responsibility"><button type="button" onClick={()=>completeResponsibility(r.id)} className="dabo-responsibility-check" aria-label={t("calendar_mark_done")}/><span>{r.label}</span><b>{members.find((m)=>m.id===r.assigned_to)?.first_name || t("planning_to_decide")}</b></div>)}{event.visibility === "household" && (responsibilityEventId===event.id ? <div className="dabo-responsibility-editor"><input value={responsibilityDraft} onChange={(e)=>setResponsibilityDraft(e.target.value)} placeholder={t("planning_prepare_placeholder")}/><select value={responsibilityDraftAssignee} onChange={(e)=>setResponsibilityDraftAssignee(e.target.value)}><option value="">{t("planning_to_decide")}</option>{members.map((member)=><option key={member.id} value={member.id}>{member.first_name}</option>)}</select><div><button type="button" onClick={()=>addResponsibility(event.id)} disabled={!responsibilityDraft.trim()}>{t("add")}</button><button type="button" onClick={()=>setResponsibilityEventId(null)}>{t("cancel")}</button></div></div> : <button type="button" onClick={()=>setResponsibilityEventId(event.id)} className="dabo-add-responsibility">+ {t("planning_add_preparation")}</button>)}</div></article>; }
+              const task=planningTasks.find((candidate)=>candidate.id===item.slot.task_id); if(!task) return null; return <article key={`timeline-task-${item.slot.id}`} className="dabo-timeline-item"><div className="dabo-timeline-time">{item.time}</div><button type="button" onClick={()=>window.location.assign("/app/taches")} className="dabo-timeline-card dabo-timeline-task"><div className="dabo-timeline-card-top"><span className="dabo-timeline-icon"><ListChecks size={16}/></span><div><strong>{task.name}</strong><small>{item.slot.start_time.slice(0,5)}{item.slot.end_time ? `–${item.slot.end_time.slice(0,5)}`:""}{task.assigned_to ? ` · ${members.find((m)=>m.id===task.assigned_to)?.first_name || ""}`:""}</small></div></div></button></article>;
+            })}
+            {dayEvents.length===0 && daySlots.length===0 && <div className="dabo-free-day"><Clock3 size={18}/><div><strong>{t("planning_free_day")}</strong><span>{t("planning_free_day_hint")}</span></div></div>}
+          </div>
+          {(dayUnscheduledTasks.length>0 || dayBills.length>0) && <div className="dabo-unscheduled"><div className="dabo-planning-section-heading"><span>{t("planning_to_place")}</span><span>{dayUnscheduledTasks.length+dayBills.length}</span></div>{dayUnscheduledTasks.map((task)=><div key={`unscheduled-${task.id}`} className="dabo-place-row"><div><strong>{task.name}</strong><small>{durationMinutes(task.duration_key) ? `${durationMinutes(task.duration_key)} min` : t("planning_task")}{task.assigned_to ? ` · ${members.find((m)=>m.id===task.assigned_to)?.first_name || ""}`:""}</small></div>{slotTaskId===task.id ? <div className="dabo-slot-editor"><input type="time" value={slotTime} onChange={(e)=>setSlotTime(e.target.value)}/><button type="button" onClick={()=>saveTaskSlot(task)}>{t("planning_place")}</button></div> : <button type="button" onClick={()=>setSlotTaskId(task.id)}>{t("planning_plan")}</button>}</div>)}{dayBills.map((bill)=><button key={`day-bill-${bill.id}`} type="button" onClick={()=>window.location.assign("/app/finances")} className="dabo-place-row"><div><strong>{bill.label}</strong><small>{t("planning_bill")}</small></div><ReceiptText size={16}/></button>)}</div>}
+        </section>
+      )}
+
       {planningMode === "month" && (
         <section className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-4">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -479,10 +573,11 @@ export default function CalendarPage() {
                   }`}
                 >
                   {day}
-                  {(householdEventDays.has(day) || personalEventDays.has(day)) && (
+                  {(householdEventDays.has(day) || personalEventDays.has(day) || actionDays.has(day)) && (
                     <span className="absolute bottom-1 flex gap-0.5" aria-hidden="true">
                       {householdEventDays.has(day) && <span className={`h-1 w-1 rounded-full ${isToday && !isSelected ? "bg-paper" : "bg-mustard"}`} />}
                       {personalEventDays.has(day) && <span className="h-1 w-1 rounded-full border border-muted bg-paper" />}
+                      {actionDays.has(day) && <span className="h-1 w-1 rounded-full bg-ink/55" />}
                     </span>
                   )}
                 </button>
@@ -494,7 +589,7 @@ export default function CalendarPage() {
               <div className="text-sm font-semibold capitalize text-ink">
                 {new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(selectedMonthDate)}
               </div>
-              {selectedMonthEvents.length === 0 ? (
+              {selectedMonthEvents.length === 0 && selectedMonthTasks.length === 0 && selectedMonthBills.length === 0 ? (
                 <p className="mt-2 text-sm text-muted">{t("calendar_month_no_event")}</p>
               ) : (
                 <div className="mt-2 space-y-2">
@@ -542,6 +637,8 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
+                  {selectedMonthTasks.map((task)=><button key={`month-task-${task.id}`} type="button" onClick={()=>window.location.assign("/app/taches")} className="dabo-month-compact"><ListChecks size={14}/><span><strong>{task.name}</strong><small>{t("planning_task")}{task.assigned_to ? ` · ${members.find((m)=>m.id===task.assigned_to)?.first_name || ""}`:""}</small></span></button>)}
+                  {selectedMonthBills.map((bill)=><button key={`month-bill-${bill.id}`} type="button" onClick={()=>window.location.assign("/app/finances")} className="dabo-month-compact"><ReceiptText size={14}/><span><strong>{bill.label}</strong><small>{t("planning_bill")}</small></span></button>)}
                 </div>
               )}
             </div>
@@ -611,7 +708,7 @@ export default function CalendarPage() {
                   <button type="button" onClick={() => setEventKind("event")} className={`rounded-xl border px-3 py-2 text-sm ${eventKind === "event" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_event")}</button>
                   <button type="button" onClick={() => setEventKind("reminder")} className={`rounded-xl border px-3 py-2 text-sm ${eventKind === "reminder" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_reminder")}</button>
                 </div>
-                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div><div><label className="text-xs text-muted block mb-1.5">{t("planning_end_time")}</label><input type="time" min={eventTime || undefined} value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>{newVisibility === "household" && <div className="dabo-preparation-box"><label className="text-xs text-muted block mb-1.5">{t("planning_prepare_optional")}</label><input value={responsibilityLabel} onChange={(e)=>setResponsibilityLabel(e.target.value)} placeholder={t("planning_prepare_placeholder")} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" />{responsibilityLabel.trim() && <select value={responsibilityAssignee} onChange={(e)=>setResponsibilityAssignee(e.target.value)} className="mt-2 w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="">{t("planning_to_decide")}</option>{members.map((member)=><option key={member.id} value={member.id}>{member.first_name}</option>)}</select>}</div>}
                 <div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat")}</label><select value={recurrenceFrequency} onChange={(e) => setRecurrenceFrequency(e.target.value as CalendarRecurrenceFrequency)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="none">{t("calendar_never")}</option><option value="daily">{t("calendar_daily")}</option><option value="weekly">{t("calendar_weekly")}</option><option value="monthly">{t("calendar_monthly")}</option><option value="yearly">{t("calendar_yearly")}</option></select></div>
                 {recurrenceFrequency !== "none" && <><div><label className="text-xs text-muted block mb-1.5">{t("calendar_interval")}</label><input type="number" min={1} max={999} value={recurrenceInterval} onChange={(e) => setRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /><div className="mt-1 text-[11px] text-muted">{recurrenceLabel({ event_date: eventDate || new Date().toISOString().slice(0,10), recurring: true, recurrence_frequency: recurrenceFrequency, recurrence_interval: recurrenceInterval } as CalendarEvent)}</div></div><div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat_end")}</label><input type="date" min={eventDate || undefined} value={recurrenceEndDate} onChange={(e) => setRecurrenceEndDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /><div className="mt-1 text-[11px] text-muted">{t("calendar_repeat_end_hint")}</div></div></>}
                 <div><label className="text-xs text-muted block mb-1.5">{t("calendar_notes")}</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
@@ -652,7 +749,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {planningMode !== "month" && (planningTaskItems.length > 0 || planningBillItems.length > 0) && (
+      {planningMode === "week" && (planningTaskItems.length > 0 || planningBillItems.length > 0) && (
         <section className="dabo-planning-mixed" aria-label={t("planning_household_flow")}>
           <div className="dabo-planning-section-heading"><span>{t("planning_household_flow")}</span><span>{planningTaskItems.length + planningBillItems.length}</span></div>
           {planningTaskItems.map((task) => (
@@ -671,7 +768,7 @@ export default function CalendarPage() {
         </section>
       )}
 
-      {planningMode !== "month" && (<div className="dabo-planning-stream">
+      {planningMode === "week" && (<div className="dabo-planning-stream">
         {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={openAdd} />}
         <div className="space-y-6 pb-6">
           {sections.map((section) => (
@@ -740,7 +837,7 @@ export default function CalendarPage() {
                           {showEditMoreOptions && (
                             <div className="space-y-3 rounded-xl bg-paper/40 p-3">
                               <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setEditEventKind("event")} className={`rounded-xl border px-3 py-2 text-sm ${editEventKind === "event" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_event")}</button><button type="button" onClick={() => setEditEventKind("reminder")} className={`rounded-xl border px-3 py-2 text-sm ${editEventKind === "reminder" ? "border-mustard bg-mustardBg" : "border-border"}`}>{t("calendar_kind_reminder")}</button></div>
-                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={editEventTime} onChange={(e) => setEditEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
+                              <div><label className="text-xs text-muted block mb-1.5">{t("calendar_time")}</label><input type="time" value={editEventTime} onChange={(e) => setEditEventTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div><div><label className="text-xs text-muted block mb-1.5">{t("planning_end_time")}</label><input type="time" min={editEventTime || undefined} value={editEventEndTime} onChange={(e) => setEditEventEndTime(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
                               <div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat")}</label><select value={editRecurrenceFrequency} onChange={(e) => setEditRecurrenceFrequency(e.target.value as CalendarRecurrenceFrequency)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink"><option value="none">{t("calendar_never")}</option><option value="daily">{t("calendar_daily")}</option><option value="weekly">{t("calendar_weekly")}</option><option value="monthly">{t("calendar_monthly")}</option><option value="yearly">{t("calendar_yearly")}</option></select></div>
                               {editRecurrenceFrequency !== "none" && <><div><label className="text-xs text-muted block mb-1.5">{t("calendar_interval")}</label><input type="number" min={1} max={999} value={editRecurrenceInterval} onChange={(e) => setEditRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div><div><label className="text-xs text-muted block mb-1.5">{t("calendar_repeat_end")}</label><input type="date" min={editDate || undefined} value={editRecurrenceEndDate} onChange={(e) => setEditRecurrenceEndDate(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div></>}
                               <div><label className="text-xs text-muted block mb-1.5">{t("calendar_notes")}</label><textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={2} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white2 text-ink" /></div>
