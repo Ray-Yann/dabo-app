@@ -592,3 +592,113 @@ input, select, textarea {
 .dabo-dark .dabo-attention-anticipate { --dabo-attention-accent: #FCD34D; --dabo-attention-surface: color-mix(in srgb, #451A03 24%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #78350F 52%, var(--color-border)); }
 .dabo-dark .dabo-attention-suggestion { --dabo-attention-accent: #7DD3FC; --dabo-attention-surface: color-mix(in srgb, #082F49 24%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #0C4A6E 52%, var(--color-border)); }
 .dabo-dark .dabo-attention-information { --dabo-attention-accent: var(--color-muted); --dabo-attention-surface: var(--color-white2); --dabo-attention-border: var(--color-borderLight); }
+
+/* ========================================================================
+   DABO V2 — Premium household interface
+   Reference: warm editorial cream, deep forest, sage, restrained gold and
+   garnet for genuine urgency. These semantic roles work in both themes.
+   ======================================================================== */
+:root,
+.dabo-light {
+  --dabo-canvas: #f3efe4;
+  --dabo-surface: #fbf8f0;
+  --dabo-surface-soft: #ebe6d7;
+  --dabo-sage: #dce2ce;
+  --dabo-sage-strong: #cbd5b9;
+  --dabo-forest: #153c2d;
+  --dabo-forest-soft: #2d5745;
+  --dabo-gold: #a98442;
+  --dabo-gold-soft: #eee2c6;
+  --dabo-garnet: #8f3f43;
+  --dabo-garnet-soft: #f2dedb;
+  --dabo-text: #173428;
+  --dabo-muted: #6e756b;
+  --dabo-line: rgba(21, 60, 45, 0.12);
+  --dabo-shadow: 0 14px 38px rgba(39, 48, 38, 0.08);
+}
+
+.dabo-dark {
+  --dabo-canvas: #151914;
+  --dabo-surface: #1d241d;
+  --dabo-surface-soft: #252c23;
+  --dabo-sage: #2b382d;
+  --dabo-sage-strong: #344735;
+  --dabo-forest: #dbe8d9;
+  --dabo-forest-soft: #bdd0bd;
+  --dabo-gold: #d4b46d;
+  --dabo-gold-soft: #3a3222;
+  --dabo-garnet: #e09a9c;
+  --dabo-garnet-soft: #3c2527;
+  --dabo-text: #eef2e9;
+  --dabo-muted: #b2b9ae;
+  --dabo-line: rgba(238, 242, 233, 0.12);
+  --dabo-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
+}
+
+.dabo-app-frame {
+  background: var(--dabo-canvas);
+}
+
+.dabo-user-app {
+  color: var(--dabo-text);
+}
+
+.dabo-v2-page { min-height: 100%; }
+.dabo-kicker { font-size: 11px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: var(--dabo-muted); }
+.dabo-v2-panel { border: 1px solid var(--dabo-line); border-radius: 26px; background: var(--dabo-surface); box-shadow: var(--dabo-shadow); }
+.dabo-soft-icon { display:inline-flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:15px; background:var(--dabo-sage); color:var(--dabo-forest); }
+.dabo-v2-link-card { display:flex; min-height:82px; align-items:center; gap:12px; border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-surface); padding:15px; color:var(--dabo-text); box-shadow:0 7px 22px rgba(39,48,38,.045); }
+.dabo-secondary-action { display:flex; min-height:48px; align-items:center; justify-content:center; gap:8px; border:1px solid var(--dabo-line); border-radius:16px; background:var(--dabo-surface-soft); padding:10px 16px; font-weight:700; color:var(--dabo-text); }
+
+.dabo-main-nav-v2 {
+  border-top: 1px solid var(--dabo-line);
+  background: color-mix(in srgb, var(--dabo-canvas) 94%, transparent);
+  box-shadow: 0 -10px 32px rgba(39,48,38,.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.dabo-main-nav-v2 .dabo-main-nav-grid { height: 74px; }
+.dabo-main-nav-v2 .dabo-main-nav-button { display:flex; min-width:0; min-height:68px; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--dabo-muted); }
+.dabo-main-nav-v2 .dabo-main-nav-icon { display:flex; height:31px; min-width:42px; align-items:center; justify-content:center; border-radius:14px; }
+.dabo-main-nav-v2 .dabo-main-nav-icon.is-active { background:var(--dabo-sage); color:var(--dabo-forest); }
+.dabo-main-nav-v2 .dabo-main-nav-label { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px !important; line-height:1.15; font-weight:600; }
+.dabo-main-nav-v2 .dabo-main-nav-label.is-active { color:var(--dabo-forest); font-weight:750; }
+.dabo-main-nav-add { transform:translateY(-9px); }
+.dabo-main-nav-add-circle { display:flex; width:54px; height:54px; align-items:center; justify-content:center; border-radius:50%; background:var(--dabo-forest); color:var(--dabo-canvas); box-shadow:0 10px 24px rgba(21,60,45,.24); }
+.dabo-main-nav-add .dabo-main-nav-label { margin-top:0; }
+
+.dabo-sheet-backdrop { position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center; background:rgba(10,18,13,.34); backdrop-filter:blur(3px); }
+.dabo-sheet { width:100%; max-width:620px; border:1px solid var(--dabo-line); border-bottom:0; border-radius:30px 30px 0 0; background:var(--dabo-canvas); padding:10px 20px calc(24px + env(safe-area-inset-bottom,0px)); box-shadow:0 -22px 70px rgba(0,0,0,.18); }
+.dabo-sheet-handle { width:42px; height:4px; margin:0 auto 17px; border-radius:99px; background:color-mix(in srgb,var(--dabo-muted) 45%,transparent); }
+.dabo-icon-button { display:flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:50%; background:var(--dabo-surface); color:var(--dabo-text); border:1px solid var(--dabo-line); }
+.dabo-action-tile { display:flex; min-height:98px; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:12px; border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-surface); padding:16px; text-align:left; font-weight:700; color:var(--dabo-text); }
+.dabo-action-tile svg { color:var(--dabo-forest); }
+
+/* Today V2: editorial hierarchy instead of a stack of identical white cards. */
+.dabo-today-v2 { max-width:760px; margin:0 auto; padding:30px 20px 28px; }
+.dabo-today-v2-header { position:relative; padding:8px 2px 22px; }
+.dabo-today-v2-title { font-family:var(--font-serif); font-size:clamp(31px,7vw,42px); line-height:1.02; letter-spacing:-.035em; color:var(--dabo-text); }
+.dabo-today-v2-date { margin-top:7px; color:var(--dabo-muted); font-size:14px; }
+.dabo-attention-summary { margin:18px 0 28px; font-family:var(--font-serif); font-size:clamp(25px,6vw,34px); line-height:1.12; letter-spacing:-.025em; color:var(--dabo-text); }
+.dabo-v2-section { margin-top:28px; }
+.dabo-v2-section-title { margin-bottom:10px; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--dabo-muted); }
+.dabo-today-row { display:flex; min-height:68px; align-items:center; gap:12px; border-bottom:1px solid var(--dabo-line); padding:12px 2px; }
+.dabo-today-row:last-child { border-bottom:0; }
+.dabo-today-row-icon { display:flex; width:38px; height:38px; flex:0 0 auto; align-items:center; justify-content:center; border-radius:14px; background:var(--dabo-surface-soft); color:var(--dabo-forest); }
+.dabo-urgent-badge { display:inline-flex; align-items:center; border-radius:999px; background:var(--dabo-garnet-soft); padding:4px 8px; color:var(--dabo-garnet); font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.dabo-preparing-card { border:1px solid color-mix(in srgb,var(--dabo-forest) 13%,transparent); border-radius:26px; background:var(--dabo-sage); padding:18px; color:var(--dabo-text); }
+.dabo-calm-state { margin-top:42px; min-height:42vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.dabo-calm-mark { position:relative; width:92px; height:92px; margin-top:30px; border-radius:50%; background:var(--dabo-sage); }
+.dabo-calm-mark::before,.dabo-calm-mark::after { content:""; position:absolute; width:42px; height:20px; border:2px solid var(--dabo-forest); border-left:0; border-bottom:0; border-radius:100% 0; transform:rotate(-30deg); }
+.dabo-calm-mark::before { left:14px; top:34px; }.dabo-calm-mark::after { right:10px; top:22px; transform:rotate(150deg); }
+.dabo-offline-note { border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-gold-soft); padding:16px; }
+
+@media (min-width: 900px) {
+  .dabo-app-content { padding-bottom: 104px; }
+  .dabo-today-v2 { padding-top:48px; }
+  .dabo-v2-panel, .dabo-preparing-card { border-radius:30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-user-app *, .dabo-user-app *::before, .dabo-user-app *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
+}

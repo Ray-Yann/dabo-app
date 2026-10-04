@@ -1,35 +1,5 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import fs from "node:fs";
-
-const read = (path: string) => fs.readFileSync(path, "utf8");
-
-test("UX Light V1 garde Aujourd'hui et Plus fixes avec quatre onglets personnalisables", () => {
-  const nav = read("components/DaboMainNav.tsx");
-  assert.match(nav, /DEFAULT_TABS: TabKey\[\] = \["tasks", "courses", "calendar", "finances"\]/);
-  assert.match(nav, /key: "today"/);
-  assert.match(nav, /tab_more/);
-  assert.match(nav, /grid-cols-6/);
-});
-
-test("UX Light V1 synchronise la navigation par utilisateur", () => {
-  const migration = read("supabase/migrations/2026-09-11-ux-light-v1-navigation-preferences.sql");
-  assert.match(migration, /user_navigation_preferences/);
-  assert.match(migration, /auth\.uid\(\) = user_id/);
-  assert.match(migration, /cardinality\(pinned_tabs\) = 4/);
-});
-
-test("UX Light V1 fait de Finances une destination principale", () => {
-  const route = read("app/app/finances/page.tsx");
-  const home = read("app/app/page.tsx");
-  assert.match(route, /financeSection/);
-  assert.match(home, /\/app\/finances/);
-});
-
-test("UX Light V1 allège Équilibre et Finances avec une seule vue sélectionnée", () => {
-  const balance = read("app/app/equilibre/page.tsx");
-  const finances = read("app/app/finances/page.tsx");
-  assert.match(balance, /<select[\s\S]*balanceSection/);
-  assert.match(finances, /financeSection/);
-  assert.match(finances, /title=\{t\("tab_finances"\)\}/);
-});
+import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs"; const read=(p:string)=>fs.readFileSync(p,"utf8");
+test("UX V2 fixe Aujourd'hui Planning + Mon foyer Plus",()=>{const nav=read("components/DaboMainNav.tsx");assert.match(nav,/key: "today"/);assert.match(nav,/key: "planning"/);assert.match(nav,/key: "add"/);assert.match(nav,/key: "household"/);assert.match(nav,/key: "more"/);assert.match(nav,/grid-cols-5/);});
+test("UX V2 conserve les anciennes données de préférence sans en dépendre",()=>{const migration=read("supabase/migrations/2026-09-11-ux-light-v1-navigation-preferences.sql");assert.match(migration,/user_navigation_preferences/);});
+test("UX V2 garde Finances accessible via le plus et Plus",()=>{const nav=read("components/DaboMainNav.tsx");assert.match(nav,/\/app\/finances\?first=1/);assert.match(nav,/\/app\/finances/);});
+test("UX V2 conserve les vues internes Équilibre et Finances",()=>{assert.match(read("app/app/equilibre/page.tsx"),/<select[\s\S]*balanceSection/);assert.match(read("app/app/finances/page.tsx"),/financeSection/);});

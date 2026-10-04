@@ -14,17 +14,17 @@ test("Aujourd’hui confie sa sélection principale à Attention Engine", () => 
   assert.match(page, /daboInsightAttentionCandidates\(/);
 });
 
-test("Aujourd’hui rend uniquement la sélection unifiée avec AttentionCard", () => {
-  assert.match(page, /attentionItems\.map/);
-  assert.match(page, /<AttentionCard/);
+test("Aujourd’hui V2 rend la sélection unifiée dans la surface éditoriale", () => {
+  assert.match(page, /attentionItems\.slice\(0, 4\)/);
+  assert.match(page, /dabo-today-row/);
   assert.doesNotMatch(page, /financeBillsNeedingAttention/);
   assert.doesNotMatch(page, /essentialTasks/);
 });
 
-test("Aujourd’hui conserve un vrai état de silence", () => {
-  assert.match(page, /attentionItems\.length === 0/);
-  assert.match(page, /today_nothing_pressing_title/);
-  assert.match(page, /<DaboEmptyState/);
+test("Aujourd’hui V2 conserve un vrai état de silence", () => {
+  assert.match(page, /visibleAttention\.length === 0/);
+  assert.match(page, /today_v2_calm_title/);
+  assert.match(page, /dabo-calm-state/);
 });
 
 test("les libellés de niveau AttentionCard peuvent être traduits par la surface", () => {

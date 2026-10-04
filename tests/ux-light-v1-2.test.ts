@@ -35,6 +35,7 @@ test("UX Light V1.2 allège l'aide Calendrier et explicite l'année d'une procha
   assert.ok(calendar.includes('date.getFullYear() !== currentYear'));
 });
 
-test("UX Light V1.2 réserve un libellé légèrement plus compact à Calendrier dans la navigation", () => {
-  assert.ok(nav.includes('item.key==="calendar"?"dabo-main-nav-label-calendar text-[8.5px]":"text-[9.5px]"'));
+test("UX V2 remplace Calendrier par Planning dans la navigation principale", () => {
+  assert.match(nav, /tab_planning/);
+  assert.match(nav, /grid-cols-5/);
 });

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
@@ -543,305 +543,85 @@ export default function TodayPage() {
     return { icon: Clock3, title: attention.title, description, meta: t("tasks_title"), onAction: task ? () => void toggleTask(task) : () => router.push("/app/taches") };
   }
 
+  const locale = lang === "fr" ? "fr-BE" : lang === "nl" ? "nl-BE" : lang === "de" ? "de-DE" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : lang === "pt" ? "pt-PT" : "en-GB";
+  const todayLabel = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const visibleAttention = attentionItems.slice(0, 4);
+  const preparingInsight = daboInsights[0];
+
   return (
-    <div>
-      <Header eyebrow={household.name} title={`${t("hello")}, ${me.first_name}`} />
-      <IntroTip id="today" text={t("intro_today")} />
-      <InstallPrompt />
-      {me.user_id && <NotificationActivationNudge supabase={supabase} memberId={me.id} userId={me.user_id} />}
-      {household && (
-        <InviteNudge
-          householdId={household.id}
-          memberCount={members.length}
-          householdType={household.household_type}
-          text={t("invite_nudge_text")}
-        />
-      )}
+    <main className="dabo-today-v2">
+      <header className="dabo-today-v2-header">
+        <p className="dabo-kicker">{household.name}</p>
+        <h1 className="dabo-today-v2-title">{t("hello")}, {me.first_name}</h1>
+        <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
+      </header>
 
-      <section
-        className="px-5 pb-4"
-        data-testid="household-inbox"
-        aria-labelledby="household-inbox-title"
-      >
-        <div className="dabo-organic-card w-full border border-black/5 bg-white p-4 shadow-[0_6px_20px_rgba(34,48,31,0.08)]">
-          <div className="mb-3">
-            <h2
-              id="household-inbox-title"
-              className="font-serif text-lg font-semibold leading-tight text-ink"
-            >
-              {t("household_inbox_title")}
-            </h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              {t("household_inbox_description")}
-            </p>
+      {dashboardLoadError ? (
+        <section className="dabo-calm-state" role="status">
+          <div className="dabo-offline-note max-w-md text-left">
+            <p className="font-serif text-2xl font-semibold text-ink">{t("today_v2_offline_title")}</p>
+            <p className="mt-2 text-sm text-muted">{t("today_v2_offline_text")}</p>
+            <button type="button" onClick={() => window.location.reload()} className="dabo-secondary-action mt-4">{t("today_v2_retry")}</button>
           </div>
+          <div className="dabo-calm-mark" aria-hidden="true" />
+        </section>
+      ) : isBrandNew ? (
+        <section className="pt-3">
+          <h2 className="font-serif text-[30px] font-semibold leading-tight tracking-[-0.025em] text-ink">{t("today_v2_welcome")}</h2>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">{t("today_v2_welcome_text")}</p>
+          <div className="mt-7 space-y-3">
+            <button onClick={() => router.push("/app/foyer")} className="dabo-v2-link-card w-full"><span className="dabo-soft-icon"><UserRoundPlus size={19}/></span><span className="flex-1 text-left font-semibold">{t("settings_members")}</span><span aria-hidden="true">→</span></button>
+            <button onClick={() => router.push("/app/taches?first=1")} className="dabo-v2-link-card w-full"><span className="dabo-soft-icon"><ListTodo size={19}/></span><span className="flex-1 text-left font-semibold">{t("quick_action_task")}</span><span aria-hidden="true">→</span></button>
+            <button onClick={() => router.push("/app/courses?first=1")} className="dabo-v2-link-card w-full"><span className="dabo-soft-icon"><ShoppingBag size={19}/></span><span className="flex-1 text-left font-semibold">{t("quick_action_shopping")}</span><span aria-hidden="true">→</span></button>
+          </div>
+          <button onClick={() => router.push("/app/reglages")} className="mt-7 text-left"><span className="block font-serif text-xl font-semibold text-ink">{t("today_v2_discover")}</span><span className="mt-1 block text-xs text-muted">{t("today_v2_tour_meta")}</span></button>
+        </section>
+      ) : !dashboardReady ? (
+        <LoadingState />
+      ) : visibleAttention.length === 0 ? (
+        <section className="dabo-calm-state">
+          <h2 className="max-w-md font-serif text-[32px] font-semibold leading-tight tracking-[-0.03em] text-ink">{t("today_v2_calm_title")}</h2>
+          <p className="mt-3 text-sm text-muted">{t("today_v2_calm_text")}</p>
+          <div className="dabo-calm-mark" aria-hidden="true" />
+        </section>
+      ) : (
+        <>
+          <p className="dabo-attention-summary">{t("today_v2_needs_you")}</p>
+          <section className="dabo-v2-section" aria-labelledby="today-essentials-v2">
+            <h2 id="today-essentials-v2" className="dabo-v2-section-title">{t("today_essentials")}</h2>
+            <div>
+              {visibleAttention.map((attention) => {
+                const detail = attentionDetails(attention);
+                const Icon = detail.icon;
+                const urgent = attention.level === "action_now" || attention.reason === "overdue";
+                return <button key={attention.id} type="button" onClick={detail.onAction} className="dabo-today-row w-full text-left">
+                  <span className="dabo-today-row-icon"><Icon size={18}/></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2"><strong className="truncate text-sm text-ink">{detail.title}</strong>{urgent && <span className="dabo-urgent-badge">{attentionLevelLabel(attention.level)}</span>}</span>
+                    <span className="mt-1 block text-xs leading-relaxed text-muted">{detail.description}</span>
+                  </span>
+                  <span className="text-muted" aria-hidden="true">→</span>
+                </button>;
+              })}
+            </div>
+            {attentionItems.length > visibleAttention.length && <button onClick={() => router.push("/app/taches")} className="mt-3 text-sm font-semibold text-ink underline decoration-black/20 underline-offset-4">+ {attentionItems.length - visibleAttention.length}</button>}
+          </section>
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              prepareHouseholdInbox();
-            }}
-            className="flex w-full flex-col gap-2 sm:flex-row"
-          >
-            <input
-              type="text"
-              value={householdInboxText}
-              onChange={(event) => {
-                setHouseholdInboxText(event.target.value);
-                setHouseholdInboxProposal(null);
-              }}
-              aria-label={t("household_inbox_input_label")}
-              placeholder={t("household_inbox_placeholder")}
-              autoComplete="off"
-              enterKeyHint="go"
-              className="min-h-11 min-w-0 w-full flex-1 rounded-xl border border-black/10 bg-paper px-3 py-2.5 text-base text-ink outline-none transition focus:border-black/25 focus:ring-2 focus:ring-black/5 sm:text-sm"
-            />
-            <button
-              type="submit"
-              disabled={!householdInboxText.trim()}
-              className="dabo-primary-action min-h-11 w-full shrink-0 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-            >
-              {t("household_inbox_analyze")}
-            </button>
-          </form>
-
-          {householdInboxProposal && (
-            <div
-              className="mt-3 rounded-2xl border border-black/5 bg-paper p-3"
-              role="status"
-              aria-live="polite"
-            >
-              {householdInboxProposal.destination === "unknown" ? (
-                <p className="text-sm leading-relaxed text-muted">
-                  {t("household_inbox_unknown")}
-                </p>
-              ) : (
-                <>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
-                    {t("household_inbox_proposal")}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-ink">
-                    {householdInboxProposal.destination === "shopping"
-                      ? t("household_inbox_destination_shopping")
-                      : householdInboxProposal.destination === "task"
-                        ? t("household_inbox_destination_task")
-                        : householdInboxProposal.destination === "calendar"
-                          ? t("household_inbox_destination_calendar")
-                          : t("household_inbox_destination_finance")}
-                  </p>
-                </>
-              )}
-
-              <p className="mt-2 break-words text-sm leading-relaxed text-ink">
-                {householdInboxProposal.title}
-              </p>
-
-              {(householdInboxProposal.date || householdInboxProposal.time) && (
-                <p className="mt-1 text-xs text-muted">
-                  {[householdInboxProposal.date, householdInboxProposal.time]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-
-              <div className="mt-3">
-                <p className="mb-2 text-xs font-medium text-muted">
-                  {householdInboxProposal.destination === "unknown"
-                    ? t("household_inbox_choose_destination")
-                    : t("household_inbox_change_destination")}
-                </p>
-
-                <div
-                  className="grid grid-cols-2 gap-2"
-                  role="group"
-                  aria-label={t("household_inbox_choose_destination")}
-                >
-                  {(
-                    [
-                      ["shopping", "household_inbox_destination_shopping"],
-                      ["task", "household_inbox_destination_task"],
-                      ["calendar", "household_inbox_destination_calendar"],
-                      ["finance", "household_inbox_destination_finance"],
-                    ] as const
-                  ).map(([destination, label]) => {
-                    const selected =
-                      householdInboxProposal.destination === destination;
-
-                    return (
-                      <button
-                        key={destination}
-                        type="button"
-                        onClick={() => setHouseholdInboxDestination(destination)}
-                        aria-pressed={selected}
-                        className={`min-h-11 rounded-xl border px-3 py-2.5 text-sm font-semibold transition active:scale-[0.985] ${
-                          selected
-                            ? "border-ink bg-ink text-white"
-                            : "border-black/10 bg-white text-ink"
-                        }`}
-                      >
-                        {t(label)}
-                      </button>
-                    );
-                  })}
+          {preparingInsight && (
+            <section className="dabo-v2-section" aria-labelledby="dabo-prepares-v2">
+              <h2 id="dabo-prepares-v2" className="dabo-v2-section-title">{t("today_v2_preparing")}</h2>
+              <button type="button" onClick={() => router.push("/app/calendrier")} className="dabo-preparing-card w-full text-left">
+                <div className="flex items-start gap-3">
+                  <span className="dabo-soft-icon bg-white/40"><CalendarDays size={19}/></span>
+                  <span className="min-w-0 flex-1"><strong className="block font-serif text-xl text-ink">{t(preparingInsight.titleKey)}</strong><span className="mt-2 block text-sm leading-relaxed text-muted">{t(preparingInsight.messageKey)}</span><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-ink">{t("today_v2_almost_ready")} <span aria-hidden="true">→</span></span></span>
                 </div>
-              </div>
-
-              {householdInboxProposal.destination === "finance" && (
-                <div className="mt-3 border-t border-black/5 pt-3">
-                  <p className="mb-2 text-xs font-medium text-muted">
-                    {t("household_inbox_finance_kind_label")}
-                  </p>
-
-                  <div
-                    className="grid grid-cols-1 gap-2 sm:grid-cols-3"
-                    role="group"
-                    aria-label={t("household_inbox_finance_kind_label")}
-                  >
-                    {(
-                      [
-                        ["expense", "household_inbox_finance_expense"],
-                        ["bill", "household_inbox_finance_bill"],
-                        ["reference", "household_inbox_finance_reference"],
-                      ] as const
-                    ).map(([kind, label]) => {
-                      const selected =
-                        householdInboxProposal.financeKind === kind;
-
-                      return (
-                        <button
-                          key={kind}
-                          type="button"
-                          onClick={() => setHouseholdInboxFinanceKind(kind)}
-                          aria-pressed={selected}
-                          className={`min-h-11 rounded-xl border px-3 py-2.5 text-sm font-semibold transition active:scale-[0.985] ${
-                            selected
-                              ? "border-ink bg-ink text-white"
-                              : "border-black/10 bg-white text-ink"
-                          }`}
-                        >
-                          {t(label)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {householdInboxProposal.destination !== "unknown" && (
-                <button
-                  type="button"
-                  onClick={confirmHouseholdInbox}
-                  disabled={
-                    householdInboxProposal.destination === "finance" &&
-                    !householdInboxProposal.financeKind
-                  }
-                  className="dabo-primary-action mt-3 min-h-11 w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {t("household_inbox_continue")}
-                </button>
-              )}
-            </div>
+              </button>
+            </section>
           )}
-        </div>
-      </section>
-
-      <section className="px-5 pb-2">
-        <SectionHeader title={t("today_essentials")} />
-
-        {isBrandNew ? (
-          <div className="text-center py-6">
-            <p className="text-sm text-muted mb-4">{t("today_empty_new")}</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <button onClick={() => router.push("/app/courses")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
-                <Plus size={15} /> {t("courses_title")}
-              </button>
-              <button onClick={() => router.push("/app/taches")} className="flex items-center gap-1.5 bg-ink text-paper rounded-xl px-4 py-2.5 text-sm font-medium">
-                <Plus size={15} /> {t("tasks_title")}
-              </button>
-              <button onClick={() => router.push("/app/calendrier")} className="flex items-center gap-1.5 border border-border bg-paper text-ink rounded-xl px-4 py-2.5 text-sm font-medium">
-                <Plus size={15} /> {t("calendar_title")}
-              </button>
-            </div>
-          </div>
-        ) : !dashboardReady || dashboardLoadError ? (
-          <LoadingState />
-        ) : attentionItems.length === 0 ? (
-          <DaboEmptyState title={t("today_nothing_pressing_title")} message={t("today_nothing_pressing_text")} />
-        ) : (
-          <div className="space-y-2">
-            {attentionItems.map((attention, index) => {
-              const detail = attentionDetails(attention);
-              return (
-                <AttentionCard
-                  key={attention.id}
-                  level={attention.level}
-                  levelLabel={attentionLevelLabel(attention.level)}
-                  title={detail.title}
-                  description={detail.description}
-                  meta={detail.meta}
-                  icon={detail.icon}
-                  onAction={detail.onAction}
-                  primary={index === 0}
-                />
-              );
-            })}
-          </div>
-        )}
-
-      </section>
-
-      <section className="px-5 pb-5" data-testid="household-quick-view">
-        <SectionHeader title={t("today_household_quick_view")} />
-        <div className="grid grid-cols-2 gap-2">
-          {quickViewItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => router.push(item.href)}
-                className="dabo-home-orbit-card flex items-center gap-3 rounded-2xl bg-white2 px-3 py-3 text-left transition active:scale-[0.99]"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-paper">
-                  <Icon size={16} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-lg font-semibold leading-none text-ink">{item.value}</span>
-                  <span className="mt-1 block truncate text-xs text-muted">{item.label}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <LobaHouseholdChat householdName={household.name} />
-
-      {household.equity_score_enabled && (
-        <div className="mx-5 mb-5 bg-white2 rounded-2xl p-4">
-          <div className="text-xs text-muted mb-3 font-medium">{t("equity_week_label")}</div>
-          <BalanceBar members={members} contributions={balanceData.contributions} participants={balanceData.participants} />
-          {showEquityInfo && (
-            <div className="mt-3 flex gap-2 text-[11px] text-muted bg-mustardBg rounded-lg p-2.5">
-              <Info size={13} className="shrink-0 mt-0.5 text-mustard" />
-              <span>{t("equity_intro")}</span>
-            </div>
-          )}
-        </div>
+        </>
       )}
 
-
-      {completionTarget && (
-        <TaskCompletionDialog
-          task={completionTarget}
-          me={me}
-          members={members}
-          t={t}
-          onChoose={(performerIds) => void toggleTask(completionTarget, performerIds)}
-          onCancel={() => setCompletionTarget(null)}
-        />
-      )}
-    </div>
+      {completionTarget && <TaskCompletionDialog task={completionTarget} me={me} members={members} t={t} onChoose={(performerIds) => void toggleTask(completionTarget, performerIds)} onCancel={() => setCompletionTarget(null)} />}
+    </main>
   );
 }
-

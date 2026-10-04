@@ -1,20 +1,4 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import fs from "node:fs";
-
-const nav = fs.readFileSync("components/DaboMainNav.tsx", "utf8");
-const household = fs.readFileSync("lib/household-context.tsx", "utf8");
-
-test("Navigation Persistence V1.1 stabilise le client Supabase partagé", () => {
-  assert.match(household, /const \[supabase\] = useState\(\(\) => createClient\(\)\)/);
-  assert.doesNotMatch(household, /const supabase = createClient\(\)/);
-});
-
-test("Navigation Persistence V1.1 protège un ordre local contre une lecture tardive et attend sa sauvegarde", () => {
-  assert.match(nav, /const localEditRef = useRef\(false\)/);
-  assert.match(nav, /&& !localEditRef\.current\)\s*\{[\s\S]*setPinned\(tabs\)/);
-  assert.match(nav, /localEditRef\.current = true;[\s\S]*setPinned\(next\)/);
-  assert.match(nav, /async function waitForPreferenceSave\(\)[\s\S]*await saveQueueRef\.current/);
-  assert.match(nav, /async function finishEditing\(\)[\s\S]*await waitForPreferenceSave\(\)/);
-  assert.match(nav, /onClick=\{\(\)=>void finishEditing\(\)\}/);
-});
+import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs";
+const household=fs.readFileSync("lib/household-context.tsx","utf8"); const nav=fs.readFileSync("components/DaboMainNav.tsx","utf8");
+test("Navigation V2 conserve le client Supabase partagé stable",()=>{assert.match(household,/const \[supabase\] = useState\(\(\) => createClient\(\)\)/);});
+test("Navigation V2 fixe l'architecture validée plutôt que de la recharger",()=>{assert.match(nav,/key: "planning"/);assert.match(nav,/key: "household"/);assert.doesNotMatch(nav,/setPinned/);});

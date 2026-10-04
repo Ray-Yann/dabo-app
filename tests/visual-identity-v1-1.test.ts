@@ -25,7 +25,8 @@ test("Visual Identity V1.1 réchauffe le calendrier sans changer son contenu", (
   assert.match(css, /dabo-calendar-event-today/);
 });
 
-test("Visual Identity V1.1 protège le libellé Calendrier sur mobile", () => {
-  assert.match(nav, /dabo-main-nav-label-calendar/);
-  assert.match(css, /white-space: nowrap/);
+test("Visual Identity V2 protège les cinq libellés sur mobile", () => {
+  assert.match(nav, /dabo-main-nav-v2/);
+  assert.match(css, /text-overflow:ellipsis/);
+  assert.match(css, /white-space:nowrap/);
 });

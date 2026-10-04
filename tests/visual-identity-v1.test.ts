@@ -15,9 +15,10 @@ test("Visual Identity V1 enrichit la marque sans changer la palette de rôles DA
   assert.match(css, /prefers-reduced-motion/);
 });
 
-test("Visual Identity V1 donne une vraie présence desktop sans étirer DABO", () => {
+test("Visual Identity V2 donne une présence responsive mobile et desktop", () => {
   assert.match(layout, /max-w-lg md:max-w-3xl/);
-  assert.match(nav, /max-w-lg md:max-w-3xl/);
+  assert.match(nav, /max-w-\[760px\]/);
+  assert.match(css, /@media \(min-width: 900px\)/);
 });
 
 test("Visual Identity V1 rend les états vides plus organiques", () => {

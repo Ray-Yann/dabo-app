@@ -6,9 +6,10 @@ const source = readFileSync("app/app/page.tsx", "utf8");
 
 test("Aujourd’hui Intelligence V1.1 distingue chargement et vrai silence", () => {
   assert.match(source, /dashboardReady/);
-  assert.match(source, /!dashboardReady \|\| dashboardLoadError/);
-  assert.match(source, /attentionItems\.length === 0/);
-  assert.ok(source.indexOf("!dashboardReady || dashboardLoadError") < source.indexOf("attentionItems.length === 0"));
+  assert.match(source, /dashboardLoadError/);
+  assert.match(source, /!dashboardReady/);
+  assert.match(source, /visibleAttention\.length === 0/);
+  assert.ok(source.indexOf("dashboardLoadError") < source.indexOf("visibleAttention.length === 0"));
 });
 
 test("Aujourd’hui Intelligence V1.1 ne calcule pas le repère avant la fin de lecture", () => {
