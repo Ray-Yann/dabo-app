@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { IntroTip } from "@/components/IntroTip";
-import { CalendarEvent } from "@/lib/types";
+import { CalendarEvent, Task } from "@/lib/types";
 import { daysUntil, todayCivilDate } from "@/lib/utils";
 import { occurrencesInRange, isRecurringCalendarEvent, CalendarRecurrenceFrequency } from "@/lib/calendar-recurrence";
 import {
@@ -20,9 +20,12 @@ import { useT } from "@/lib/language-context";
 import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { readCalendarInboxPrefill } from "@/lib/household-inbox";
-import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users } from "lucide-react";
+import { Trash2, Repeat, PartyPopper, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Pencil, LockKeyhole, Users, ListChecks, ReceiptText } from "lucide-react";
 
 type CalendarView = "upcoming" | "month" | "personal";
+type PlanningMode = "day" | "week" | "month";
+type PlanningScope = "all" | "me" | "household";
+type PlanningBill = { id: string; label: string; due_on: string; status: "pending" | "paid" | "cancelled"; amount: number | null; currency: string };
 
 export default function CalendarPage() {
   const { loading, household, me, supabase } = useHousehold();
@@ -30,6 +33,10 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [completedOccurrences, setCompletedOccurrences] = useState<CalendarEventCompletion[]>([]);
   const [view, setView] = useState<CalendarView>("upcoming");
+  const [planningMode, setPlanningMode] = useState<PlanningMode>("week");
+  const [planningScope, setPlanningScope] = useState<PlanningScope>("all");
+  const [planningTasks, setPlanningTasks] = useState<Task[]>([]);
+  const [planningBills, setPlanningBills] = useState<PlanningBill[]>([]);
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
   const [newVisibility, setNewVisibility] = useState<"household" | "personal">("household");
@@ -96,7 +103,13 @@ export default function CalendarPage() {
 
   async function loadEvents() {
     if (!household) return;
-    const { data, error } = await supabase.from("calendar_events").select("*").eq("household_id", household.id);
+    const [{ data, error }, taskResult, billResult] = await Promise.all([
+      supabase.from("calendar_events").select("*").eq("household_id", household.id),
+      supabase.from("tasks").select("id,household_id,routine_id,name,weight_points,duration_key,effort_level,assigned_to,status,urgent,due_date,completed_at,created_at").eq("household_id", household.id).eq("status", "pending"),
+      supabase.from("finance_bills").select("id,label,due_on,status,amount,currency").eq("household_id", household.id).eq("status", "pending"),
+    ]);
+    setPlanningTasks((taskResult.data as Task[]) || []);
+    setPlanningBills((billResult.data as PlanningBill[]) || []);
     if (error) {
       setErrorMessage(t("calendar_error_load"));
       return;
@@ -313,9 +326,9 @@ export default function CalendarPage() {
   }
 
   const visibleEvents = events.filter((event) => {
-    if (view === "personal") return event.visibility === "personal" && event.private_owner_id === me?.id;
-    if (view === "month") return event.visibility === "household" || (event.visibility === "personal" && event.private_owner_id === me?.id);
-    return event.visibility === "household";
+    if (planningScope === "household") return event.visibility === "household";
+    if (planningScope === "me") return event.visibility === "personal" && event.private_owner_id === me?.id;
+    return event.visibility === "household" || (event.visibility === "personal" && event.private_owner_id === me?.id);
   });
 
   const completedOccurrenceKeys = calendarCompletedOccurrenceSet(completedOccurrences);
@@ -326,6 +339,7 @@ export default function CalendarPage() {
       next: nextUncompletedOccurrence(e, completedOccurrenceKeys),
     }))
     .filter((e): e is typeof e & { next: Date } => Boolean(e.next))
+    .filter((e) => planningMode === "day" ? daysUntil(e.next) === 0 : planningMode === "week" ? daysUntil(e.next) >= 0 && daysUntil(e.next) <= 6 : true)
     .sort((a, b) => a.next.getTime() - b.next.getTime());
 
   const todayStart = new Date();
@@ -344,6 +358,25 @@ export default function CalendarPage() {
     { key: "week", label: t("calendar_section_week"), events: weekEvents },
     { key: "later", label: t("calendar_section_later"), events: laterEvents },
   ].filter((section) => section.events.length > 0);
+
+  const planningTaskItems = planningTasks
+    .filter((task) => Boolean(task.due_date))
+    .filter((task) => planningScope !== "me" || task.assigned_to === me?.id)
+    .filter((task) => planningScope !== "household" || task.assigned_to !== me?.id)
+    .filter((task) => {
+      const date = new Date(`${task.due_date}T12:00:00`);
+      const delta = daysUntil(date);
+      return planningMode === "day" ? delta === 0 : planningMode === "week" ? delta >= 0 && delta <= 6 : true;
+    })
+    .sort((a,b) => String(a.due_date).localeCompare(String(b.due_date)));
+  const planningBillItems = planningBills
+    .filter((bill) => planningScope !== "me")
+    .filter((bill) => {
+      const date = new Date(`${bill.due_on}T12:00:00`);
+      const delta = daysUntil(date);
+      return planningMode === "day" ? delta === 0 : planningMode === "week" ? delta >= 0 && delta <= 6 : true;
+    })
+    .sort((a,b) => a.due_on.localeCompare(b.due_on));
 
   const monthDate = monthCursor;
   const monthYear = monthDate.getFullYear();
@@ -382,26 +415,26 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between px-5 pt-8 pb-4">
-        <Header title={t("calendar_title")} />
-        <button onClick={openAdd} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium mt-8 mr-0">
-          {t("add")}
-        </button>
+      <header className="dabo-planning-header">
+        <div>
+          <p className="dabo-kicker">DABO</p>
+          <h1 className="dabo-planning-title">{t("planning_title")}</h1>
+          <p className="dabo-planning-subtitle">{t("planning_subtitle")}</p>
+        </div>
+        <button onClick={openAdd} className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium">{t("add")}</button>
+      </header>
+      <div className="dabo-planning-controls">
+        <div className="dabo-segmented" role="group" aria-label={t("planning_view_label")}>
+          {(["day","week","month"] as PlanningMode[]).map((mode) => (
+            <button key={mode} type="button" aria-pressed={planningMode === mode} onClick={() => { setPlanningMode(mode); changeView(mode === "month" ? "month" : "upcoming"); }} className={planningMode === mode ? "is-active" : ""}>{t(`planning_view_${mode}`)}</button>
+          ))}
+        </div>
+        <div className="dabo-planning-scopes" role="group" aria-label={t("planning_scope_label")}>
+          {(["all","me","household"] as PlanningScope[]).map((scope) => (
+            <button key={scope} type="button" aria-pressed={planningScope === scope} onClick={() => setPlanningScope(scope)} className={planningScope === scope ? "is-active" : ""}>{t(`planning_scope_${scope}`)}</button>
+          ))}
+        </div>
       </div>
-      <div className="px-5 mb-5">
-        <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
-        <select value={view} onChange={(e) => changeView(e.target.value as CalendarView)} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
-          <option value="upcoming">{t("ux_calendar_upcoming")}</option>
-          <option value="month">{t("ux_calendar_month")}</option>
-          <option value="personal">{t("calendar_tab_personal")}</option>
-        </select>
-      </div>
-
-      {view === "personal" && <IntroTip
-        id="calendar-personal-v1"
-        title={t("intro_calendar_personal_title")}
-        text={t("intro_calendar_personal")}
-      />}
 
       {errorMessage && (
         <div className="mx-5 mb-4 rounded-xl border border-mustard/30 bg-mustardBg px-3 py-2.5 text-sm text-ink" role="alert">
@@ -409,7 +442,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {view === "month" && (
+      {planningMode === "month" && (
         <section className="mx-5 mb-5 rounded-3xl border border-borderLight bg-white2 p-4">
           <div className="mb-4 flex items-center justify-between gap-3">
             <button type="button" onClick={() => moveMonth(-1)} className="rounded-xl border border-border p-2 text-ink" aria-label={t("calendar_previous_month")}><ChevronLeft size={17} /></button>
@@ -619,7 +652,26 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {view !== "month" && (<div className="px-5">
+      {planningMode !== "month" && (planningTaskItems.length > 0 || planningBillItems.length > 0) && (
+        <section className="dabo-planning-mixed" aria-label={t("planning_household_flow")}>
+          <div className="dabo-planning-section-heading"><span>{t("planning_household_flow")}</span><span>{planningTaskItems.length + planningBillItems.length}</span></div>
+          {planningTaskItems.map((task) => (
+            <button key={`task-${task.id}`} type="button" onClick={() => window.location.assign("/app/taches")} className="dabo-planning-row">
+              <span className="dabo-planning-row-icon"><ListChecks size={17}/></span>
+              <span className="min-w-0 flex-1"><strong>{task.name}</strong><small>{t("planning_task")} · {task.due_date ? formatEventDate(new Date(`${task.due_date}T12:00:00`)) : ""}</small></span>
+              {task.urgent && <span className="dabo-urgent-badge">{t("planning_urgent")}</span>}
+            </button>
+          ))}
+          {planningBillItems.map((bill) => (
+            <button key={`bill-${bill.id}`} type="button" onClick={() => window.location.assign("/app/finances")} className="dabo-planning-row">
+              <span className="dabo-planning-row-icon"><ReceiptText size={17}/></span>
+              <span className="min-w-0 flex-1"><strong>{bill.label}</strong><small>{t("planning_bill")} · {formatEventDate(new Date(`${bill.due_on}T12:00:00`))}</small></span>
+            </button>
+          ))}
+        </section>
+      )}
+
+      {planningMode !== "month" && (<div className="dabo-planning-stream">
         {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={openAdd} />}
         <div className="space-y-6 pb-6">
           {sections.map((section) => (

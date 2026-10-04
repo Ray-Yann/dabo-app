@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const page=fs.readFileSync("app/app/calendrier/page.tsx","utf8");
+const css=fs.readFileSync("app/globals.css","utf8");
+const i18n=fs.readFileSync("lib/i18n.ts","utf8");
+test("Planning V2 propose Jour Semaine Mois et les trois portées",()=>{for(const token of ['"day"','"week"','"month"','"all"','"me"','"household"']) assert.match(page,new RegExp(token));assert.match(page,/dabo-segmented/);assert.match(page,/dabo-planning-scopes/)});
+test("Planning V2 réunit événements tâches et échéances Finance",()=>{assert.match(page,/from\("calendar_events"\)/);assert.match(page,/from\("tasks"\)/);assert.match(page,/from\("finance_bills"\)/);assert.match(page,/planningTaskItems/);assert.match(page,/planningBillItems/)});
+test("Planning V2 préserve la confidentialité personnelle",()=>{assert.match(page,/event\.visibility === "personal" && event\.private_owner_id === me\?\.id/);assert.match(page,/planningScope === "household"/)});
+test("Planning V2 a une surface premium responsive",()=>{assert.match(css,/\.dabo-planning-header/);assert.match(css,/\.dabo-planning-row/);assert.match(css,/@media\(min-width:900px\)/)});
+test("Planning V2 couvre les sept catalogues",()=>{for(const key of ["planning_title","planning_view_day","planning_view_week","planning_view_month","planning_scope_all","planning_scope_me","planning_scope_household","planning_household_flow"]) assert.equal([...i18n.matchAll(new RegExp(key+":","g"))].length,7)});
