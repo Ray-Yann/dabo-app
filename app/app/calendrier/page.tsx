@@ -58,6 +58,10 @@ export default function CalendarPage() {
   const [responsibilityEventId, setResponsibilityEventId] = useState<string | null>(null);
   const [responsibilityDraft, setResponsibilityDraft] = useState("");
   const [responsibilityDraftAssignee, setResponsibilityDraftAssignee] = useState("");
+  const [responsibilityDraftDate, setResponsibilityDraftDate] = useState("");
+  const [responsibilityDraftTime, setResponsibilityDraftTime] = useState("");
+  const [responsibilityDetailsOpen, setResponsibilityDetailsOpen] = useState(false);
+  const [responsibilityFeedback, setResponsibilityFeedback] = useState<PlanningResponsibility | null>(null);
   const [notes, setNotes] = useState("");
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<CalendarRecurrenceFrequency>("none");
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
@@ -122,7 +126,7 @@ export default function CalendarPage() {
       supabase.from("tasks").select("id,household_id,routine_id,name,weight_points,duration_key,effort_level,assigned_to,status,urgent,due_date,completed_at,created_at").eq("household_id", household.id).eq("status", "pending"),
       supabase.from("finance_bills").select("id,label,due_on,status,amount,currency").eq("household_id", household.id).eq("status", "pending"),
       supabase.from("planning_task_slots").select("id,household_id,task_id,occurrence_date,start_time,end_time,created_by").eq("household_id", household.id),
-      supabase.from("calendar_event_responsibilities").select("id,event_id,label,responsibility_kind,assigned_to,due_date,due_time,status").eq("household_id", household.id).eq("status", "pending"),
+      supabase.from("calendar_event_responsibilities").select("id,event_id,label,responsibility_kind,assigned_to,due_date,due_time,status").eq("household_id", household.id),
     ]);
     setPlanningTasks((taskResult.data as Task[]) || []);
     setPlanningBills((billResult.data as PlanningBill[]) || []);
@@ -419,6 +423,17 @@ export default function CalendarPage() {
   const dayUnscheduledTasks = planningTasks.filter((task) => task.due_date === planningDate && !dayTaskIds.has(task.id) && taskVisibleInPlanningScope(task, planningScope, me?.id));
   const dayBills = planningBills.filter((bill) => bill.due_on === planningDate && planningScope !== "me");
 
+  const dayUnassignedResponsibilities = dayEvents.flatMap((event) => planningResponsibilities.filter((r)=>r.event_id===event.id && r.status==="pending" && !r.assigned_to));
+  const dayOrganizeCount = dayUnscheduledTasks.length + dayBills.length + dayUnassignedResponsibilities.length;
+  const weekDays = Array.from({length:7},(_,index)=>{ const date=new Date(); date.setHours(12,0,0,0); date.setDate(date.getDate()+index); return date; });
+  const weekDayData = weekDays.map((date)=>{
+    const civil=calendarOccurrenceDate(date); const start=new Date(`${civil}T00:00:00`); const end=new Date(`${civil}T23:59:59`);
+    const eventsForDay=visibleEvents.flatMap((event)=>occurrencesInRange(event,start,end).map((occurrence)=>({...event,occurrence,occurrenceDate:calendarOccurrenceDate(occurrence)}))).filter((event)=>!isCalendarOccurrenceCompleted(completedOccurrenceKeys,event.id,event.occurrenceDate));
+    const tasksForDay=planningTasks.filter((task)=>task.due_date===civil && taskVisibleInPlanningScope(task,planningScope,me?.id));
+    const billsForDay=planningBills.filter((bill)=>bill.due_on===civil && planningScope!=="me");
+    return {date,civil,events:eventsForDay,tasks:tasksForDay,bills:billsForDay};
+  });
+
   function movePlanningDay(delta:number) {
     const next = new Date(`${planningDate}T12:00:00`); next.setDate(next.getDate()+delta);
     setPlanningDate(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,"0")}-${String(next.getDate()).padStart(2,"0")}`);
@@ -426,15 +441,22 @@ export default function CalendarPage() {
 
   async function addResponsibility(eventId:string) {
     if (!household || !me || !responsibilityDraft.trim()) return;
-    const { error } = await supabase.from("calendar_event_responsibilities").insert({ household_id:household.id, event_id:eventId, label:responsibilityDraft.trim(), responsibility_kind:"preparation", assigned_to:responsibilityDraftAssignee || null, due_date:planningDate, created_by:me.id });
+    const { error } = await supabase.from("calendar_event_responsibilities").insert({ household_id:household.id, event_id:eventId, label:responsibilityDraft.trim(), responsibility_kind:"preparation", assigned_to:responsibilityDraftAssignee || null, due_date:responsibilityDraftDate || planningDate, due_time:responsibilityDraftTime || null, created_by:me.id });
     if (error) { setErrorMessage(t("calendar_error_save")); return; }
-    setResponsibilityDraft(""); setResponsibilityDraftAssignee(""); setResponsibilityEventId(null); await loadEvents();
+    setResponsibilityDraft(""); setResponsibilityDraftAssignee(""); setResponsibilityDraftDate(""); setResponsibilityDraftTime(""); setResponsibilityDetailsOpen(false); setResponsibilityEventId(null); await loadEvents();
   }
 
   async function completeResponsibility(id:string) {
+    const completed = planningResponsibilities.find((item)=>item.id===id) || null;
     const { error } = await supabase.from("calendar_event_responsibilities").update({ status:"done" }).eq("id",id);
     if (error) { setErrorMessage(t("calendar_error_save")); return; }
-    await loadEvents();
+    setResponsibilityFeedback(completed); await loadEvents();
+  }
+
+  async function restoreResponsibility(id:string) {
+    const { error } = await supabase.from("calendar_event_responsibilities").update({ status:"pending" }).eq("id",id);
+    if (error) { setErrorMessage(t("calendar_error_save")); return; }
+    setResponsibilityFeedback(null); await loadEvents();
   }
 
   async function saveTaskSlot(task: Task) {
@@ -524,10 +546,10 @@ export default function CalendarPage() {
             </button>
             <button type="button" onClick={() => movePlanningDay(1)} aria-label={t("planning_next_day")}><ChevronRight size={18}/></button>
           </div>
-          <div className="dabo-day-summary"><Sparkles size={16}/><span>{t("planning_day_summary")}</span><strong>{dayEvents.length + daySlots.length + dayUnscheduledTasks.length + dayBills.length}</strong></div>
+          <div className="dabo-day-summary"><Sparkles size={16}/><span>{t("planning_day_summary")}</span><strong>{dayOrganizeCount}</strong></div>
           <div className="dabo-timeline">
             {[...dayEvents.map((event) => ({ kind:"event" as const, time:event.event_time?.slice(0,5)||null, sort:event.event_time||"99:98", event })), ...daySlots.map((slot) => ({ kind:"task" as const, time:slot.start_time.slice(0,5), sort:slot.start_time, slot }))].sort((a,b)=>a.sort.localeCompare(b.sort)).map((item) => {
-              if (item.kind === "event") { const event=item.event; const responsibilities=planningResponsibilities.filter((r)=>r.event_id===event.id); return <article key={`timeline-event-${event.id}-${event.occurrenceDate}`} className="dabo-timeline-item"><div className="dabo-timeline-time">{item.time || t("planning_all_day")}</div><div className="dabo-timeline-card"><div className="dabo-timeline-card-top"><span className="dabo-timeline-icon"><CalendarDays size={16}/></span><div><strong>{event.title}</strong><small>{event.event_time ? `${event.event_time.slice(0,5)}${event.end_time ? `–${event.end_time.slice(0,5)}`:""}` : t("planning_all_day")}</small></div></div>{responsibilities.map((r)=><div key={r.id} className="dabo-responsibility"><button type="button" onClick={()=>completeResponsibility(r.id)} className="dabo-responsibility-check" aria-label={t("calendar_mark_done")}/><span>{r.label}</span><b>{members.find((m)=>m.id===r.assigned_to)?.first_name || t("planning_to_decide")}</b></div>)}{event.visibility === "household" && (responsibilityEventId===event.id ? <div className="dabo-responsibility-editor"><input value={responsibilityDraft} onChange={(e)=>setResponsibilityDraft(e.target.value)} placeholder={t("planning_prepare_placeholder")}/><select value={responsibilityDraftAssignee} onChange={(e)=>setResponsibilityDraftAssignee(e.target.value)}><option value="">{t("planning_to_decide")}</option>{members.map((member)=><option key={member.id} value={member.id}>{member.first_name}</option>)}</select><div><button type="button" onClick={()=>addResponsibility(event.id)} disabled={!responsibilityDraft.trim()}>{t("add")}</button><button type="button" onClick={()=>setResponsibilityEventId(null)}>{t("cancel")}</button></div></div> : <button type="button" onClick={()=>setResponsibilityEventId(event.id)} className="dabo-add-responsibility">+ {t("planning_add_preparation")}</button>)}</div></article>; }
+              if (item.kind === "event") { const event=item.event; const responsibilities=planningResponsibilities.filter((r)=>r.event_id===event.id); const pending=responsibilities.filter((r)=>r.status==="pending"); const done=responsibilities.filter((r)=>r.status==="done"); return <article key={`timeline-event-${event.id}-${event.occurrenceDate}`} className="dabo-timeline-item"><div className="dabo-timeline-time">{item.time || t("planning_all_day")}</div><div className="dabo-timeline-card"><div className="dabo-timeline-card-top"><span className="dabo-timeline-icon"><CalendarDays size={16}/></span><div><strong>{event.title}</strong><small>{event.event_time ? `${event.event_time.slice(0,5)}${event.end_time ? `–${event.end_time.slice(0,5)}`:""}` : t("planning_all_day")}</small></div></div>{pending.map((r)=><div key={r.id} className="dabo-responsibility"><button type="button" onClick={()=>completeResponsibility(r.id)} className="dabo-responsibility-check" aria-label={t("calendar_mark_done")}/><span>{r.label}{r.due_time ? ` · ${r.due_time.slice(0,5)}`:""}</span><b>{members.find((m)=>m.id===r.assigned_to)?.first_name || t("planning_to_decide")}</b></div>)}{done.length>0 && <details className="dabo-completed-responsibilities"><summary>{t("planning_completed_preparations")} · {done.length}</summary>{done.map((r)=><div key={r.id} className="dabo-responsibility is-done"><span>✓ {r.label}</span><button type="button" onClick={()=>restoreResponsibility(r.id)}>{t("calendar_restore")}</button></div>)}</details>}{event.visibility === "household" && (responsibilityEventId===event.id ? <div className="dabo-responsibility-editor"><input value={responsibilityDraft} onChange={(e)=>setResponsibilityDraft(e.target.value)} placeholder={t("planning_prepare_placeholder")}/><select value={responsibilityDraftAssignee} onChange={(e)=>setResponsibilityDraftAssignee(e.target.value)}><option value="">{t("planning_to_decide")}</option>{members.map((member)=><option key={member.id} value={member.id}>{member.first_name}</option>)}</select><button type="button" className="dabo-responsibility-details-toggle" onClick={()=>setResponsibilityDetailsOpen((value)=>!value)}>+ {t("planning_deadline_optional")}</button>{responsibilityDetailsOpen && <div className="dabo-responsibility-details"><input type="date" value={responsibilityDraftDate} onChange={(e)=>setResponsibilityDraftDate(e.target.value)}/><input type="time" value={responsibilityDraftTime} onChange={(e)=>setResponsibilityDraftTime(e.target.value)}/></div>}<div><button type="button" onClick={()=>addResponsibility(event.id)} disabled={!responsibilityDraft.trim()}>{t("add")}</button><button type="button" onClick={()=>{setResponsibilityEventId(null);setResponsibilityDetailsOpen(false);}}>{t("cancel")}</button></div></div> : <button type="button" onClick={()=>setResponsibilityEventId(event.id)} className="dabo-add-responsibility">+ {t("planning_add_preparation")}</button>)}</div></article>; }
               const task=planningTasks.find((candidate)=>candidate.id===item.slot.task_id); if(!task) return null; return <article key={`timeline-task-${item.slot.id}`} className="dabo-timeline-item"><div className="dabo-timeline-time">{item.time}</div><button type="button" onClick={()=>window.location.assign("/app/taches")} className="dabo-timeline-card dabo-timeline-task"><div className="dabo-timeline-card-top"><span className="dabo-timeline-icon"><ListChecks size={16}/></span><div><strong>{task.name}</strong><small>{item.slot.start_time.slice(0,5)}{item.slot.end_time ? `–${item.slot.end_time.slice(0,5)}`:""}{task.assigned_to ? ` · ${members.find((m)=>m.id===task.assigned_to)?.first_name || ""}`:""}</small></div></div></button></article>;
             })}
             {dayEvents.length===0 && daySlots.length===0 && <div className="dabo-free-day"><Clock3 size={18}/><div><strong>{t("planning_free_day")}</strong><span>{t("planning_free_day_hint")}</span></div></div>}
@@ -637,7 +659,7 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
-                  {selectedMonthTasks.map((task)=><button key={`month-task-${task.id}`} type="button" onClick={()=>window.location.assign("/app/taches")} className="dabo-month-compact"><ListChecks size={14}/><span><strong>{task.name}</strong><small>{t("planning_task")}{task.assigned_to ? ` · ${members.find((m)=>m.id===task.assigned_to)?.first_name || ""}`:""}</small></span></button>)}
+                  {selectedMonthTasks.map((task)=><button key={`month-task-${task.id}`} type="button" onClick={()=>window.location.assign("/app/taches")} className="dabo-month-compact"><ListChecks size={14}/><span><strong>{task.name}</strong><small>{t("planning_task")}{planningSlots.find((slot)=>slot.task_id===task.id && slot.occurrence_date===task.due_date)?.start_time ? ` · ${planningSlots.find((slot)=>slot.task_id===task.id && slot.occurrence_date===task.due_date)?.start_time.slice(0,5)}`:""}{task.assigned_to ? ` · ${members.find((m)=>m.id===task.assigned_to)?.first_name || ""}`:""}</small></span></button>)}
                   {selectedMonthBills.map((bill)=><button key={`month-bill-${bill.id}`} type="button" onClick={()=>window.location.assign("/app/finances")} className="dabo-month-compact"><ReceiptText size={14}/><span><strong>{bill.label}</strong><small>{t("planning_bill")}</small></span></button>)}
                 </div>
               )}
@@ -749,26 +771,12 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {planningMode === "week" && (planningTaskItems.length > 0 || planningBillItems.length > 0) && (
-        <section className="dabo-planning-mixed" aria-label={t("planning_household_flow")}>
-          <div className="dabo-planning-section-heading"><span>{t("planning_household_flow")}</span><span>{planningTaskItems.length + planningBillItems.length}</span></div>
-          {planningTaskItems.map((task) => (
-            <button key={`task-${task.id}`} type="button" onClick={() => window.location.assign("/app/taches")} className="dabo-planning-row">
-              <span className="dabo-planning-row-icon"><ListChecks size={17}/></span>
-              <span className="min-w-0 flex-1"><strong>{task.name}</strong><small>{t("planning_task")} · {task.due_date ? formatEventDate(new Date(`${task.due_date}T12:00:00`)) : ""}</small></span>
-              {task.urgent && <span className="dabo-urgent-badge">{t("planning_urgent")}</span>}
-            </button>
-          ))}
-          {planningBillItems.map((bill) => (
-            <button key={`bill-${bill.id}`} type="button" onClick={() => window.location.assign("/app/finances")} className="dabo-planning-row">
-              <span className="dabo-planning-row-icon"><ReceiptText size={17}/></span>
-              <span className="min-w-0 flex-1"><strong>{bill.label}</strong><small>{t("planning_bill")} · {formatEventDate(new Date(`${bill.due_on}T12:00:00`))}</small></span>
-            </button>
-          ))}
-        </section>
-      )}
+      {planningMode === "week" && <section className="dabo-week-board" aria-label={t("planning_week_agenda")}>
+        <div className="dabo-week-heading"><div><strong>{t("planning_week_title")}</strong><span>{t("planning_week_hint")}</span></div></div>
+        <div className="dabo-week-grid">{weekDayData.map((day)=>{ const isToday=day.civil===todayCivilDate(); return <article key={day.civil} className={`dabo-week-day ${isToday?"is-today":""}`}><header><span>{new Intl.DateTimeFormat(locale,{weekday:"short"}).format(day.date)}</span><strong>{day.date.getDate()}</strong></header><div className="dabo-week-items">{day.events.map((event)=><button type="button" key={`we-${event.id}-${event.occurrenceDate}`} onClick={()=>startEditing(event)} className="dabo-week-item is-event"><span>{event.event_time?.slice(0,5)||t("planning_all_day")}</span><strong>{event.title}</strong></button>)}{day.tasks.map((task)=>{ const slot=planningSlots.find((candidate)=>candidate.task_id===task.id && candidate.occurrence_date===day.civil); return <button type="button" key={`wt-${task.id}`} onClick={()=>window.location.assign("/app/taches")} className="dabo-week-item is-task"><span>{slot?.start_time ? `${slot.start_time.slice(0,5)}${slot.end_time?`–${slot.end_time.slice(0,5)}`:""}`:t("planning_to_place_short")}</span><strong>{task.name}</strong></button>})}{day.bills.map((bill)=><button type="button" key={`wb-${bill.id}`} onClick={()=>window.location.assign("/app/finances")} className="dabo-week-item is-bill"><span>{t("planning_bill")}</span><strong>{bill.label}</strong></button>)}{day.events.length===0&&day.tasks.length===0&&day.bills.length===0&&<span className="dabo-week-empty">—</span>}</div></article>})}</div>
+      </section>}
 
-      {planningMode === "week" && (<div className="dabo-planning-stream">
+      {planningMode === "week" && editingId !== null && (<div className="dabo-planning-stream dabo-editing-stream">
         {upcoming.length === 0 && !showAdd && <EmptyState message={t("calendar_empty")} actionLabel={t("calendar_add_first")} onAction={openAdd} />}
         <div className="space-y-6 pb-6">
           {sections.map((section) => (
@@ -871,6 +879,8 @@ export default function CalendarPage() {
           ))}
         </div>
       </div>)}
+
+      {responsibilityFeedback && <div className="dabo-planning-toast" role="status" aria-live="polite"><span>✓ {t("planning_preparation_completed")}</span><button type="button" onClick={()=>restoreResponsibility(responsibilityFeedback.id)}>{t("planning_undo")}</button><button type="button" aria-label={t("close")} onClick={()=>setResponsibilityFeedback(null)}>×</button></div>}
 
       {deleteTarget && (
         <div
