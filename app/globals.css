@@ -719,3 +719,16 @@ input, select, textarea {
 /* DABO Planning V2.2.1 — finition responsive auditée mobile + desktop */
 .dabo-timeline:before{left:84px}.dabo-timeline-item{grid-template-columns:70px minmax(0,1fr);gap:26px}.dabo-timeline-card:before{left:-30px}.dabo-free-day{margin-left:96px}.dabo-responsibility-details label{display:grid;gap:4px;min-width:0;color:var(--dabo-muted);font-size:10px;font-weight:700}.dabo-responsibility-details label>span{display:block}.dabo-responsibility-details label>input{min-width:0}.dabo-responsibility span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}.dabo-responsibility b{flex:0 0 auto;align-self:flex-start}.dabo-responsibility.is-done{align-items:flex-start}.dabo-responsibility.is-done span{white-space:normal;overflow:visible;text-overflow:clip}.dabo-responsibility.is-done button{flex:0 0 auto;align-self:flex-start}
 @media(max-width:480px){.dabo-timeline:before{left:68px}.dabo-timeline-item{grid-template-columns:56px minmax(0,1fr);gap:23px}.dabo-timeline-card:before{left:-28px}.dabo-free-day{margin-left:79px}.dabo-responsibility{align-items:flex-start;flex-wrap:wrap}.dabo-responsibility span{flex:1 1 calc(100% - 24px)}.dabo-responsibility b{margin-left:22px}.dabo-responsibility.is-done{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.dabo-responsibility.is-done span{min-width:0}.dabo-responsibility.is-done button{margin:0}.dabo-responsibility-details{grid-template-columns:1fr 1fr}}
+
+/* DABO Planning V2.2.2 — rail temporel premium : le libellé, le marqueur et l’axe ont chacun leur zone */
+.dabo-timeline:before{left:84px}
+.dabo-timeline-item{grid-template-columns:64px minmax(0,1fr);column-gap:34px}
+.dabo-timeline-time{padding-right:0;overflow-wrap:normal;word-break:normal}
+.dabo-timeline-card:before{left:-21px}
+.dabo-free-day{margin-left:98px}
+@media(max-width:480px){
+  .dabo-timeline:before{left:68px}
+  .dabo-timeline-item{grid-template-columns:52px minmax(0,1fr);column-gap:36px}
+  .dabo-timeline-card:before{left:-27px}
+  .dabo-free-day{margin-left:88px}
+}
