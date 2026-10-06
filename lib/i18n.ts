@@ -1150,7 +1150,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Faites scanner ce QR code pour rejoindre directement ce foyer.",
 
-    settings_invite_share_message: "Rejoins {household} sur DABO avec le code {code}.",
+    settings_invite_share_message: "Rejoins {household} sur DABO.",
     settings_preferences_desc: "Choisissez comment DABO vous accompagne au quotidien.",
     settings_sensitive_actions: "Actions sensibles",
     settings_sensitive_actions_desc: "Ces actions peuvent modifier votre accès au foyer ou à DABO.",
@@ -2324,7 +2324,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Laat deze QR-code scannen om rechtstreeks lid te worden van dit huishouden.",
 
-    settings_invite_share_message: "Word lid van {household} op DABO met de code {code}.",
+    settings_invite_share_message: "Word lid van {household} op DABO.",
     settings_preferences_desc: "Kies hoe DABO je dagelijks begeleidt.",
     settings_sensitive_actions: "Gevoelige acties",
     settings_sensitive_actions_desc: "Deze acties kunnen je toegang tot het huishouden of DABO wijzigen.",
@@ -3498,7 +3498,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Scan this QR code to join this household directly.",
 
-    settings_invite_share_message: "Join {household} on DABO with the code {code}.",
+    settings_invite_share_message: "Join {household} on DABO.",
     settings_preferences_desc: "Choose how DABO supports you every day.",
     settings_sensitive_actions: "Sensitive actions",
     settings_sensitive_actions_desc: "These actions can change your access to the household or DABO.",
@@ -4674,7 +4674,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Scannen Sie diesen QR-Code, um diesem Haushalt direkt beizutreten.",
 
-    settings_invite_share_message: "Mach mit {household} auf DABO mit dem Code {code}.",
+    settings_invite_share_message: "Mach mit {household} auf DABO.",
     settings_preferences_desc: "Entscheiden Sie, wie DABO begleitet Sie im Alltag.",
     settings_sensitive_actions: "Sensible Maßnahmen",
     settings_sensitive_actions_desc: "Diese Maßnahmen können Ihren Zugang zum Haus oder zu DABO.",
@@ -5849,7 +5849,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Escanea este código QR para unirte directamente a este hogar.",
 
-    settings_invite_share_message: "Únete a {household} en DABO con el código {code}.",
+    settings_invite_share_message: "Únete a {household} en DABO.",
     settings_preferences_desc: "Elige cómo DABO te acompaña en tu día a día.",
     settings_sensitive_actions: "Acciones delicadas",
     settings_sensitive_actions_desc: "Estas acciones pueden afectar a tu acceso a la vivienda o a DABO.",
@@ -7024,7 +7024,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Scansiona questo codice QR per unirti direttamente a questo nucleo familiare.",
 
-    settings_invite_share_message: "Unisciti a noi {household} su DABO con il codice {code}.",
+    settings_invite_share_message: "Unisciti a noi {household} su DABO.",
     settings_preferences_desc: "Scegliete come DABO vi accompagna nella vita di tutti i giorni.",
     settings_sensitive_actions: "Azioni sensibili",
     settings_sensitive_actions_desc: "Queste azioni potrebbero modificare il vostro accesso all'abitazione o a DABO.",
@@ -8199,7 +8199,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     settings_invite_qr_hint: "Digitalize este código QR para entrar diretamente neste agregado familiar.",
 
-    settings_invite_share_message: "Junta-te a nós {household} sobre DABO com o código {code}.",
+    settings_invite_share_message: "Junta-te a nós {household} sobre DABO.",
     settings_preferences_desc: "Escolha como DABO acompanha-o no dia a dia.",
     settings_sensitive_actions: "Ações sensíveis",
     settings_sensitive_actions_desc: "Estas ações podem alterar o seu acesso à casa ou a DABO.",

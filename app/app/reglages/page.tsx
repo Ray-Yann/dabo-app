@@ -515,8 +515,7 @@ export default function SettingsPage() {
   async function shareInvite() {
     if (!household) return;
     const text = t("settings_invite_share_message")
-      .replace("{household}", household.name)
-      .replace("{code}", household.invite_code);
+      .replace("{household}", household.name);
     if (navigator.share) {
       try {
         await navigator.share({ title: "DABO", text, url: inviteUrl });

@@ -22,8 +22,7 @@ export default function HouseholdPage() {
     ? `${window.location.origin}/?invite=${encodeURIComponent(household.invite_code)}`
     : "";
   const inviteText = t("settings_invite_share_message")
-    .replace("{household}", household.name)
-    .replace("{code}", household.invite_code);
+    .replace("{household}", household.name);
 
   async function copyInviteLink() {
     try {
