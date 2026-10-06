@@ -363,7 +363,7 @@ export default function OnboardingPage() {
           <>
             <h1 className="font-serif text-2xl text-ink mb-1">{inviteFromLink ? t("onboarding_invited_title") : t("onboarding_welcome_title")}</h1>
             <p className="text-sm text-muted mb-1">{inviteFromLink ? t("onboarding_invited_subtitle") : t("onboarding_welcome_subtitle")}</p>
-            <p className="text-xs text-muted mb-6">{inviteFromLink ? t("onboarding_invite_ready_code").replace("{code}", inviteCode) : t("onboarding_welcome_body")}</p>
+            {!inviteFromLink && <p className="text-xs text-muted mb-6">{t("onboarding_welcome_body")}</p>}
 
             <div className="space-y-3 text-left">
               <input
@@ -600,13 +600,14 @@ export default function OnboardingPage() {
             <h1 className="font-serif text-xl text-ink mb-1">{inviteFromLink ? t("onboarding_join_ready_title") : t("onboarding_join_household")}</h1>
             {inviteFromLink && <p className="text-sm text-muted mb-4">{t("onboarding_join_ready_body")}</p>}
             <div className="space-y-3 text-left">
-              <input
-                placeholder={t("onboarding_invite_code_placeholder")}
-                value={inviteCode}
-                readOnly={inviteFromLink}
-                onChange={(e) => setInviteCode(e.target.value)}
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
-              />
+              {!inviteFromLink && (
+                <input
+                  placeholder={t("onboarding_invite_code_placeholder")}
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-white2 text-ink outline-none focus:border-ink"
+                />
+              )}
               <input
                 placeholder={t("onboarding_first_name_placeholder")}
                 value={firstName}

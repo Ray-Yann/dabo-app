@@ -14,7 +14,7 @@ test("Onboarding V2 transforme le code partagé en lien d'invitation", () => {
 test("Onboarding V2 reconnaît automatiquement une invitation ouverte", () => {
   assert.match(onboarding, /searchParams\.get\("invite"\)/);
   assert.match(onboarding, /setSetupMode\("join"\)/);
-  assert.match(onboarding, /readOnly=\{inviteFromLink\}/);
+  assert.match(onboarding, /!inviteFromLink && \(/);
 });
 
 test("Onboarding V2 laisse un utilisateur multi-foyers accepter une invitation", () => {
@@ -37,4 +37,11 @@ test("Onboarding V2 offre trois premiers pas utiles sur un foyer neuf", () => {
   assert.match(home, /router\.push\("\/app\/courses"\)/);
   assert.match(home, /router\.push\("\/app\/taches"\)/);
   assert.match(home, /router\.push\("\/app\/calendrier"\)/);
+});
+
+
+test("Onboarding V2.1 garde le code d invitation technique hors du parcours par lien", () => {
+  assert.doesNotMatch(onboarding, /inviteFromLink \? t\("onboarding_invite_ready_code"\)/);
+  assert.match(onboarding, /!inviteFromLink && <p className="text-xs text-muted mb-6">/);
+  assert.match(onboarding, /!inviteFromLink && \([\s\S]*onboarding_invite_code_placeholder/);
 });
