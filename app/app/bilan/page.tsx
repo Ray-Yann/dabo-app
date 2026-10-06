@@ -198,7 +198,7 @@ export default function HouseholdReportPage(){
    <details className="mt-4 group">
     <summary className="cursor-pointer list-none text-sm font-medium text-ink underline decoration-borderLight underline-offset-4">{t("bilan_v2_why")}</summary>
     <div className="mt-3 rounded-xl bg-white2/70 p-4 text-xs leading-5 text-muted">
-     <p>{t("bilan_v2_evidence_confirmed").replace("{count}",String(insightEngine.evidence.confirmedContributions))}</p>
+     <p>{insightEngine.evidence.confirmedContributions===0?t("bilan_v2_evidence_none_confirmed"):t("bilan_v2_evidence_confirmed").replace("{count}",String(insightEngine.evidence.confirmedContributions))}</p>
      {insightEngine.canCompare&&insightEngine.evidence.currentHighestShare!==null&&insightEngine.evidence.previousHighestShare!==null&&<p>{t("bilan_v2_evidence_distribution").replace("{current}",String(insightEngine.evidence.currentHighestShare)).replace("{previous}",String(insightEngine.evidence.previousHighestShare))}</p>}
      {!insightEngine.canCompare&&<p>{t("bilan_v2_evidence_no_comparison")}</p>}
      {insightEngine.evidence.overduePoints>0&&<p>{t("bilan_v2_evidence_overdue").replace("{points}",String(Math.round(insightEngine.evidence.overduePoints)))}</p>}

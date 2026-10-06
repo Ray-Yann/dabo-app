@@ -29,3 +29,12 @@ test("Bilan V2 ships its premium copy in all seven catalogues",()=>{
   assert.equal((i18n.match(/bilan_v2_evidence_note:/g)||[]).length,7);
   assert.equal((i18n.match(/bilan_v2_details_title:/g)||[]).length,7);
 });
+
+
+test("Bilan V2.1 gives empty households distinct, human editorial states",()=>{
+  assert.match(page,/bilan_v2_evidence_none_confirmed/);
+  assert.equal((i18n.match(/bilan_v2_evidence_none_confirmed:/g)||[]).length,7);
+  assert.equal((i18n.match(/bilan_v2_state_building_title:/g)||[]).length,7);
+  assert.equal((i18n.match(/weekly_report_balance_building:/g)||[]).length,7);
+  assert.doesNotMatch(i18n,/bilan_v2_state_building_title: ['"]DABO (?:apprend|is still learning|leert|lernt|todavía|sta ancora|ainda)/i);
+});
