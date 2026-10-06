@@ -43,3 +43,19 @@ test("Mon foyer V2 reste traduit dans les 7 langues actives", () => {
     assert.equal((i18n.match(new RegExp(`\\b${key}:`, "g")) || []).length, 7, `${key} doit exister 7 fois`);
   }
 });
+
+
+test("Mon foyer V2 invite directement sans detour par Reglages", () => {
+  assert.match(page, /setInviteOpen\(true\)/);
+  assert.match(page, /role="dialog"/);
+  assert.match(page, /QRCodeSVG/);
+  assert.match(page, /copyInviteLink/);
+  assert.match(page, /shareInvite/);
+  assert.match(page, /\?invite=/);
+});
+
+test("Mon foyer V2 separe invitation et gestion des membres", () => {
+  assert.match(page, /settings_invite_member/);
+  assert.match(page, /\/app\/reglages#dabo-members/);
+  assert.doesNotMatch(page, /onClick=\{\(\) => router\.push\("\/app\/reglages"\)\} className="dabo-secondary-action mt-4 w-full"/);
+});

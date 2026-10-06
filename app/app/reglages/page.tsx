@@ -1224,7 +1224,7 @@ export default function SettingsPage() {
             {t("tutorial_replay")}
           </button>
 
-          <div className="bg-white2 rounded-2xl p-4">
+          <div id="dabo-members" className="bg-white2 rounded-2xl p-4 scroll-mt-6">
             <div className="text-sm font-medium text-ink mb-3">{t("settings_members")}</div>
             <div className="space-y-1">
               {members.map((m) => {
