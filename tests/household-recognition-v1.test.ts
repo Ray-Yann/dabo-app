@@ -27,7 +27,8 @@ test("Reconnaissance V1 reste descriptive et ne crée ni score ni nouvelle persi
   const page=readFileSync(new URL("../app/app/bilan/page.tsx",import.meta.url),"utf8");
   const engine=readFileSync(new URL("../lib/household-recognition.ts",import.meta.url),"utf8");
   assert.match(page,/computeHouseholdRecognition/);
-  assert.match(page,/weekly_report_recognition_note/);
+  assert.match(page,/computeHouseholdIntelligentSummary/);
+  assert.match(page,/computeHouseholdInsightEngine/);
   assert.doesNotMatch(engine,/score|ranking|rank|from\(/i);
-  assert.doesNotMatch(page,/household_recognition/);
+  assert.doesNotMatch(page,/from\("household_recognition"\)/);
 });

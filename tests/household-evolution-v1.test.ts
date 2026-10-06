@@ -29,7 +29,7 @@ test("Évolution V1 reconnaît une amélioration observée sans l'attribuer à u
 
 test("Évolution V1 réutilise Insights sans nouvelle persistance Supabase",()=>{
   const page=readFileSync(new URL("../app/app/bilan/page.tsx",import.meta.url),"utf8");
-  assert.match(page,/insights_title/);
-  assert.match(page,/insights_previous_value/);
+  assert.match(page,/computeHouseholdInsights/);
+  assert.match(page,/computeHouseholdInsightEngine/);
   assert.doesNotMatch(page,/from\("household_evolution"\)/);
 });

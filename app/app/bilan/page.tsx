@@ -14,6 +14,7 @@ import { buildHouseholdActionSuggestion, getRebalanceActionState, type Household
 import { computeFullLoadMap } from "@/lib/full-load-map";
 import type { MemberLifeContext } from "@/lib/life-context";
 import { computePerceptionGap, type LoadPerception } from "@/lib/perception-gap";
+import { computeHouseholdInsightEngine } from "@/lib/household-insight-engine";
 import { simulateHouseholdScenario, type ScenarioSnapshot } from "@/lib/household-scenario";
 import { buildHouseholdMemory, presentHouseholdMemory, type RoutineAdaptationMemorySource } from "@/lib/household-memory";
 export default function HouseholdReportPage(){
@@ -57,6 +58,12 @@ export default function HouseholdReportPage(){
     completedSince:report.start,
     today,
   }),[members,tasks,subtasks,balance,report.start,today]);
+  const insightEngine=useMemo(()=>computeHouseholdInsightEngine({
+   report,
+   insights,
+   fullLoadMap,
+   perceptionGap,
+  }),[report,insights,fullLoadMap,perceptionGap]);
   const scenarioSnapshot=useMemo<ScenarioSnapshot>(()=>({
    members:fullLoadMap.members.map(member=>({
     memberId:member.memberId,
@@ -181,6 +188,33 @@ export default function HouseholdReportPage(){
   <section className="grid grid-cols-3 gap-2"><Metric value={report.confirmedContributions} label={t("weekly_report_tasks")}/><Metric value={report.boughtItems} label={t("weekly_report_shopping")}/><Metric value={report.householdEvents} label={t("weekly_report_events")}/></section>
   <section className="rounded-2xl border border-borderLight/70 bg-white2/70 p-5"><p className="text-[11px] uppercase tracking-wide text-muted">{t("weekly_report_summary")}</p><h2 className="mt-1 font-serif text-xl text-ink">{t(`weekly_report_summary_${intelligentSummary}_title`)}</h2><p className="mt-2 text-sm text-ink">{t(`weekly_report_summary_${intelligentSummary}_text`).replace("{count}",String(report.confirmedContributions))}</p><p className="mt-3 text-xs text-muted">{t("weekly_report_summary_note")}</p></section>
   <section className="rounded-2xl border border-borderLight/70 bg-paper p-5">
+   <p className="text-[11px] uppercase tracking-wide text-muted">{t("bilan_v2_changed_label")}</p>
+   <h2 className="mt-1 font-serif text-xl text-ink">{t(`bilan_v2_state_${insightEngine.state}_title`)}</h2>
+   <p className="mt-2 text-sm text-ink">{t(`bilan_v2_state_${insightEngine.state}_text`)}</p>
+   {insightEngine.attention!=="none"&&<div className="mt-4 rounded-xl bg-white2/70 p-4">
+    <p className="text-[11px] uppercase tracking-wide text-muted">{t("bilan_v2_together_label")}</p>
+    <p className="mt-1 text-sm font-medium text-ink">{t(`bilan_v2_attention_${insightEngine.attention}`)}</p>
+   </div>}
+   <details className="mt-4 group">
+    <summary className="cursor-pointer list-none text-sm font-medium text-ink underline decoration-borderLight underline-offset-4">{t("bilan_v2_why")}</summary>
+    <div className="mt-3 rounded-xl bg-white2/70 p-4 text-xs leading-5 text-muted">
+     <p>{t("bilan_v2_evidence_confirmed").replace("{count}",String(insightEngine.evidence.confirmedContributions))}</p>
+     {insightEngine.canCompare&&insightEngine.evidence.currentHighestShare!==null&&insightEngine.evidence.previousHighestShare!==null&&<p>{t("bilan_v2_evidence_distribution").replace("{current}",String(insightEngine.evidence.currentHighestShare)).replace("{previous}",String(insightEngine.evidence.previousHighestShare))}</p>}
+     {!insightEngine.canCompare&&<p>{t("bilan_v2_evidence_no_comparison")}</p>}
+     {insightEngine.evidence.overduePoints>0&&<p>{t("bilan_v2_evidence_overdue").replace("{points}",String(Math.round(insightEngine.evidence.overduePoints)))}</p>}
+     {insightEngine.hasCounterSignal&&<p>{t("bilan_v2_counter_signal")}</p>}
+     <p className="mt-2">{t("bilan_v2_evidence_note")}</p>
+    </div>
+   </details>
+  </section>
+  <details className="rounded-2xl border border-borderLight/70 bg-paper p-5">
+   <summary className="cursor-pointer list-none">
+    <p className="text-[11px] uppercase tracking-wide text-muted">{t("bilan_v2_details_label")}</p>
+    <h2 className="mt-1 font-serif text-xl text-ink">{t("bilan_v2_details_title")}</h2>
+    <p className="mt-2 text-sm text-muted">{t("bilan_v2_details_text")}</p>
+   </summary>
+   <div className="mt-5 space-y-4">
+  <section className="rounded-2xl border border-borderLight/70 bg-white2/50 p-5">
    <p className="text-[11px] uppercase tracking-wide text-muted">{t("full_load_map_title")}</p>
    <h2 className="mt-1 font-serif text-xl text-ink">{t("full_load_map_heading")}</h2>
    <div className="mt-4 grid grid-cols-3 gap-2">
@@ -422,8 +456,8 @@ export default function HouseholdReportPage(){
    <p className="mt-3 text-xs text-muted">{t("perception_gap_private")}</p>
    {loadPerception&&perceptionGap!=="not_comparable"&&<p className="mt-4 rounded-xl bg-white2/70 p-4 text-sm text-ink">{t(perceptionGap==="aligned"?"perception_gap_aligned":perceptionGap==="perceives_more_concentrated"?"perception_gap_more_concentrated":perceptionGap==="perceives_more_balanced"?"perception_gap_more_balanced":"perception_gap_different")}</p>}
   </section>}
-  <section className="rounded-2xl border border-borderLight/70 bg-white2/70 p-5"><p className="text-[11px] uppercase tracking-wide text-muted">{t("weekly_report_recognition")}</p><h2 className="mt-1 font-serif text-xl text-ink">{t(`weekly_report_recognition_${recognition}_title`)}</h2><p className="mt-2 text-sm text-ink">{t(`weekly_report_recognition_${recognition}_text`).replace("{count}",String(report.confirmedContributions))}</p><p className="mt-3 text-xs text-muted">{t("weekly_report_recognition_note")}</p></section>
-  <section className="rounded-2xl border border-borderLight/70 bg-paper p-5"><p className="text-[11px] uppercase tracking-wide text-muted">{t("insights_title")}</p><h2 className="mt-1 font-serif text-xl text-ink">{t(insights.trend==="building"?"insights_building_title":`insights_trend_${insights.trend}_title`)}</h2><p className="mt-2 text-sm text-ink">{insights.trend==="building"?t("insights_building_text").replace("{count}",String(insights.currentCount)):t(`insights_trend_${insights.trend}_text`)}</p>{insights.enoughCurrentData&&<div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-white2/70 p-3"><p className="text-[11px] text-muted">{t("insights_completed_label")}</p><p className="mt-1 font-medium text-ink">{insights.currentCount}</p><p className="mt-1 text-[11px] text-muted">{insights.enoughComparisonData?t("insights_previous_value").replace("{value}",String(insights.previousCount)):t("insights_previous_unavailable")}</p></div><div className="rounded-xl bg-white2/70 p-3"><p className="text-[11px] text-muted">{t("insights_highest_share_label")}</p><p className="mt-1 font-medium text-ink">{insights.currentHighestShare===null?"—":`${insights.currentHighestShare}%`}</p><p className="mt-1 text-[11px] text-muted">{insights.enoughComparisonData&&insights.previousHighestShare!==null?t("insights_previous_value").replace("{value}",`${insights.previousHighestShare}%`):t("insights_previous_unavailable")}</p></div></div>}{!insights.enoughComparisonData&&insights.enoughCurrentData&&<p className="mt-4 text-xs text-muted">{t("insights_comparison_building")}</p>}<p className="mt-4 text-xs text-muted">{t("insights_footnote")}</p></section>
+   </div>
+  </details>
   {householdMemoryPresentation.length>0&&<section className="rounded-2xl border border-borderLight/70 bg-white2/70 p-5">
    <p className="text-[11px] uppercase tracking-wide text-muted">{t("household_memory_title")}</p>
    <p className="mt-2 text-sm text-ink">{t("household_memory_intro")}</p>
