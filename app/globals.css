@@ -732,3 +732,16 @@ input, select, textarea {
   .dabo-timeline-card:before{left:-27px}
   .dabo-free-day{margin-left:88px}
 }
+
+/* Universal + V2 — fast creation first, delegated capture second. */
+.dabo-universal-add-sheet { max-height:min(88dvh,760px); overflow-y:auto; overscroll-behavior:contain; }
+.dabo-universal-section-label { margin:20px 0 9px; font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; color:var(--dabo-muted); }
+.dabo-delegate-card { width:100%; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:13px; border:1px solid color-mix(in srgb,var(--dabo-forest) 14%,var(--dabo-line)); border-radius:22px; background:var(--dabo-sage); padding:15px; text-align:left; color:var(--dabo-text); }
+.dabo-delegate-card strong,.dabo-delegate-card small { display:block; }.dabo-delegate-card small { margin-top:3px; color:var(--dabo-muted); font-size:12px; font-weight:500; line-height:1.35; }
+.dabo-delegate-icon { display:flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:15px; background:var(--dabo-surface); color:var(--dabo-forest); }
+.dabo-universal-textarea { width:100%; margin-top:7px; resize:vertical; min-height:92px; border:1px solid var(--dabo-line); border-radius:18px; background:var(--dabo-surface); padding:13px 14px; color:var(--dabo-text); outline:none; }
+.dabo-universal-textarea:focus { border-color:color-mix(in srgb,var(--dabo-forest) 55%,var(--dabo-line)); box-shadow:0 0 0 3px color-mix(in srgb,var(--dabo-sage) 70%,transparent); }
+.dabo-inbox-proposal { margin-top:16px; border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-surface-soft); padding:15px; }
+.dabo-inbox-result { display:flex; flex-direction:column; gap:3px; }.dabo-inbox-result strong { color:var(--dabo-forest); }.dabo-inbox-result small { color:var(--dabo-muted); }
+.dabo-choice-chip { min-height:46px; border:1px solid var(--dabo-line); border-radius:15px; background:var(--dabo-surface); padding:9px 11px; text-align:left; font-weight:700; color:var(--dabo-text); }
+@media (min-width:900px) { .dabo-sheet-backdrop { align-items:center; padding:24px; } .dabo-sheet { border-bottom:1px solid var(--dabo-line); border-radius:30px; } }

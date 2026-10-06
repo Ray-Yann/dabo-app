@@ -1,4 +1,4 @@
-export type HouseholdInboxDestination =
+﻿export type HouseholdInboxDestination =
   | "shopping"
   | "task"
   | "calendar"
@@ -11,12 +11,19 @@ export type HouseholdInboxFinanceKind =
   | "reference"
   | null;
 
+export type HouseholdInboxFinanceRecurrence =
+  | "monthly"
+  | "yearly"
+  | null;
+
 export type HouseholdInboxInterpretation = {
   destination: HouseholdInboxDestination;
   title: string;
   financeKind: HouseholdInboxFinanceKind;
   date: string | null;
   time: string | null;
+  amount?: string | null;
+  recurrence?: HouseholdInboxFinanceRecurrence;
 };
 
 export type HouseholdInboxOptions = {
@@ -75,10 +82,28 @@ function addCivilDays(date: Date, days: number) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
 
+function resolveExplicitCivilDate(normalized: string): string | null {
+  const match = /\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\b/.exec(normalized);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const candidate = parseCivilDate(
+    `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+  );
+
+  return candidate ? formatCivilDate(candidate) : null;
+}
+
 function resolveDate(
   normalized: string,
   referenceDate?: string
 ): string | null {
+  const explicit = resolveExplicitCivilDate(normalized);
+  if (explicit) return explicit;
+
   if (!referenceDate) return null;
 
   const reference = parseCivilDate(referenceDate);
@@ -107,14 +132,108 @@ function resolveTime(normalized: string): string | null {
   return `${match[1].padStart(2, "0")}:${match[2] || "00"}`;
 }
 
+function resolveAmount(text: string): string | null {
+  const match = /(?:^|\s)(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?\b)/i.exec(text);
+  if (!match) return null;
+
+  const normalizedAmount = match[1].replace(",", ".");
+  const value = Number(normalizedAmount);
+
+  if (!Number.isFinite(value) || value < 0) return null;
+
+  return normalizedAmount;
+}
+
+function resolveMonthlyDueDate(
+  normalized: string,
+  referenceDate?: string
+): string | null {
+  const match = /\bchaque\s+(\d{1,2})\s+du\s+mois\b/.exec(normalized);
+  if (!match || !referenceDate) return null;
+
+  const reference = parseCivilDate(referenceDate);
+  if (!reference) return null;
+
+  const targetDay = Number(match[1]);
+  if (targetDay < 1 || targetDay > 31) return null;
+
+  const candidateFor = (year: number, monthIndex: number) => {
+    const candidate = new Date(year, monthIndex, targetDay);
+
+    if (
+      candidate.getFullYear() !== year ||
+      candidate.getMonth() !== monthIndex ||
+      candidate.getDate() !== targetDay
+    ) {
+      return null;
+    }
+
+    return candidate;
+  };
+
+  let candidate = candidateFor(
+    reference.getFullYear(),
+    reference.getMonth()
+  );
+
+  if (candidate && candidate >= reference) {
+    return formatCivilDate(candidate);
+  }
+
+  const nextMonth = new Date(
+    reference.getFullYear(),
+    reference.getMonth() + 1,
+    1
+  );
+
+  candidate = candidateFor(
+    nextMonth.getFullYear(),
+    nextMonth.getMonth()
+  );
+
+  return candidate ? formatCivilDate(candidate) : null;
+}
+
+function cleanCalendarTitle(text: string) {
+  return clean(
+    text
+      .replace(/\s+\ble\s+\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}\b/gi, "")
+      .replace(/\s+(?:à|a)\s+\d{1,2}h(?:\d{2})?\b/gi, "")
+      .replace(/\s+\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b.*$/i, "")
+      .replace(/\s+\b\d{1,2}h(?:\d{2})?\b.*$/i, "")
+      .replace(/[\s.!?,;:]+$/g, "")
+  );
+}
+
+function cleanFinanceBillTitle(text: string) {
+  return clean(
+    text
+      .replace(/^\s*facture\s+(?:de|du|d'|d’)?\s*/i, "")
+      .replace(/\s+\d+(?:[.,]\d{1,2})?\s*(?:€|euros?\b)/gi, "")
+      .replace(/\s+\bchaque\s+\d{1,2}\s+du\s+mois\b/gi, "")
+      .replace(/\s+\bdemain\b/gi, "")
+      .replace(/[\s.!?,;:]+$/g, "")
+  );
+}
+
 function baseResult(
   destination: HouseholdInboxDestination,
   title: string,
   financeKind: HouseholdInboxFinanceKind,
   date: string | null,
-  time: string | null
+  time: string | null,
+  amount: string | null = null,
+  recurrence: HouseholdInboxFinanceRecurrence = null
 ): HouseholdInboxInterpretation {
-  return { destination, title, financeKind, date, time };
+  return {
+    destination,
+    title,
+    financeKind,
+    date,
+    time,
+    amount,
+    recurrence,
+  };
 }
 
 export function interpretHouseholdInbox(
@@ -123,7 +242,7 @@ export function interpretHouseholdInbox(
 ): HouseholdInboxInterpretation {
   const text = clean(input);
   const normalized = normalize(text);
-  const date = resolveDate(normalized, options.referenceDate);
+  const resolvedDate = resolveDate(normalized, options.referenceDate);
   const time = resolveTime(normalized);
 
   if (!text) {
@@ -131,24 +250,52 @@ export function interpretHouseholdInbox(
   }
 
   if (/\b(facture|loyer|echeance)\b/.test(normalized)) {
-    const title = clean(text.replace(/\s+\bdemain\b[\s.!?,;:]*$/i, ""));
-    return baseResult("finance", title || text, "bill", date, time);
+    const amount = resolveAmount(text);
+    const monthly = /\bchaque\s+\d{1,2}\s+du\s+mois\b/.test(normalized);
+    const monthlyDate = monthly
+      ? resolveMonthlyDueDate(normalized, options.referenceDate)
+      : null;
+
+    const title = /\bfacture\b/.test(normalized)
+      ? cleanFinanceBillTitle(text)
+      : clean(text.replace(/\s+\bdemain\b[\s.!?,;:]*$/i, ""));
+
+    return baseResult(
+      "finance",
+      title || text,
+      "bill",
+      monthlyDate || resolvedDate,
+      time,
+      amount,
+      monthly ? "monthly" : null
+    );
   }
 
-  if (
-    /\b(rendez-vous|rendez vous|rdv|dentiste|medecin|docteur)\b/.test(normalized) &&
-    (
-      /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/.test(normalized) ||
-      /\b\d{1,2}h(?:\d{2})?\b/.test(normalized)
-    )
-  ) {
-    const title = clean(
-      text
-        .replace(/\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b.*$/i, "")
-        .replace(/\b\d{1,2}h(?:\d{2})?\b.*$/i, "")
-    );
+  const hasCalendarKeyword =
+    /\b(rendez-vous|rendez vous|rdv|dentiste|medecin|docteur)\b/.test(normalized);
 
-    return baseResult("calendar", title || text, null, date, time);
+  const hasWeekday =
+    /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/.test(normalized);
+
+  const hasExplicitCivilDate =
+    /\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}\b/.test(normalized);
+
+  const hasExplicitTime =
+    /\b\d{1,2}h(?:\d{2})?\b/.test(normalized);
+
+  if (
+    (hasCalendarKeyword && (hasWeekday || hasExplicitTime || hasExplicitCivilDate)) ||
+    (hasExplicitCivilDate && hasExplicitTime && resolvedDate)
+  ) {
+    const title = cleanCalendarTitle(text);
+
+    return baseResult(
+      "calendar",
+      title || text,
+      null,
+      resolvedDate,
+      time
+    );
   }
 
   if (/^(acheter|prendre|racheter|commander)\b/i.test(normalized)) {
@@ -159,21 +306,29 @@ export function interpretHouseholdInbox(
         .replace(/\s+\bdemain\b.*$/i, "")
     );
 
-    return baseResult("shopping", title || text, null, date, time);
+    return baseResult("shopping", title || text, null, resolvedDate, time);
   }
 
   if (/^(nettoyer|ranger|laver|aspirer|repasser|sortir)\b/i.test(normalized)) {
     const title = clean(text.replace(/\s+\bdemain\b[\s.!?,;:]*$/i, ""));
-    return baseResult("task", title || text, null, date, time);
+    return baseResult("task", title || text, null, resolvedDate, time);
   }
 
-  return baseResult("unknown", text, null, date, time);
+  return baseResult("unknown", text, null, resolvedDate, time);
 }
 
 export function buildHouseholdInboxHref(
   interpretation: HouseholdInboxInterpretation
 ): string | null {
-  const { destination, title, financeKind, date, time } = interpretation;
+  const {
+    destination,
+    title,
+    financeKind,
+    date,
+    time,
+    amount,
+    recurrence,
+  } = interpretation;
 
   if (destination === "unknown") {
     return null;
@@ -218,6 +373,8 @@ export function buildHouseholdInboxHref(
     params.set("kind", financeKind);
     params.set("label", title);
     if (date) params.set("date", date);
+    if (amount) params.set("amount", amount);
+    if (recurrence) params.set("recurrence", recurrence);
 
     return `/app/finances?${params.toString()}`;
   }
@@ -232,7 +389,7 @@ export type ShoppingInboxPrefill = {
 
 function safeInboxCivilDate(value: string | null): string {
   if (!value) return "";
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+  return parseCivilDate(value) ? value : "";
 }
 
 export function readShoppingInboxPrefill(
@@ -309,13 +466,26 @@ export function readCalendarInboxPrefill(
   };
 }
 
-
-
 export type FinanceInboxPrefill = {
   kind: Exclude<HouseholdInboxFinanceKind, null>;
   label: string;
   date: string;
+  amount?: string;
+  recurrence?: HouseholdInboxFinanceRecurrence;
 };
+
+function safeInboxAmount(value: string | null): string {
+  if (!value || !/^\d+(?:\.\d{1,2})?$/.test(value)) return "";
+
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? value : "";
+}
+
+function safeInboxFinanceRecurrence(
+  value: string | null
+): HouseholdInboxFinanceRecurrence {
+  return value === "monthly" || value === "yearly" ? value : null;
+}
 
 export function readFinanceInboxPrefill(
   params: URLSearchParams
@@ -335,9 +505,22 @@ export function readFinanceInboxPrefill(
   const label = clean(params.get("label") || "");
   if (!label) return null;
 
-  return {
+  const result: FinanceInboxPrefill = {
     kind,
     label,
     date: safeInboxCivilDate(params.get("date")),
   };
+
+  if (params.has("amount")) {
+    result.amount = safeInboxAmount(params.get("amount"));
+  }
+
+  if (params.has("recurrence")) {
+    result.recurrence = safeInboxFinanceRecurrence(params.get("recurrence"));
+  }
+
+  return result;
 }
+
+
+

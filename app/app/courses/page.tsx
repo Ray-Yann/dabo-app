@@ -134,22 +134,18 @@ export default function CoursesPage() {
       url.pathname + url.search + url.hash
     );
 
-    const quickActionTimer = window.setTimeout(() => {
-      setView("to_buy");
-      setEditingId(null);
+    setView("to_buy");
+    setEditingId(null);
 
-      if (inboxPrefill) {
-        setAddForm({
-          ...EMPTY_FORM,
-          name: inboxPrefill.name,
-          dueDate: inboxPrefill.dueDate,
-        });
-      }
+    if (inboxPrefill) {
+      setAddForm({
+        ...EMPTY_FORM,
+        name: inboxPrefill.name,
+        dueDate: inboxPrefill.dueDate,
+      });
+    }
 
-      setShowAdd(true);
-    }, 0);
-
-    return () => window.clearTimeout(quickActionTimer);
+    setShowAdd(true);
   }, []);
   const [editForm, setEditForm] = useState<ItemForm>(EMPTY_FORM);
   const [openComments, setOpenComments] = useState<string | null>(null);

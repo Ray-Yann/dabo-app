@@ -1,4 +1,4 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 
 async function loadInbox() {
@@ -472,105 +472,109 @@ test("Aujourd'hui branche Donne-le a DABO sur le moteur Household Inbox", () => 
   );
 });
 
-test("Aujourd'hui affiche l'interface Donne-le a DABO avec confirmation", () => {
-  const source = fs.readFileSync("app/app/page.tsx", "utf8");
+test("Universal + affiche Donne-le a DABO avec confirmation", () => {
+  const source = fs.readFileSync("components/UniversalAddSheet.tsx", "utf8");
 
   assert.match(
     source,
-    /data-testid="household-inbox"/,
-    "Aujourd'hui doit afficher le Household Inbox"
+    /role="dialog"/,
+    "Universal + doit rester un dialogue accessible"
   );
 
   assert.match(
     source,
-    /value=\{householdInboxText\}/,
-    "Le Household Inbox doit utiliser la saisie controlee"
+    /interpretHouseholdInbox/,
+    "Universal + doit interpreter la saisie avant navigation"
   );
 
   assert.match(
     source,
-    /onSubmit=\{[^}]*prepareHouseholdInbox/,
-    "La saisie doit d'abord preparer une proposition"
+    /continueToForm/,
+    "Universal + doit demander une continuation explicite avant navigation"
   );
 
   assert.match(
     source,
-    /householdInboxProposal/,
-    "L'interface doit afficher la proposition avant confirmation"
-  );
-
-  assert.match(
-    source,
-    /confirmHouseholdInbox/,
-    "L'utilisateur doit confirmer avant la navigation"
+    /household_inbox_continue/,
+    "L'utilisateur doit disposer d'une action explicite pour continuer"
   );
 });
 
-test("Donne-le a DABO reste mobile-first et accessible au toucher", () => {
-  const source = fs.readFileSync("app/app/page.tsx", "utf8");
+test("Donne-le a DABO reste mobile-first et accessible au toucher dans Universal +", () => {
+  const source = fs.readFileSync("components/UniversalAddSheet.tsx", "utf8");
 
   assert.match(
     source,
-    /aria-label=\{t\("household_inbox_input_label"\)\}/,
-    "Le champ Household Inbox doit avoir un libelle accessible"
+    /htmlFor="universal-inbox"/,
+    "Le champ Universal Inbox doit avoir un label associe"
   );
 
   assert.match(
     source,
-    /min-h-11/,
-    "Les interactions principales doivent garder une zone tactile mobile confortable"
+    /id="universal-inbox"/,
+    "Le textarea doit etre relie a son label"
   );
 
   assert.match(
     source,
-    /w-full/,
-    "La carte doit pouvoir occuper proprement la largeur disponible sur mobile"
+    /dabo-universal-textarea/,
+    "Universal + doit reutiliser son composant visuel responsive"
   );
 
   assert.match(
     source,
-    /sm:flex-row/,
-    "Les controles doivent pouvoir s'empiler sur petit ecran puis s'aligner sur ecran plus large"
+    /aria-live="polite"/,
+    "La proposition doit etre annoncee sans interrompre brutalement l'utilisateur"
   );
 });
 
 test("Donne-le a DABO permet de corriger la destination avant de continuer", () => {
-  const source = fs.readFileSync("app/app/page.tsx", "utf8");
+  const source = fs.readFileSync("components/UniversalAddSheet.tsx", "utf8");
 
   assert.match(
     source,
-    /setHouseholdInboxDestination/,
-    "L'utilisateur doit pouvoir corriger la destination proposee"
-  );
-
-  assert.match(
-    source,
-    /household_inbox_destination_shopping/,
+    /choose\("shopping"\)/,
     "Courses doit etre une destination disponible"
   );
 
   assert.match(
     source,
-    /household_inbox_destination_task/,
+    /choose\("task"\)/,
     "Taches doit etre une destination disponible"
   );
 
   assert.match(
     source,
-    /household_inbox_destination_calendar/,
+    /choose\("calendar"\)/,
     "Calendrier doit etre une destination disponible"
   );
 
   assert.match(
     source,
-    /household_inbox_destination_finance/,
+    /choose\("finance","expense"\)/,
     "Finances doit etre une destination disponible"
   );
 
   assert.match(
     source,
-    /household_inbox_choose_destination/,
-    "Une proposition inconnue doit inviter l'utilisateur a choisir"
+    /household_inbox_change_destination/,
+    "Une proposition doit pouvoir etre corrigee avant navigation"
+  );
+});
+
+test("Universal + ne pretend pas demander un type Finance qu'il ne propose pas encore", () => {
+  const source = fs.readFileSync("components/UniversalAddSheet.tsx", "utf8");
+
+  assert.match(
+    source,
+    /choose\("finance","expense"\)/,
+    "Le choix manuel Finances utilise actuellement le type Depense"
+  );
+
+  assert.doesNotMatch(
+    source,
+    /household_inbox_finance_kind_label/,
+    "Universal + ne doit pas laisser croire qu'un selecteur de type Finance est affiche"
   );
 });
 
@@ -600,40 +604,21 @@ test("Calendrier garde une date utilisable quand Household Inbox n'en fournit pa
   );
 });
 
-test("Donne-le a DABO demande un type explicite quand la destination est Finances", () => {
-  const source = fs.readFileSync("app/app/page.tsx", "utf8");
+test("Universal + garde un choix Finance explicite et non ambigu", () => {
+  const source = fs.readFileSync("components/UniversalAddSheet.tsx", "utf8");
 
   assert.match(
+    source,
+    /choose\("finance","expense"\)/,
+    "Le choix manuel Finances doit transmettre explicitement le type Depense"
+  );
+
+  assert.doesNotMatch(
     source,
     /household_inbox_finance_kind_label/,
-    "Finances doit demander quel type d'element l'utilisateur veut creer"
-  );
-
-  assert.match(
-    source,
-    /household_inbox_finance_expense/,
-    "Le choix Depense doit etre disponible"
-  );
-
-  assert.match(
-    source,
-    /household_inbox_finance_bill/,
-    "Le choix Facture doit etre disponible"
-  );
-
-  assert.match(
-    source,
-    /household_inbox_finance_reference/,
-    "Le choix Budget doit etre disponible"
-  );
-
-  assert.match(
-    source,
-    /setHouseholdInboxFinanceKind/,
-    "Le type Finance choisi doit modifier explicitement la proposition"
+    "Universal + ne doit pas pretendre afficher un selecteur Finance absent"
   );
 });
-
 test("Household Inbox retire demain ponctue du titre d'une tache et conserve l'echeance", async () => {
   const { interpretHouseholdInbox } = await loadInbox();
   const result = interpretHouseholdInbox("Nettoyer la salle de bain demain.", {
@@ -647,12 +632,100 @@ test("Household Inbox retire demain ponctue du titre d'une tache et conserve l'e
 
 test("Household Inbox retire demain ponctue du libelle d'une facture et conserve l'echeance", async () => {
   const { interpretHouseholdInbox } = await loadInbox();
-  const result = interpretHouseholdInbox("Payer la facture d'électricité demain.", {
+  const result = interpretHouseholdInbox("Payer la facture d'Ã©lectricitÃ© demain.", {
     referenceDate: "2026-09-28",
   });
 
   assert.equal(result.destination, "finance");
   assert.equal(result.financeKind, "bill");
-  assert.equal(result.title, "Payer la facture d'électricité");
+  assert.equal(result.title, "Payer la facture d'Ã©lectricitÃ©");
   assert.equal(result.date, "2026-09-29");
+});
+
+
+test("Household Inbox comprend une date civile numerique explicite pour Calendrier", async () => {
+  const { interpretHouseholdInbox, buildHouseholdInboxHref } = await loadInbox();
+
+  const result = interpretHouseholdInbox(
+    "Permis de conduire B théorique le 15/10/2026 à 15h.",
+    { referenceDate: "2026-10-05" }
+  );
+
+  assert.equal(result.destination, "calendar");
+  assert.equal(result.title, "Permis de conduire B théorique");
+  assert.equal(result.date, "2026-10-15");
+  assert.equal(result.time, "15:00");
+
+  assert.equal(
+    buildHouseholdInboxHref(result),
+    "/app/calendrier?first=1&inbox=1&title=Permis+de+conduire+B+th%C3%A9orique&date=2026-10-15&time=15%3A00"
+  );
+});
+
+test("Household Inbox structure une facture mensuelle avec montant et prochaine echeance", async () => {
+  const { interpretHouseholdInbox, buildHouseholdInboxHref, readFinanceInboxPrefill } = await loadInbox();
+
+  const result = interpretHouseholdInbox(
+    "Facture de Proximus 53 € chaque 11 du mois.",
+    { referenceDate: "2026-10-05" }
+  );
+
+  assert.equal(result.destination, "finance");
+  assert.equal(result.financeKind, "bill");
+  assert.equal(result.title, "Proximus");
+  assert.equal(result.amount, "53");
+  assert.equal(result.date, "2026-10-11");
+  assert.equal(result.recurrence, "monthly");
+
+  const href = buildHouseholdInboxHref(result);
+
+  assert.equal(
+    href,
+    "/app/finances?inbox=1&kind=bill&label=Proximus&date=2026-10-11&amount=53&recurrence=monthly"
+  );
+
+  assert.deepEqual(
+    readFinanceInboxPrefill(new URLSearchParams(href.split("?")[1])),
+    {
+      kind: "bill",
+      label: "Proximus",
+      date: "2026-10-11",
+      amount: "53",
+      recurrence: "monthly",
+    }
+  );
+});
+
+test("Finances applique le montant et la recurrence proposes par Household Inbox", () => {
+  const source = fs.readFileSync("app/app/finances/page.tsx", "utf8");
+
+  assert.match(
+    source,
+    /setAmount\(inboxPrefill\.amount \|\| ""\)/,
+    "Finances doit pre-remplir le montant transmis par Household Inbox"
+  );
+
+  assert.match(
+    source,
+    /inboxPrefill\.kind === "bill" && inboxPrefill\.recurrence/,
+    "La recurrence Household Inbox ne doit s'appliquer qu'aux factures"
+  );
+
+  assert.match(
+    source,
+    /setBillRecurrence\([\s\S]*?inboxPrefill\.recurrence[\s\S]*?: "once"[\s\S]*?\)/,
+    "Finances doit utiliser la recurrence proposee et conserver once comme repli"
+  );
+
+  assert.match(
+    source,
+    /url\.searchParams\.delete\("amount"\)/,
+    "Le parametre amount doit etre retire de l'URL apres consommation"
+  );
+
+  assert.match(
+    source,
+    /url\.searchParams\.delete\("recurrence"\)/,
+    "Le parametre recurrence doit etre retire de l'URL apres consommation"
+  );
 });

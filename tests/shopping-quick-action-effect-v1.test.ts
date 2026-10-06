@@ -7,28 +7,19 @@ const source = fs.readFileSync(
   "utf8"
 );
 
-test("shopping quick action state changes are deferred outside the effect body", () => {
+test("shopping quick action opens the form synchronously without a deferred timer", () => {
+  assert.ok(source.includes('setView("to_buy");'));
+  assert.ok(source.includes('setEditingId(null);'));
+  assert.ok(source.includes('setShowAdd(true);'));
+
   assert.ok(
-    source.includes(
+    !source.includes(
       'const quickActionTimer = window.setTimeout(() => {'
     )
   );
 
-  const timerStart = source.indexOf(
-    'const quickActionTimer = window.setTimeout(() => {'
-  );
-  const timerEnd = source.indexOf(
-    '}, 0);',
-    timerStart
-  );
-  const deferredBlock = source.slice(timerStart, timerEnd);
-
-  assert.ok(deferredBlock.includes('setView("to_buy");'));
-  assert.ok(deferredBlock.includes('setEditingId(null);'));
-  assert.ok(deferredBlock.includes('setShowAdd(true);'));
-
   assert.ok(
-    source.includes(
+    !source.includes(
       'return () => window.clearTimeout(quickActionTimer);'
     )
   );
@@ -39,4 +30,5 @@ test("shopping quick action still consumes the first query parameter", () => {
   assert.ok(source.includes('url.searchParams.delete("first")'));
   assert.ok(source.includes('window.history.replaceState('));
 });
+
 

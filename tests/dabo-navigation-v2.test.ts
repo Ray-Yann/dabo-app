@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const nav = fs.readFileSync("components/DaboMainNav.tsx", "utf8");
+const universalAdd = fs.readFileSync("components/UniversalAddSheet.tsx", "utf8");
 const css = fs.readFileSync("app/globals.css", "utf8");
 const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 
@@ -17,11 +18,12 @@ test("Navigation V2 fixe les cinq destinations validées", () => {
 
 test("Navigation V2 garde un plus central universel et les ajouts rapides", () => {
   assert.match(nav, /dabo-main-nav-add-circle/);
-  assert.match(nav, /add_sheet_title/);
-  assert.match(nav, /\/app\/taches\?first=1/);
-  assert.match(nav, /\/app\/courses\?first=1/);
-  assert.match(nav, /\/app\/calendrier\?first=1/);
-  assert.match(nav, /\/app\/finances\?first=1/);
+  assert.match(nav, /UniversalAddSheet/);
+  assert.match(universalAdd, /add_sheet_title/);
+  assert.match(universalAdd, /\/app\/taches\?first=1/);
+  assert.match(universalAdd, /\/app\/courses\?first=1/);
+  assert.match(universalAdd, /\/app\/calendrier\?first=1/);
+  assert.match(universalAdd, /\/app\/finances\?first=1/);
 });
 
 test("Navigation V2 respecte safe area et surface premium", () => {

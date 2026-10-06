@@ -1,6 +1,6 @@
 import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs";
-const nav=fs.readFileSync("components/DaboMainNav.tsx","utf8"); const i18n=fs.readFileSync("lib/i18n.ts","utf8");
-test("Quick Actions V2 vit dans le plus universel",()=>{assert.match(nav,/addOpen/);assert.match(nav,/quick_action_task/);assert.match(nav,/quick_action_shopping/);assert.match(nav,/quick_action_calendar/);});
-test("Quick Actions V2 reutilise les parcours first value",()=>{assert.match(nav,/\/app\/taches\?first=1/);assert.match(nav,/\/app\/courses\?first=1/);assert.match(nav,/\/app\/calendrier\?first=1/);});
+const nav=fs.readFileSync("components/DaboMainNav.tsx","utf8"); const universalAdd=fs.readFileSync("components/UniversalAddSheet.tsx","utf8"); const i18n=fs.readFileSync("lib/i18n.ts","utf8");
+test("Quick Actions V2 vit dans le plus universel",()=>{assert.match(nav,/addOpen/);assert.match(nav,/UniversalAddSheet/);assert.match(universalAdd,/quick_action_task/);assert.match(universalAdd,/quick_action_shopping/);assert.match(universalAdd,/quick_action_calendar/);});
+test("Quick Actions V2 reutilise les parcours first value",()=>{assert.match(universalAdd,/\/app\/taches\?first=1/);assert.match(universalAdd,/\/app\/courses\?first=1/);assert.match(universalAdd,/\/app\/calendrier\?first=1/);});
 test("Quick Actions V2 conserve Plus pour les modules secondaires",()=>{assert.match(nav,/moreOpen/);assert.match(nav,/tab_balance/);assert.match(nav,/tab_promos/);assert.match(nav,/tab_settings/);});
 test("Quick Actions restent traduites dans sept langues",()=>{for(const key of ["quick_action_task","quick_action_shopping","quick_action_calendar"]){assert.equal([...i18n.matchAll(new RegExp(key+":","g"))].length,7)}});

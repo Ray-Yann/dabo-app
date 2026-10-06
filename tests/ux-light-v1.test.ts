@@ -1,5 +1,5 @@
 import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs"; const read=(p:string)=>fs.readFileSync(p,"utf8");
 test("UX V2 fixe Aujourd'hui Planning + Mon foyer Plus",()=>{const nav=read("components/DaboMainNav.tsx");assert.match(nav,/key: "today"/);assert.match(nav,/key: "planning"/);assert.match(nav,/key: "add"/);assert.match(nav,/key: "household"/);assert.match(nav,/key: "more"/);assert.match(nav,/grid-cols-5/);});
 test("UX V2 conserve les anciennes données de préférence sans en dépendre",()=>{const migration=read("supabase/migrations/2026-09-11-ux-light-v1-navigation-preferences.sql");assert.match(migration,/user_navigation_preferences/);});
-test("UX V2 garde Finances accessible via le plus et Plus",()=>{const nav=read("components/DaboMainNav.tsx");assert.match(nav,/\/app\/finances\?first=1/);assert.match(nav,/\/app\/finances/);});
+test("UX V2 garde Finances accessible via le plus et Plus",()=>{const nav=read("components/DaboMainNav.tsx");const universalAdd=read("components/UniversalAddSheet.tsx");assert.match(universalAdd,/\/app\/finances\?first=1/);assert.match(nav,/\/app\/finances/);});
 test("UX V2 conserve les vues internes Équilibre et Finances",()=>{assert.match(read("app/app/equilibre/page.tsx"),/<select[\s\S]*balanceSection/);assert.match(read("app/app/finances/page.tsx"),/financeSection/);});

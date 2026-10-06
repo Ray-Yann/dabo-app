@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, ReceiptText, WalletCards } from "lucide-react";
@@ -42,7 +42,7 @@ const LOCALES = { fr:"fr-BE", nl:"nl-BE", en:"en-GB", de:"de-DE", es:"es-ES", it
 
 function money(value: number, locale: string) { return new Intl.NumberFormat(locale, { style:"currency", currency:"EUR" }).format(value); }
 function parseMoneyInput(raw: string) {
-  let value = raw.trim().replace(/ /g, "").replace(/\s/g, "").replace(/EUR/gi, "").replace(/€/g, "");
+  let value = raw.trim().replace(/Â /g, "").replace(/\s/g, "").replace(/EUR/gi, "").replace(/â‚¬/g, "");
   if (!value) return null;
 
   const comma = value.lastIndexOf(",");
@@ -104,6 +104,8 @@ export default function BudgetPage() {
     url.searchParams.delete("kind");
     url.searchParams.delete("label");
     url.searchParams.delete("date");
+    url.searchParams.delete("amount");
+    url.searchParams.delete("recurrence");
 
     window.history.replaceState(
       window.history.state,
@@ -114,11 +116,15 @@ export default function BudgetPage() {
     setForm(inboxPrefill.kind);
     setEditingExpense(null);
     setLabel(inboxPrefill.label);
-    setAmount("");
+    setAmount(inboxPrefill.amount || "");
     setCategory("autre");
     setDate(inboxPrefill.date || todayKey());
     setPayer(me?.id || "");
-    setBillRecurrence("once");
+    setBillRecurrence(
+      inboxPrefill.kind === "bill" && inboxPrefill.recurrence
+        ? inboxPrefill.recurrence
+        : "once"
+    );
     setError(null);
   }, [me]);
 
@@ -245,12 +251,12 @@ export default function BudgetPage() {
 
     {financeSection==="expenses"&&<>
     <Section title={t("finance_expenses")} icon={<WalletCards size={18}/>} empty={t("finance_no_expenses")}>
-      {visibleTx.map(tx=><Row key={tx.id} editLabel={t("finance_edit")} title={tx.label} subtitle={`${t(CATEGORY_KEYS[tx.category])} · ${new Date(tx.occurred_on+"T12:00:00").toLocaleDateString(locale)}`} value={money(Number(tx.amount), locale)} onEdit={()=>startExpenseEdit(tx)}/>) }
+      {visibleTx.map(tx=><Row key={tx.id} editLabel={t("finance_edit")} title={tx.label} subtitle={`${t(CATEGORY_KEYS[tx.category])} Â· ${new Date(tx.occurred_on+"T12:00:00").toLocaleDateString(locale)}`} value={money(Number(tx.amount), locale)} onEdit={()=>startExpenseEdit(tx)}/>) }
     </Section>
     </>}
     {financeSection==="bills"&&<>
     <Section title={t("finance_upcoming_bills")} icon={<ReceiptText size={18}/>} empty={t("finance_no_bills")}>
-      {visibleBills.map(b=><div key={b.id} className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{b.label}</p><p className="text-xs text-muted">{t("finance_due_date")} {new Date(b.due_on+"T12:00:00").toLocaleDateString(locale)}{b.series_id?` · ${t("finance_recurring")}`:""}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(Number(b.amount||0), locale)}</p><button disabled={busy} onClick={()=>{setPayer(me.id);setPayingBill(b);}} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink"><Check size={13}/> {t("finance_mark_paid")}</button></div></div>)}
+      {visibleBills.map(b=><div key={b.id} className="flex items-center gap-3 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{b.label}</p><p className="text-xs text-muted">{t("finance_due_date")} {new Date(b.due_on+"T12:00:00").toLocaleDateString(locale)}{b.series_id?` Â· ${t("finance_recurring")}`:""}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(Number(b.amount||0), locale)}</p><button disabled={busy} onClick={()=>{setPayer(me.id);setPayingBill(b);}} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink"><Check size={13}/> {t("finance_mark_paid")}</button></div></div>)}
     </Section>
     </>}
     {financeSection==="references"&&<>
@@ -266,3 +272,4 @@ function Metric({label,value,note}:{label:string;value:string;note:string}){retu
 function ActionButton({onClick,label}:{onClick:()=>void;label:string}){return <button onClick={onClick} className="flex items-center justify-center gap-1 rounded-2xl border border-borderLight bg-paper px-2 py-3 text-xs font-semibold shadow-sm"><Plus size={15}/>{label}</button>}
 function Section({title,icon,empty,children}:{title:string;icon:React.ReactNode;empty:string;children:React.ReactNode}){const has=Array.isArray(children)?children.length>0:!!children;return <section className="mx-5 mt-5 rounded-3xl border border-borderLight bg-paper p-5"><div className="mb-2 flex items-center gap-2"><span className="text-muted">{icon}</span><h3 className="font-serif text-lg">{title}</h3></div>{has?children:<p className="py-4 text-sm text-muted">{empty}</p>}</section>}
 function Row({title,subtitle,value,onEdit,editLabel}:{title:string;subtitle:string;value:string;onEdit?:()=>void;editLabel:string}){return <div className="flex items-center gap-2 border-t border-borderLight/70 py-3 first:border-0"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="text-xs text-muted">{subtitle}</p></div><p className="text-sm font-semibold tabular-nums">{value}</p>{onEdit&&<button type="button" onClick={onEdit} aria-label={`${editLabel} ${title}`} title={editLabel} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-white2 hover:text-ink"><Pencil size={14}/></button>}</div>}
+

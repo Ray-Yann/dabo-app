@@ -1,0 +1,20 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+const nav=fs.readFileSync("components/DaboMainNav.tsx","utf8");
+const sheet=fs.readFileSync("components/UniversalAddSheet.tsx","utf8");
+const i18n=fs.readFileSync("lib/i18n.ts","utf8");
+const css=fs.readFileSync("app/globals.css","utf8");
+test("Universal + V2 conserve les quatre ajouts rapides canoniques",()=>{for(const href of ["/app/taches?first=1","/app/courses?first=1","/app/calendrier?first=1","/app/finances?first=1"]) assert.ok(sheet.includes(href));});
+test("Universal + V2 reutilise Household Inbox sans IA payante",()=>{assert.match(sheet,/interpretHouseholdInbox/);assert.match(sheet,/buildHouseholdInboxHref/);assert.doesNotMatch(sheet,/fetch\(|openai/i);});
+test("Universal + V2 ne promet pas voix photo ou document avant leur flux generaliste",()=>{assert.doesNotMatch(sheet,/SpeechRecognition|MediaRecorder|capture=|application\/pdf/);});
+test("Universal + V2 demande une decision humaine si la destination est incertaine",()=>{assert.match(sheet,/household_inbox_unknown/);assert.match(sheet,/household_inbox_choose_destination/);});
+test("Universal + V2 reste une vraie bottom sheet responsive et accessible",()=>{assert.match(nav,/UniversalAddSheet/);assert.match(sheet,/role="dialog"/);assert.match(sheet,/aria-modal="true"/);assert.match(css,/dabo-universal-add-sheet/);});
+test("Universal + V2 couvre ses nouvelles cles dans les sept langues",()=>{for(const key of ["universal_add_quick_title","universal_add_delegate_title","universal_add_expense","universal_add_write","universal_add_write_hint"]) assert.equal([...i18n.matchAll(new RegExp(key+":","g"))].length,7);});
+test("Universal + V2 exige un type Finance explicite en cas d ambiguite",()=>{
+  assert.match(sheet,/onClick=\{\(\)=>setFinanceChoice\(true\)\}>\{t\("household_inbox_destination_finance"\)\}/);
+  assert.match(sheet,/choose\("finance","expense"\).*household_inbox_finance_expense/);
+  assert.match(sheet,/choose\("finance","bill"\).*household_inbox_finance_bill/);
+  assert.match(sheet,/choose\("finance","reference"\).*household_inbox_finance_reference/);
+  assert.doesNotMatch(sheet,/onClick=\{\(\)=>choose\("finance","expense"\)\}>\{t\("household_inbox_destination_finance"\)\}/);
+});

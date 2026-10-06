@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, Home, Menu, Plus, UsersRound, X, ListChecks, ShoppingBag, PiggyBank, Settings, Scale, Tags } from "lucide-react";
+import { UniversalAddSheet } from "@/components/UniversalAddSheet";
 import { useT } from "@/lib/language-context";
 
 export function DaboMainNav() {
@@ -15,6 +16,14 @@ export function DaboMainNav() {
   const go = (href: string) => {
     setAddOpen(false);
     setMoreOpen(false);
+
+    const targetPathname = href.split("?")[0]?.split("#")[0] || href;
+
+    if (targetPathname === pathname && href !== pathname) {
+      window.location.assign(href);
+      return;
+    }
+
     router.push(href);
   };
 
@@ -44,21 +53,7 @@ export function DaboMainNav() {
       </div>
     </nav>
 
-    {addOpen && <div className="dabo-sheet-backdrop" onClick={() => setAddOpen(false)}>
-      <section className="dabo-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="dabo-sheet-handle" />
-        <div className="flex items-start justify-between gap-4">
-          <div><p className="dabo-kicker">DABO</p><h2 className="font-serif text-2xl font-semibold text-ink">{t("add_sheet_title")}</h2></div>
-          <button type="button" onClick={() => setAddOpen(false)} className="dabo-icon-button" aria-label={t("nav_close")}><X size={19}/></button>
-        </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button onClick={() => go("/app/taches?first=1")} className="dabo-action-tile"><ListChecks/><span>{t("quick_action_task")}</span></button>
-          <button onClick={() => go("/app/courses?first=1")} className="dabo-action-tile"><ShoppingBag/><span>{t("quick_action_shopping")}</span></button>
-          <button onClick={() => go("/app/calendrier?first=1")} className="dabo-action-tile"><CalendarDays/><span>{t("quick_action_calendar")}</span></button>
-          <button onClick={() => go("/app/finances?first=1")} className="dabo-action-tile"><PiggyBank/><span>{t("tab_finances")}</span></button>
-        </div>
-      </section>
-    </div>}
+    {addOpen && <UniversalAddSheet onClose={() => setAddOpen(false)} onGo={go} />}
 
     {moreOpen && <div className="dabo-sheet-backdrop" onClick={() => setMoreOpen(false)}>
       <section className="dabo-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
