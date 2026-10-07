@@ -38,3 +38,11 @@ test("Bilan V2.1 gives empty households distinct, human editorial states",()=>{
   assert.equal((i18n.match(/weekly_report_balance_building:/g)||[]).length,7);
   assert.doesNotMatch(i18n,/bilan_v2_state_building_title: ['"]DABO (?:apprend|is still learning|leert|lernt|todavía|sta ancora|ainda)/i);
 });
+
+
+test("Bilan V2.1.1 keeps zero activity semantically accurate",()=>{
+  assert.match(page,/report\.confirmedContributions===0&&intelligentSummary==="building"/);
+  assert.match(page,/weekly_report_summary_building_zero_text/);
+  assert.equal((i18n.match(/weekly_report_summary_building_zero_text:/g)||[]).length,7);
+  assert.match(i18n,/weekly_report_summary_building_zero_text: "Votre semaine commence ici\./);
+});
