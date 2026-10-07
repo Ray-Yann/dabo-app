@@ -22,12 +22,12 @@ export function resolveClosedLoopNeed(need:ClosedLoopNeed):ClosedLoopResolution{
  return{status:"resolved",resolved:true,requiresHumanConfirmation:false,remainingRequired:0,reason:"resolved"};
 }
 
-export function actionStateFromResource(resourceType:ClosedLoopResourceType,resource:{status?:string|null;completed_at?:string|null;bought_at?:string|null;paid_at?:string|null;confirmed?:boolean|null}|null):ClosedLoopActionState{
+export function actionStateFromResource(resourceType:ClosedLoopResourceType,resource:{status?:string|null;completed_at?:string|null;bought_at?:string|null;paid_transaction_id?:string|null;confirmed?:boolean|null}|null):ClosedLoopActionState{
  if(!resource)return"missing";
  if(resourceType==="task")return resource.status==="done"||!!resource.completed_at?"satisfied":"pending";
  if(resourceType==="shopping_item")return resource.status==="bought"||!!resource.bought_at?"satisfied":"pending";
- if(resourceType==="finance_bill")return resource.status==="paid"||!!resource.paid_at?"satisfied":"pending";
- if(resourceType==="finance_transaction")return"satisfied";
+ if(resourceType==="finance_bill")return resource.status==="paid"&&!!resource.paid_transaction_id?"satisfied":"pending";
+ if(resourceType==="finance_transaction")return resource.status==="posted"?"satisfied":"pending";
  if(resourceType==="human_confirmation")return resource.confirmed?"satisfied":"pending";
  // A calendar event is evidence/progress, never proof that the real-world need is resolved.
  return"pending";
