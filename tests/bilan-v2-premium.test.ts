@@ -44,5 +44,13 @@ test("Bilan V2.1.1 keeps zero activity semantically accurate",()=>{
   assert.match(page,/report\.confirmedContributions===0&&intelligentSummary==="building"/);
   assert.match(page,/weekly_report_summary_building_zero_text/);
   assert.equal((i18n.match(/weekly_report_summary_building_zero_text:/g)||[]).length,7);
-  assert.match(i18n,/weekly_report_summary_building_zero_text: "Votre semaine commence ici\./);
+  assert.match(i18n,/weekly_report_summary_building_zero_text: "À mesure que votre foyer utilise DABO/);
+});
+
+
+test("Bilan V2.1.2 gives zero activity its own accurate title",()=>{
+  assert.match(page,/report\.confirmedContributions===0&&intelligentSummary==="building"\?t\("weekly_report_summary_building_zero_title"\)/);
+  assert.equal((i18n.match(/weekly_report_summary_building_zero_title:/g)||[]).length,7);
+  assert.match(i18n,/weekly_report_summary_building_zero_title: "Votre semaine commence ici"/);
+  assert.match(i18n,/weekly_report_summary_building_zero_text: "À mesure que votre foyer utilise DABO/);
 });
