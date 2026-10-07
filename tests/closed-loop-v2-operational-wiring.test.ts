@@ -9,6 +9,14 @@ test("Closed Loop V2 aligns pure finance truth with database truth",()=>{
  assert.equal(actionStateFromResource("finance_transaction",{status:"void"}),"pending");
 });
 
+test("Closed Loop V4.2 requires complete task and shopping truth",()=>{
+ assert.equal(actionStateFromResource("task",{status:"done",completed_at:"2026-10-07T12:00:00Z"}),"satisfied");
+ assert.equal(actionStateFromResource("task",{status:"done",completed_at:null}),"pending");
+ assert.equal(actionStateFromResource("task",{status:"pending",completed_at:"2026-10-07T12:00:00Z"}),"pending");
+ assert.equal(actionStateFromResource("shopping_item",{status:"bought",bought_at:"2026-10-07T12:00:00Z"}),"satisfied");
+ assert.equal(actionStateFromResource("shopping_item",{status:"bought",bought_at:null}),"pending");
+ assert.equal(actionStateFromResource("shopping_item",{status:"to_buy",bought_at:"2026-10-07T12:00:00Z"}),"pending");
+});
 test("Closed Loop V2 wires task and shopping truth changes automatically",()=>{
  assert.match(sql,/after update of status,completed_at or delete on public\.tasks/i);
  assert.match(sql,/closed_loop_refresh_from_resource\('task'\)/i);
