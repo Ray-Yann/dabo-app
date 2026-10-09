@@ -745,3 +745,29 @@ input, select, textarea {
 .dabo-inbox-result { display:flex; flex-direction:column; gap:3px; }.dabo-inbox-result strong { color:var(--dabo-forest); }.dabo-inbox-result small { color:var(--dabo-muted); }
 .dabo-choice-chip { min-height:46px; border:1px solid var(--dabo-line); border-radius:15px; background:var(--dabo-surface); padding:9px 11px; text-align:left; font-weight:700; color:var(--dabo-text); }
 @media (min-width:900px) { .dabo-sheet-backdrop { align-items:center; padding:24px; } .dabo-sheet { border-bottom:1px solid var(--dabo-line); border-radius:30px; } }
+
+/* DABO Editorial Garden — first production-safe visual foundation.
+   Original SVG, no remote font/image request, decorative only. */
+.dabo-today-v2 { padding-top: clamp(22px, 4vw, 38px); }
+.dabo-today-v2-header { padding-bottom: 18px; }
+.dabo-editorial-garden {
+  height: clamp(148px, 29vw, 218px);
+  margin: 0 0 24px;
+  border: 1px solid var(--dabo-line);
+  border-radius: 27px;
+  background: #e8e6d6 url('/illustrations/dabo-home-garden.svg') center 52% / cover no-repeat;
+  box-shadow: 0 12px 28px rgba(30,55,36,.09);
+}
+.dabo-dark .dabo-editorial-garden { filter: brightness(.76) saturate(.82); }
+.dabo-today-v2-title { font-weight: 650; }
+.dabo-v2-link-card, .dabo-action-tile, .dabo-preparing-card { transition: transform .16s ease, box-shadow .16s ease; }
+@media (hover:hover) and (pointer:fine) {
+  .dabo-v2-link-card:hover, .dabo-action-tile:hover, .dabo-preparing-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(30,55,36,.10); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .dabo-v2-link-card, .dabo-action-tile, .dabo-preparing-card { transition: none; }
+}
+@media (min-width:900px) {
+  .dabo-today-v2 { max-width: 920px; padding-inline: 32px; }
+  .dabo-editorial-garden { height: 240px; }
+}

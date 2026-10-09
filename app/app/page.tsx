@@ -556,6 +556,8 @@ export default function TodayPage() {
         <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
       </header>
 
+      <div className="dabo-editorial-garden" aria-hidden="true" />
+
       {dashboardLoadError ? (
         <section className="dabo-calm-state" role="status">
           <div className="dabo-offline-note max-w-md text-left">
