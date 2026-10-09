@@ -845,3 +845,39 @@ input, select, textarea {
 .dabo-premium-hero-caption{margin:12px 0 0;min-height:68px;position:relative;z-index:1}
 @media(max-width:520px){.dabo-premium-hero-image{height:auto;aspect-ratio:790 / 399}.dabo-premium-hero-caption{margin:12px 0 0}}
 @media(min-width:900px){.dabo-premium-hero-image{height:auto;aspect-ratio:790 / 399;max-height:380px}}
+
+/* DABO Premium V3 — Maison Vivante: editorial lists, no icon tiles */
+.dabo-today-v2{max-width:860px;padding-bottom:56px}
+.dabo-premium-heading .dabo-today-v2-title{font-family:var(--font-serif),Georgia,serif;font-size:clamp(30px,6vw,43px);line-height:1.12;letter-spacing:-.035em}
+.dabo-premium-heading .dabo-today-v2-date{font-size:13px}
+.dabo-v3-hero{position:relative;margin:15px 0 18px}
+.dabo-v3-hero-photo{aspect-ratio:790/325;background:url('/illustrations/dabo-living-room.webp') center/cover no-repeat;border-radius:23px;box-shadow:0 12px 28px rgba(29,49,33,.11)}
+.dabo-v3-hero-legend{position:absolute;bottom:12px;right:12px;max-width:65%;padding:8px 13px;border-radius:13px;background:color-mix(in srgb,var(--dabo-surface) 94%,transparent);color:var(--dabo-text);font-size:12px;font-weight:600;box-shadow:0 3px 12px rgba(20,30,20,.08)}
+.dabo-v3-panel{margin:13px 0;padding:13px 19px 5px;background:var(--dabo-surface);border:1px solid var(--dabo-line);border-radius:22px;box-shadow:0 6px 22px rgba(28,43,30,.045)}
+.dabo-v3-panel>p{color:var(--dabo-muted);padding:8px 0 16px;font-size:14px}
+.dabo-v3-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:3px 0 10px;border-bottom:1px solid var(--dabo-line)}
+.dabo-v3-section-heading h2,.dabo-v3-panel>h2{font-family:var(--font-serif),Georgia,serif;font-size:clamp(23px,4.5vw,29px);font-weight:650;letter-spacing:-.025em;color:var(--dabo-text)}
+.dabo-v3-section-heading button,.dabo-v3-balance button{display:inline-flex;align-items:center;gap:3px;flex-shrink:0;min-height:40px;font-size:12px;color:var(--dabo-text);font-weight:600}
+.dabo-v3-list{display:flex;flex-direction:column}
+.dabo-v3-line,.dabo-v3-list>button{display:flex;align-items:center;gap:14px;min-height:68px;width:100%;padding:12px 1px;text-align:left;color:var(--dabo-text)}
+.dabo-v3-line+.dabo-v3-line,.dabo-v3-list>button+button{border-top:1px solid var(--dabo-line)}
+.dabo-v3-line>svg:last-child,.dabo-v3-list>button>svg:last-child{flex:none;color:var(--dabo-muted)}
+.dabo-v3-status{flex:none;width:20px;height:20px;border:1.5px solid color-mix(in srgb,var(--dabo-text) 55%,transparent);border-radius:50%}
+.dabo-v3-status-urgent{border-color:#9b5145;background:color-mix(in srgb,#9b5145 13%,transparent)}
+.dabo-v3-line-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.dabo-v3-line-copy strong{font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+.dabo-v3-line-copy small{font-size:12px;color:var(--dabo-muted);line-height:1.45;overflow-wrap:anywhere}
+.dabo-v3-empty{padding:18px 0;font-size:13px;color:var(--dabo-muted)}
+.dabo-v3-balance{display:flex;align-items:center;gap:13px;margin:13px 0;padding:17px;border-radius:19px;background:color-mix(in srgb,var(--dabo-surface) 68%,#a9bda1);color:var(--dabo-text)}
+.dabo-v3-balance-leaf{font-size:30px;color:#47765a;flex:none}
+.dabo-v3-balance>div{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.dabo-v3-balance strong{font-family:var(--font-serif),Georgia,serif;font-size:18px}
+.dabo-v3-balance small{font-size:12px;line-height:1.4;color:var(--dabo-muted)}
+@media(max-width:520px){.dabo-v3-hero-photo{aspect-ratio:790/360}.dabo-v3-panel{padding:10px 15px 3px}.dabo-v3-balance{padding:13px;gap:9px}.dabo-v3-balance button{font-size:11px}.dabo-v3-section-heading h2{font-size:24px}}
+@media(prefers-reduced-motion:no-preference){.dabo-v3-line:hover{opacity:.82}}
+
+/* Maison Vivante V3.1: editorial expansion and accurate insight presentation */
+.dabo-v3-expand{width:100%;min-height:44px;text-align:center;font-weight:650;color:var(--dabo-text);border-top:1px solid var(--dabo-line)}
+.dabo-v3-insight{cursor:default}
+.dabo-v3-empty strong{display:block;font-size:14px;margin-bottom:4px;color:var(--dabo-text)}
+.dabo-v3-empty p{margin:0}

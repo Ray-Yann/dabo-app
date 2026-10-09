@@ -80,6 +80,7 @@ export default function TodayPage() {
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [showAllAttention, setShowAllAttention] = useState(false);
   const [householdInboxText, setHouseholdInboxText] = useState("");
   const [householdInboxProposal, setHouseholdInboxProposal] =
     useState<HouseholdInboxInterpretation | null>(null);
@@ -548,9 +549,10 @@ export default function TodayPage() {
   const locale = lang === "fr" ? "fr-BE" : lang === "nl" ? "nl-BE" : lang === "de" ? "de-DE" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : lang === "pt" ? "pt-PT" : "en-GB";
   const todayLabel = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const visibleAttention = attentionItems.slice(0, 4);
+  const displayedAttention = showAllAttention ? attentionItems : visibleAttention;
   // An attention already presented above should not appear a second time in today's tasks.
-  const attentionTaskIds = new Set(visibleAttention.filter((item) => item.source === "tasks").map((item) => item.relatedEntityId).filter(Boolean));
-  const todayTasks = tasks.filter((task) => task.status === "pending" && task.due_date === todayCivilDate() && !attentionTaskIds.has(task.id)).slice(0, 4);
+  const attentionTaskIds = new Set(displayedAttention.filter((item) => item.source === "tasks").map((item) => item.relatedEntityId).filter(Boolean));
+  const todayTasks = tasks.filter((task) => task.status === "pending" && task.due_date === todayCivilDate() && !attentionTaskIds.has(task.id)).slice(0, Math.max(0, 4 - displayedAttention.length));
 
   const preparingInsight = daboInsights[0];
 
@@ -573,9 +575,9 @@ export default function TodayPage() {
         </div>
       </header>
 
-      <section className="dabo-premium-hero" aria-label={household.name}>
-        <div className="dabo-premium-hero-image" aria-hidden="true" />
-        <div className="dabo-premium-hero-caption dabo-attention-summary"><span className="dabo-premium-hero-caption-icon"><Sparkles size={22}/></span><span><strong>{visibleAttention.length > 0 ? t("today_v2_needs_you") : t("today_v2_calm_title")}</strong><small>{visibleAttention.length > 0 ? t("today_essentials") : t("today_v2_calm_text")}</small></span></div>
+      <section className="dabo-v3-hero" aria-label={household.name}>
+        <div className="dabo-v3-hero-photo" role="img" aria-label={household.name} />
+        <div className="dabo-v3-hero-legend">{household.name}</div>
       </section>
 
       {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
@@ -591,88 +593,62 @@ export default function TodayPage() {
       </div>}
 
       {dashboardLoadError ? (
-        <section className="dabo-calm-state" role="status">
-          <div className="dabo-offline-note max-w-md text-left">
-            <p className="font-serif text-2xl font-semibold text-ink">{t("today_v2_offline_title")}</p>
-            <p className="mt-2 text-sm text-muted">{t("today_v2_offline_text")}</p>
-            <button type="button" onClick={() => window.location.reload()} className="dabo-secondary-action mt-4">{t("today_v2_retry")}</button>
+        <section className="dabo-v3-panel" role="status">
+          <h2>{t("today_v2_offline_title")}</h2>
+          <p>{t("today_v2_offline_text")}</p>
+          <button type="button" onClick={() => window.location.reload()}>{t("today_v2_retry")}</button>
+        </section>
+      ) : !dashboardReady ? <LoadingState /> : isBrandNew ? (
+        <section className="dabo-v3-panel">
+          <h2>{t("today_v2_welcome")}</h2>
+          <p>{t("today_v2_welcome_text")}</p>
+          <div className="dabo-v3-list">
+            <button type="button" onClick={() => router.push("/app/foyer")}>{t("settings_members")}<ChevronRight size={18}/></button>
+            <button type="button" onClick={() => router.push("/app/taches?first=1")}>{t("quick_action_task")}<ChevronRight size={18}/></button>
+            <button type="button" onClick={() => router.push("/app/courses?first=1")}>{t("quick_action_shopping")}<ChevronRight size={18}/></button>
+            <button type="button" onClick={() => router.push("/app/calendrier")}>{t("calendar_title")}<ChevronRight size={18}/></button>
           </div>
-          <div className="dabo-calm-mark" aria-hidden="true" />
         </section>
-      ) : isBrandNew ? (
-        <section className="pt-3">
-          <h2 className="font-serif text-[30px] font-semibold leading-tight tracking-[-0.025em] text-ink">{t("today_v2_welcome")}</h2>
-          <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">{t("today_v2_welcome_text")}</p>
-          <div className="mt-7 space-y-3">
-            <button onClick={() => router.push("/app/foyer")} className="dabo-v2-link-card w-full"><span className="dabo-soft-icon"><UserRoundPlus size={19}/></span><span className="flex-1 text-left font-semibold">{t("settings_members")}</span><span aria-hidden="true">→</span></button>
-            <button onClick={() => router.push("/app/taches?first=1")} className="dabo-v2-link-card w-full"><span className="dabo-soft-icon"><ListTodo size={19}/></span><span className="flex-1 text-left font-semibold">{t("quick_action_task")}</span><span aria-hidden="true">→</span></button>
-            <button onClick={() => router.push("/app/courses?first=1")} className="dabo-v2-link-card w-full"><span className="dabo-soft-icon"><ShoppingBag size={19}/></span><span className="flex-1 text-left font-semibold">{t("quick_action_shopping")}</span><span aria-hidden="true">→</span></button>
+      ) : <>
+        <section className="dabo-v3-panel" aria-labelledby="dabo-v3-today-title">
+          <div className="dabo-v3-section-heading">
+            <h2 id="dabo-v3-today-title">{({fr:"Aujourd’hui",nl:"Vandaag",en:"Today",de:"Heute",es:"Hoy",it:"Oggi",pt:"Hoje"} as Record<string,string>)[lang] || "Today"}</h2>
+            <button type="button" onClick={() => router.push("/app/taches")}>{t("tasks_title")} <ChevronRight size={17}/></button>
           </div>
-          <button onClick={() => router.push("/app/reglages")} className="mt-7 text-left"><span className="block font-serif text-xl font-semibold text-ink">{t("today_v2_discover")}</span><span className="mt-1 block text-xs text-muted">{t("today_v2_tour_meta")}</span></button>
+          <div className="dabo-v3-list">
+            {displayedAttention.map((attention) => {
+              const detail = attentionDetails(attention);
+              const urgent = attention.level === "action_now" || attention.reason === "overdue";
+              return <button type="button" key={attention.id} onClick={detail.onAction} className="dabo-v3-line">
+                <span className={`dabo-v3-status ${urgent ? "dabo-v3-status-urgent" : ""}`} aria-hidden="true" />
+                <span className="dabo-v3-line-copy"><strong>{detail.title}</strong><small>{detail.description}</small></span>
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>;
+            })}
+            {todayTasks.map((task) => <button type="button" key={task.id} className="dabo-v3-line" onClick={() => void toggleTask(task)}>
+              <span className="dabo-v3-status" aria-hidden="true" />
+              <span className="dabo-v3-line-copy"><strong>{task.name}</strong><small>{t("today_attention_task_due_today")}</small></span>
+              {task.assigned_to && members.find((member) => member.id === task.assigned_to) && <Avatar member={members.find((member) => member.id === task.assigned_to) || null} members={members} size={30} />}
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>)}
+            {visibleAttention.length === 0 && todayTasks.length === 0 && <div className="dabo-v3-empty"><strong>{t("today_v2_calm_title")}</strong><p>{t("today_v2_calm_text")}</p></div>}
+            {attentionItems.length > visibleAttention.length && <button type="button" className="dabo-v3-expand" aria-expanded={showAllAttention} onClick={() => setShowAllAttention((previous) => !previous)}>{showAllAttention ? t("today_v3_less_attention") : t("today_v3_more_attention")}</button>}
+          </div>
         </section>
-      ) : !dashboardReady ? (
-        <LoadingState />
-      ) : visibleAttention.length === 0 ? (
-        <section className="dabo-calm-state">
-          <h2 className="max-w-md font-serif text-[32px] font-semibold leading-tight tracking-[-0.03em] text-ink">{t("today_v2_calm_title")}</h2>
-          <p className="mt-3 text-sm text-muted">{t("today_v2_calm_text")}</p>
-          <div className="dabo-calm-mark" aria-hidden="true" />
+        {preparingInsight && <section className="dabo-v3-panel" aria-labelledby="dabo-v3-next-title">
+          <div className="dabo-v3-section-heading"><h2 id="dabo-v3-next-title">{t("today_v2_preparing")}</h2></div>
+          <div className="dabo-v3-line dabo-v3-insight"><span className="dabo-v3-status" aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{t(preparingInsight.titleKey)}</strong><small>{t(preparingInsight.messageKey)}</small></span></div>
+        </section>}
+        <section className="dabo-v3-balance" aria-label={t("balance_title")}>
+          <span className="dabo-v3-balance-leaf" aria-hidden="true">✦</span>
+          <div><strong>{t("today_household_intelligence_title")}</strong><small>{t("today_household_intelligence_meta")}</small></div>
+          <button type="button" onClick={() => router.push("/app/bilan")}>{t("today_v2_discover")} <ChevronRight size={16}/></button>
         </section>
-      ) : (
-        <>
-          <section className="dabo-v2-section" aria-labelledby="today-essentials-v2">
-            <h2 id="today-essentials-v2" className="dabo-v2-section-title">{t("today_essentials")}</h2>
-            <div>
-              {visibleAttention.map((attention) => {
-                const detail = attentionDetails(attention);
-                const Icon = detail.icon;
-                const urgent = attention.level === "action_now" || attention.reason === "overdue";
-                return <button key={attention.id} type="button" onClick={detail.onAction} className="dabo-today-row w-full text-left">
-                  <span className="dabo-today-row-icon"><Icon size={18}/></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2"><strong className="truncate text-sm text-ink">{detail.title}</strong>{urgent && <span className="dabo-urgent-badge">{attentionLevelLabel(attention.level)}</span>}</span>
-                    <span className="mt-1 block text-xs leading-relaxed text-muted">{detail.description}</span>
-                  </span>
-                  <span className="text-muted" aria-hidden="true">→</span>
-                </button>;
-              })}
-            </div>
-            {attentionItems.length > visibleAttention.length && <button onClick={() => router.push("/app/taches")} className="mt-3 text-sm font-semibold text-ink underline decoration-black/20 underline-offset-4">+ {attentionItems.length - visibleAttention.length}</button>}
-          </section>
-
-          {preparingInsight && (
-            <section className="dabo-v2-section" aria-labelledby="dabo-prepares-v2">
-              <h2 id="dabo-prepares-v2" className="dabo-v2-section-title">{t("today_v2_preparing")}</h2>
-              <button type="button" onClick={() => router.push("/app/calendrier")} className="dabo-preparing-card w-full text-left">
-                <div className="flex items-start gap-3">
-                  <span className="dabo-soft-icon bg-white/40"><CalendarDays size={19}/></span>
-                  <span className="min-w-0 flex-1"><strong className="block font-serif text-xl text-ink">{t(preparingInsight.titleKey)}</strong><span className="mt-2 block text-sm leading-relaxed text-muted">{t(preparingInsight.messageKey)}</span><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-ink">{t("today_v2_almost_ready")} <span aria-hidden="true">→</span></span></span>
-                </div>
-              </button>
-            </section>
-          )}
-        </>
-      )}
-
-      {dashboardReady && !dashboardLoadError && <section className="dabo-premium-modules" aria-label={t("today_essentials")}>
-        <div className="dabo-premium-section-line"><h2>{({fr:"Raccourcis",nl:"Snelkoppelingen",en:"Shortcuts",de:"Schnellzugriff",es:"Accesos rápidos",it:"Scorciatoie",pt:"Atalhos"} as Record<string,string>)[lang] || "Shortcuts"}</h2><span>{household.name}</span></div>
-        <div className="dabo-premium-featured">
-          {[quickViewItems[2], quickViewItems[0]].map((module) => { const Icon = module.icon; return <button type="button" key={module.key} className="dabo-premium-feature" onClick={() => router.push(module.href)}><span className={`dabo-premium-feature-icon dabo-premium-color-${module.key}`}><Icon size={24}/></span><span><strong>{module.label}</strong><small>{module.value}</small></span><ChevronRight size={18} aria-hidden="true"/></button>; })}
-        </div>
-        <div className="dabo-premium-round-grid">
-          {[quickViewItems[1], quickViewItems[3],
-            {key:"balance",label:t("balance_title"),value:"",icon:Scale,href:"/app/equilibre"},
-            {key:"review",label:t("today_household_intelligence_title"),value:"",icon:Sparkles,href:"/app/bilan"}
-          ].map((module) => { const Icon = module.icon; return <button type="button" key={module.key} className="dabo-premium-round-shortcut" onClick={() => router.push(module.href)}><span className={`dabo-premium-round-icon dabo-premium-color-${module.key}`}><Icon size={26}/></span><strong>{module.label}</strong>{module.value !== "" && <small>{module.value}</small>}</button>; })}
-        </div>
-      </section>}
-
-      {dashboardReady && !dashboardLoadError && todayTasks.length > 0 && <section className="dabo-premium-today-list" aria-labelledby="dabo-premium-today-heading">
-        <div className="dabo-premium-section-line"><h2 id="dabo-premium-today-heading">{({fr:"Pour aujourd’hui",nl:"Voor vandaag",en:"For today",de:"Für heute",es:"Para hoy",it:"Per oggi",pt:"Para hoje"} as Record<string,string>)[lang] || "For today"}</h2><button type="button" onClick={() => router.push("/app/taches")}>{t("tasks_title")} <ArrowRight size={16}/></button></div>
-        <div className="dabo-premium-today-items">
-          {todayTasks.length ? todayTasks.map((task) => <button type="button" key={task.id} className="dabo-premium-today-item" onClick={() => router.push("/app/taches")}><span className="dabo-premium-check" aria-hidden="true"/><span className="dabo-premium-today-copy"><strong>{task.name}</strong><small>{t("today_attention_task_due_today")}</small></span>{task.assigned_to && members.find((member) => member.id === task.assigned_to) && <Avatar member={members.find((member) => member.id === task.assigned_to) || null} members={members} size={33} />}<ChevronRight size={18} aria-hidden="true"/></button>) : <p className="dabo-premium-today-empty">{t("today_v2_calm_text")}</p>}
-        </div>
-      </section>}
+        {activeHouseholdShoppingCount > 0 && <section className="dabo-v3-panel" aria-labelledby="dabo-v3-shopping-title">
+          <div className="dabo-v3-section-heading"><h2 id="dabo-v3-shopping-title">{t("courses_title")}</h2><button type="button" onClick={() => router.push("/app/courses")}>{activeHouseholdShoppingCount} <ChevronRight size={17}/></button></div>
+          <button type="button" className="dabo-v3-line" onClick={() => router.push("/app/courses")}><span className="dabo-v3-status" aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{t("courses_title")}</strong><small>{activeHouseholdShoppingCount}</small></span><ChevronRight size={18}/></button>
+        </section>}
+      </>}
 
       {completionTarget && <TaskCompletionDialog task={completionTarget} me={me} members={members} t={t} onChoose={(performerIds) => void toggleTask(completionTarget, performerIds)} onCancel={() => setCompletionTarget(null)} />}
     </main>
