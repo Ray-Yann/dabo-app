@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
+import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
@@ -547,11 +548,9 @@ export default function TodayPage() {
   const locale = lang === "fr" ? "fr-BE" : lang === "nl" ? "nl-BE" : lang === "de" ? "de-DE" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : lang === "pt" ? "pt-PT" : "en-GB";
   const todayLabel = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const visibleAttention = attentionItems.slice(0, 4);
-  const memberInitials = (name: string) => {
-    const parts = name.trim().split(/[\s-]+/).filter(Boolean);
-    return (parts.length > 1 ? parts.slice(0, 2).map((part) => part[0]).join("") : (parts[0] || "?").slice(0, 2)).toLocaleUpperCase();
-  };
-  const todayTasks = tasks.filter((task) => task.due_date === todayCivilDate()).slice(0, 4);
+  // An attention already presented above should not appear a second time in today's tasks.
+  const attentionTaskIds = new Set(visibleAttention.filter((item) => item.source === "tasks").map((item) => item.relatedEntityId).filter(Boolean));
+  const todayTasks = tasks.filter((task) => task.status === "pending" && task.due_date === todayCivilDate() && !attentionTaskIds.has(task.id)).slice(0, 4);
 
   const preparingInsight = daboInsights[0];
 
@@ -559,16 +558,14 @@ export default function TodayPage() {
     <main className="dabo-today-v2">
       <header className="dabo-premium-topbar">
         <div className="dabo-premium-heading">
-          <div className="dabo-premium-brand"><img src="/icon.svg" alt="DABO" width="52" height="52" /><span>{t("today_v2_calm_title")}</span></div>
+          <div className="dabo-premium-brand"><img src="/icon.svg" alt="DABO" width="52" height="52" /></div>
           <h1 className="dabo-today-v2-title">{t("hello")}, {me.first_name}</h1>
           <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
         </div>
         <div className="dabo-premium-top-actions">
           <button type="button" className="dabo-premium-avatars" onClick={() => setMembersOpen(true)} aria-label={t("settings_members")}>
             {members.slice(0, 3).map((member) => (
-              <span key={member.id} className="dabo-premium-avatar" style={{ backgroundColor: member.avatar_color || "#d9e3d6" }}>
-                {member.avatar_url ? <img src={member.avatar_url} alt="" /> : member.avatar_emoji || memberInitials(member.first_name)}
-              </span>
+              <span key={member.id} className="dabo-premium-avatar"><Avatar member={member} members={members} size={33} /></span>
             ))}
             {members.length > 3 && <span className="dabo-premium-avatar dabo-premium-avatar-extra">+{members.length - 3}</span>}
           </button>
@@ -578,7 +575,7 @@ export default function TodayPage() {
 
       <section className="dabo-premium-hero" aria-label={household.name}>
         <div className="dabo-premium-hero-image" aria-hidden="true" />
-        <div className="dabo-premium-hero-caption"><span className="dabo-premium-hero-caption-icon"><Sparkles size={22}/></span><span><strong>{visibleAttention.length > 0 ? t("today_v2_needs_you") : t("today_v2_calm_title")}</strong><small>{t("today_v2_calm_text")}</small></span></div>
+        <div className="dabo-premium-hero-caption dabo-attention-summary"><span className="dabo-premium-hero-caption-icon"><Sparkles size={22}/></span><span><strong>{visibleAttention.length > 0 ? t("today_v2_needs_you") : t("today_v2_calm_title")}</strong><small>{visibleAttention.length > 0 ? t("today_essentials") : t("today_v2_calm_text")}</small></span></div>
       </section>
 
       {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
@@ -586,7 +583,7 @@ export default function TodayPage() {
           <div className="dabo-premium-sheet-title"><h2>{t("settings_members")}</h2><button type="button" onClick={() => setMembersOpen(false)} aria-label="×"><X size={22}/></button></div>
           <p className="dabo-premium-sheet-household">{household.name}</p>
           {members.map((member) => <div key={member.id} className="dabo-premium-member-row">
-            <span className="dabo-premium-avatar dabo-premium-member-avatar" style={{backgroundColor: member.avatar_color || "#d9e3d6"}}>{member.avatar_url ? <img src={member.avatar_url} alt=""/> : member.avatar_emoji || memberInitials(member.first_name)}</span>
+            <Avatar member={member} members={members} size={44} />
             <span>{member.first_name}{member.id === me.id ? ` · ${t("settings_profile_desc")}` : ""}</span>
           </div>)}
           <button type="button" className="dabo-premium-manage" onClick={() => router.push("/app/foyer")}><UsersRound size={20}/><span>{t("settings_members")}</span><ChevronRight size={18}/></button>
@@ -623,7 +620,6 @@ export default function TodayPage() {
         </section>
       ) : (
         <>
-          <p className="dabo-attention-summary">{t("today_v2_needs_you")}</p>
           <section className="dabo-v2-section" aria-labelledby="today-essentials-v2">
             <h2 id="today-essentials-v2" className="dabo-v2-section-title">{t("today_essentials")}</h2>
             <div>
@@ -671,10 +667,10 @@ export default function TodayPage() {
         </div>
       </section>}
 
-      {dashboardReady && !dashboardLoadError && <section className="dabo-premium-today-list" aria-labelledby="dabo-premium-today-heading">
-        <div className="dabo-premium-section-line"><h2 id="dabo-premium-today-heading">{({fr:"Pour aujourd’hui",nl:"Voor vandaag",en:"For today",de:"Für heute",es:"Para hoy",it:"Per oggi",pt:"Para hoje"} as Record<string,string>)[lang] || "For today"}</h2><button type="button" onClick={() => router.push("/app/taches")}>{t("today_v2_discover")} <ArrowRight size={16}/></button></div>
+      {dashboardReady && !dashboardLoadError && todayTasks.length > 0 && <section className="dabo-premium-today-list" aria-labelledby="dabo-premium-today-heading">
+        <div className="dabo-premium-section-line"><h2 id="dabo-premium-today-heading">{({fr:"Pour aujourd’hui",nl:"Voor vandaag",en:"For today",de:"Für heute",es:"Para hoy",it:"Per oggi",pt:"Para hoje"} as Record<string,string>)[lang] || "For today"}</h2><button type="button" onClick={() => router.push("/app/taches")}>{t("tasks_title")} <ArrowRight size={16}/></button></div>
         <div className="dabo-premium-today-items">
-          {todayTasks.length ? todayTasks.map((task) => <button type="button" key={task.id} className="dabo-premium-today-item" onClick={() => router.push("/app/taches")}><span className="dabo-premium-check" aria-hidden="true"/><span className="dabo-premium-today-copy"><strong>{task.name}</strong><small>{t("today_attention_task_due_today")}</small></span>{task.assigned_to && members.find((member) => member.id === task.assigned_to) && <span className="dabo-premium-avatar" style={{backgroundColor:members.find((member) => member.id === task.assigned_to)?.avatar_color || "#d9e3d6"}}>{members.find((member) => member.id === task.assigned_to)?.avatar_url ? <img src={members.find((member) => member.id === task.assigned_to)?.avatar_url || ""} alt=""/> : memberInitials(members.find((member) => member.id === task.assigned_to)?.first_name || "")}</span>}<ChevronRight size={18} aria-hidden="true"/></button>) : <p className="dabo-premium-today-empty">{t("today_v2_calm_text")}</p>}
+          {todayTasks.length ? todayTasks.map((task) => <button type="button" key={task.id} className="dabo-premium-today-item" onClick={() => router.push("/app/taches")}><span className="dabo-premium-check" aria-hidden="true"/><span className="dabo-premium-today-copy"><strong>{task.name}</strong><small>{t("today_attention_task_due_today")}</small></span>{task.assigned_to && members.find((member) => member.id === task.assigned_to) && <Avatar member={members.find((member) => member.id === task.assigned_to) || null} members={members} size={33} />}<ChevronRight size={18} aria-hidden="true"/></button>) : <p className="dabo-premium-today-empty">{t("today_v2_calm_text")}</p>}
         </div>
       </section>}
 
