@@ -7,7 +7,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles, ArrowRight } from "lucide-react";
+import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, ScanLine, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles, ArrowRight } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
@@ -81,6 +81,7 @@ export default function TodayPage() {
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
   const [showAllAttention, setShowAllAttention] = useState(false);
+  const [showLobaShortcut, setShowLobaShortcut] = useState(false);
   const [householdInboxText, setHouseholdInboxText] = useState("");
   const [householdInboxProposal, setHouseholdInboxProposal] =
     useState<HouseholdInboxInterpretation | null>(null);
@@ -554,7 +555,30 @@ export default function TodayPage() {
   const attentionTaskIds = new Set(displayedAttention.filter((item) => item.source === "tasks").map((item) => item.relatedEntityId).filter(Boolean));
   const todayTasks = tasks.filter((task) => task.status === "pending" && task.due_date === todayCivilDate() && !attentionTaskIds.has(task.id)).slice(0, Math.max(0, 4 - displayedAttention.length));
 
-  const preparingInsight = daboInsights[0];
+  const preparingInsight = daboInsights.find((insight) => insight.type === "assignment");
+  const upcomingEvents = calendarEvents.map((event) => ({ event, occurrence: nextUncompletedOccurrence(event, completedOccurrenceKeys) }))
+    .filter((entry): entry is { event: CalendarEvent; occurrence: Date } => entry.occurrence !== null && daysUntil(entry.occurrence) >= 0 && daysUntil(entry.occurrence) <= 7)
+    .sort((a, b) => a.occurrence.getTime() - b.occurrence.getTime()).slice(0, 3);
+  const upcomingTasks = tasks.filter((task) => task.status === "pending" && !!task.due_date && task.due_date > today)
+    .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || "")).slice(0, 3);
+  const pendingShoppingPreview = items.filter((item) => item.status === "to_buy").slice(0, 3);
+  const uiLabels = ({
+    fr: { upcoming: "À venir", suggestions: "Suggestions de DABO", balance: "Voir le bilan", all: "Tout voir", scan: "Scan", finance: "Finances", loba: "LOBA" },
+    nl: { upcoming: "Binnenkort", suggestions: "Suggesties van DABO", balance: "Bekijk het overzicht", all: "Alles bekijken", scan: "Scan", finance: "Financiën", loba: "LOBA" },
+    en: { upcoming: "Coming up", suggestions: "DABO suggestions", balance: "View overview", all: "View all", scan: "Scan", finance: "Finances", loba: "LOBA" },
+    de: { upcoming: "Demnächst", suggestions: "DABO-Vorschläge", balance: "Übersicht ansehen", all: "Alle ansehen", scan: "Scan", finance: "Finanzen", loba: "LOBA" },
+    es: { upcoming: "Próximamente", suggestions: "Sugerencias de DABO", balance: "Ver resumen", all: "Ver todo", scan: "Escanear", finance: "Finanzas", loba: "LOBA" },
+    it: { upcoming: "In arrivo", suggestions: "Suggerimenti di DABO", balance: "Vedi riepilogo", all: "Vedi tutto", scan: "Scansione", finance: "Finanze", loba: "LOBA" },
+    pt: { upcoming: "Em breve", suggestions: "Sugestões da DABO", balance: "Ver resumo", all: "Ver tudo", scan: "Digitalizar", finance: "Finanças", loba: "LOBA" },
+  } as const)[lang];
+  const shortcutItems = [
+    { id: "tasks", label: t("tasks_title"), icon: ListTodo, href: "/app/taches" },
+    { id: "shopping", label: t("courses_title"), icon: ShoppingBag, href: "/app/courses" },
+    { id: "finance", label: uiLabels.finance, icon: WalletCards, href: "/app/finances" },
+    { id: "balance", label: t("balance_title"), icon: Scale, href: "/app/equilibre" },
+    { id: "loba", label: uiLabels.loba, icon: Sparkles, href: "" },
+    { id: "scan", label: uiLabels.scan, icon: ScanLine, href: "/app/courses?scan=1" },
+  ];
 
   return (
     <main className="dabo-today-v2">
@@ -574,6 +598,15 @@ export default function TodayPage() {
           <button type="button" className="dabo-premium-bell" onClick={() => router.push("/app/reglages")} aria-label={t("settings_notifications")} title={t("settings_notifications")}><Bell size={21}/></button>
         </div>
       </header>
+
+      <nav className="dabo-v32-shortcuts" aria-label={t("quick_actions_title")}>
+        {shortcutItems.map((shortcut) => <button type="button" key={shortcut.id} className="dabo-v32-shortcut"
+          onClick={() => shortcut.id === "loba" ? setShowLobaShortcut(true) : router.push(shortcut.href)}>
+          <span className={`dabo-v32-shortcut-icon dabo-v32-shortcut-${shortcut.id}`}><shortcut.icon size={22} aria-hidden="true" /></span>
+          <span>{shortcut.label}</span>
+        </button>)}
+      </nav>
+      {showLobaShortcut && <section className="dabo-v32-loba" aria-label="LOBA"><LobaHouseholdChat householdName={household.name} initialOpen /></section>}
 
       <section className="dabo-v3-hero" aria-label={household.name}>
         <div className="dabo-v3-hero-photo" role="img" aria-label={household.name} />
@@ -635,18 +668,25 @@ export default function TodayPage() {
             {attentionItems.length > visibleAttention.length && <button type="button" className="dabo-v3-expand" aria-expanded={showAllAttention} onClick={() => setShowAllAttention((previous) => !previous)}>{showAllAttention ? t("today_v3_less_attention") : t("today_v3_more_attention")}</button>}
           </div>
         </section>
-        {preparingInsight && <section className="dabo-v3-panel" aria-labelledby="dabo-v3-next-title">
-          <div className="dabo-v3-section-heading"><h2 id="dabo-v3-next-title">{t("today_v2_preparing")}</h2></div>
-          <div className="dabo-v3-line dabo-v3-insight"><span className="dabo-v3-status" aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{t(preparingInsight.titleKey)}</strong><small>{t(preparingInsight.messageKey)}</small></span></div>
+        {(upcomingEvents.length > 0 || upcomingTasks.length > 0) && <section className="dabo-v3-panel dabo-v32-upcoming" aria-labelledby="dabo-v32-upcoming-title">
+          <div className="dabo-v3-section-heading"><h2 id="dabo-v32-upcoming-title">{uiLabels.upcoming}</h2><button type="button" onClick={() => router.push("/app/calendrier")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
+          <div className="dabo-v3-list">
+            {upcomingEvents.map(({event,occurrence}) => <button type="button" key={event.id} className="dabo-v3-line" onClick={() => router.push("/app/calendrier")}><CalendarDays size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{event.title}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short"}).format(occurrence)}</small></span><ChevronRight size={18}/></button>)}
+            {upcomingTasks.map((task) => <button type="button" key={task.id} className="dabo-v3-line" onClick={() => router.push("/app/taches")}><Clock3 size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{task.name}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(`${task.due_date}T12:00:00Z`))}</small></span><ChevronRight size={18}/></button>)}
+          </div>
         </section>}
-        <section className="dabo-v3-balance" aria-label={t("balance_title")}>
+        {preparingInsight && <section className="dabo-v3-panel dabo-v32-suggestions" aria-labelledby="dabo-v32-suggestions-title" data-source={t("today_v2_preparing")}>
+          <div className="dabo-v3-section-heading"><h2 id="dabo-v32-suggestions-title">{uiLabels.suggestions}</h2></div>
+          <div className="dabo-v3-line dabo-v3-insight"><Sparkles size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{t(preparingInsight.titleKey)}</strong><small>{t(preparingInsight.messageKey)}</small></span></div>
+        </section>}
+        {todayHouseholdIntelligence && <section className="dabo-v3-balance" aria-label={t("balance_title")}>
           <span className="dabo-v3-balance-leaf" aria-hidden="true">✦</span>
           <div><strong>{t("today_household_intelligence_title")}</strong><small>{t("today_household_intelligence_meta")}</small></div>
-          <button type="button" onClick={() => router.push("/app/bilan")}>{t("today_v2_discover")} <ChevronRight size={16}/></button>
-        </section>
-        {activeHouseholdShoppingCount > 0 && <section className="dabo-v3-panel" aria-labelledby="dabo-v3-shopping-title">
+          <button type="button" onClick={() => router.push("/app/bilan")}>{uiLabels.balance} <ChevronRight size={16}/></button>
+        </section>}
+        {activeHouseholdShoppingCount > 0 && <section className="dabo-v3-panel dabo-v32-shopping" aria-labelledby="dabo-v3-shopping-title">
           <div className="dabo-v3-section-heading"><h2 id="dabo-v3-shopping-title">{t("courses_title")}</h2><button type="button" onClick={() => router.push("/app/courses")}>{activeHouseholdShoppingCount} <ChevronRight size={17}/></button></div>
-          <button type="button" className="dabo-v3-line" onClick={() => router.push("/app/courses")}><span className="dabo-v3-status" aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{t("courses_title")}</strong><small>{activeHouseholdShoppingCount}</small></span><ChevronRight size={18}/></button>
+          <div className="dabo-v3-list">{pendingShoppingPreview.map((item) => <button type="button" key={item.id} className="dabo-v3-line" onClick={() => router.push("/app/courses")}><ShoppingBag size={19} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{item.name}</strong>{item.quantity && <small>{item.quantity}</small>}</span><ChevronRight size={18}/></button>)}</div>
         </section>}
       </>}
 

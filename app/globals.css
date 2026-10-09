@@ -881,3 +881,23 @@ input, select, textarea {
 .dabo-v3-insight{cursor:default}
 .dabo-v3-empty strong{display:block;font-size:14px;margin-bottom:4px;color:var(--dabo-text)}
 .dabo-v3-empty p{margin:0}
+
+/* Maison Vivante V3.2 — shortcuts, real upcoming items, and calm density */
+.dabo-v32-shortcuts{display:flex;gap:clamp(10px,2.4vw,23px);overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none;padding:4px 1px 11px;margin:0 0 5px}
+.dabo-v32-shortcuts::-webkit-scrollbar{display:none}
+.dabo-v32-shortcut{flex:0 0 70px;min-height:76px;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;gap:7px;scroll-snap-align:start;color:var(--dabo-text);font-size:12px;font-weight:650;text-align:center}
+.dabo-v32-shortcut-icon{width:51px;height:51px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--dabo-surface) 70%,#b8cbb4);border:1px solid var(--dabo-line);transition:transform .18s ease}
+.dabo-v32-shortcut-shopping,.dabo-v32-shortcut-loba{background:color-mix(in srgb,var(--dabo-surface) 65%,#d9c4a0)}
+.dabo-v32-shortcut-finance,.dabo-v32-shortcut-scan{background:color-mix(in srgb,var(--dabo-surface) 65%,#b9cbd0)}
+.dabo-v32-shortcut:focus-visible{outline:2px solid var(--dabo-text);outline-offset:3px;border-radius:9px}
+@media(hover:hover){.dabo-v32-shortcut:hover .dabo-v32-shortcut-icon{transform:translateY(-3px)}}
+.dabo-v32-loba{margin:5px 0 14px}
+.dabo-v32-loba>div{margin-inline:0}
+.dabo-v32-upcoming .dabo-v3-line>svg:first-child,.dabo-v32-suggestions .dabo-v3-line>svg:first-child,.dabo-v32-shopping .dabo-v3-line>svg:first-child{flex:none;color:var(--dabo-muted)}
+.dabo-v32-upcoming .dabo-v3-list>.dabo-v3-line:nth-child(n+4){display:none}
+.dabo-v32-suggestions{background:color-mix(in srgb,var(--dabo-surface) 88%,#afc4a9)}
+.dabo-v3-balance{flex-wrap:wrap}
+.dabo-v3-balance button{margin-left:auto}
+@media(max-width:520px){.dabo-v3-hero-photo{aspect-ratio:790/300}.dabo-v32-shortcut{flex-basis:67px}.dabo-v32-shortcut-icon{width:49px;height:49px}.dabo-v3-balance>div{flex-basis:calc(100% - 60px)}.dabo-v3-balance button{min-height:34px}}
+@media(min-width:1000px){.dabo-today-v2{max-width:1060px}.dabo-v32-shortcuts{justify-content:space-between}.dabo-v3-hero-photo{aspect-ratio:1000/280}}
+@media(prefers-reduced-motion:reduce){.dabo-v32-shortcut-icon{transition:none}}
