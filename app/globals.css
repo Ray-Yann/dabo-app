@@ -839,3 +839,9 @@ input, select, textarea {
 .dabo-premium-modules{margin-top:20px}
 @media(max-width:520px){.dabo-premium-hero-image{height:clamp(160px,50vw,210px)}.dabo-premium-heading .dabo-today-v2-title{font-size:clamp(25px,7vw,34px)}.dabo-premium-hero{margin-bottom:18px}.dabo-premium-section-line{margin:17px 0 12px}.dabo-premium-feature{min-height:76px}}
 @media(min-width:900px){.dabo-premium-hero-image{height:clamp(240px,26vw,310px)}}
+
+/* DABO Premium V2.6: clean, landscape illustration with no embedded UI text. */
+.dabo-premium-hero-image{height:auto;aspect-ratio:790 / 399;background-image:url('/illustrations/dabo-living-room.webp');background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#e8e6d6;border-radius:26px}
+.dabo-premium-hero-caption{margin:12px 0 0;min-height:68px;position:relative;z-index:1}
+@media(max-width:520px){.dabo-premium-hero-image{height:auto;aspect-ratio:790 / 399}.dabo-premium-hero-caption{margin:12px 0 0}}
+@media(min-width:900px){.dabo-premium-hero-image{height:auto;aspect-ratio:790 / 399;max-height:380px}}
