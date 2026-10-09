@@ -901,3 +901,20 @@ input, select, textarea {
 @media(max-width:520px){.dabo-v3-hero-photo{aspect-ratio:790/300}.dabo-v32-shortcut{flex-basis:67px}.dabo-v32-shortcut-icon{width:49px;height:49px}.dabo-v3-balance>div{flex-basis:calc(100% - 60px)}.dabo-v3-balance button{min-height:34px}}
 @media(min-width:1000px){.dabo-today-v2{max-width:1060px}.dabo-v32-shortcuts{justify-content:space-between}.dabo-v3-hero-photo{aspect-ratio:1000/280}}
 @media(prefers-reduced-motion:reduce){.dabo-v32-shortcut-icon{transition:none}}
+
+/* Maison Vivante V3.3 â€” mobile refinements */
+/* A discreet right-edge fade signals additional horizontal shortcuts on narrow screens. */
+@media (max-width: 999px) {
+  .dabo-v32-shortcuts {
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 22px), transparent 100%);
+    padding-right: 18px;
+  }
+}
+/* Compact only the mobile editorial lists; preserve comfortable touch targets. */
+@media (max-width: 520px) {
+  .dabo-v3-panel { padding: 12px 16px 5px; }
+  .dabo-v3-section-heading { padding-bottom: 6px; }
+  .dabo-v3-line, .dabo-v3-list > button { min-height: 60px; padding-block: 9px; gap: 12px; }
+  .dabo-v3-section-heading h2, .dabo-v3-panel > h2 { font-size: clamp(23px, 5vw, 27px); }
+}
