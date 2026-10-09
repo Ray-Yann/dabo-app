@@ -107,6 +107,13 @@ export default function CoursesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showAddChoice, setShowAddChoice] = useState(false);
   const [showScanV3, setShowScanV3] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("scan") !== "1") return;
+    url.searchParams.delete("scan");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    if (navigator.onLine) setShowScanV3(true);
+  }, []);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportBusy, setBulkImportBusy] = useState(false);

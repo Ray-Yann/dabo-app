@@ -14,7 +14,11 @@ export type ClosedLoopMaterializationAction={
 export type ClosedLoopMaterializationPlan={needTitle:string;resolutionMode:ClosedLoopProposal["resolutionMode"];actions:ClosedLoopMaterializationAction[]};
 export type ClosedLoopMaterializationReadiness={ready:boolean;missing:Array<{position:number;field:"eventDate"|"dueOn"}>;plan:ClosedLoopMaterializationPlan};
 
-const isoDate=(v:unknown)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+const isoDate=(v:unknown)=>{
+ if(typeof v!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+ const parsed=new Date(`${v}T00:00:00Z`);
+ return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===v;
+};
 /**
  * Converts an approved V3 proposal into the bounded V4 write contract.
  * Missing real-world facts stay missing: this layer never invents dates, money or outcomes.

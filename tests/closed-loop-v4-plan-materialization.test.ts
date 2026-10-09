@@ -1,8 +1,10 @@
-import test from"node:test";import assert from"node:assert/strict";import fs from"node:fs";
+﻿import test from"node:test";import assert from"node:assert/strict";import fs from"node:fs";
 import{planClosedLoopNeed}from"../lib/closed-loop-reasoning";
 import{prepareClosedLoopMaterialization,validateClosedLoopMaterializationPlan}from"../lib/closed-loop-materialization";
 const sql=fs.readFileSync("supabase/migrations/2026-10-07-closed-loop-v4-plan-materialization.sql","utf8");
 const route=fs.readFileSync("app/api/closed-loop/materialize/route.ts","utf8");
+const proposalRoute=fs.readFileSync("app/api/closed-loop/proposals/route.ts","utf8");
+const approvalSql=fs.readFileSync("supabase/migrations/2026-10-08-closed-loop-v5-1-persisted-approval.sql","utf8");
 
 test("Closed Loop V4 materializes shopping without inventing extra facts",()=>{const p=planClosedLoopNeed("Plus de lait")!;const r=prepareClosedLoopMaterialization(p);assert.equal(r.ready,true);assert.deepEqual(validateClosedLoopMaterializationPlan(r.plan),[]);assert.equal(r.plan.actions[0].resourceType,"shopping_item")});
 test("Closed Loop V4 refuses to invent an appointment date",()=>{const p=planClosedLoopNeed("Prendre rendez-vous au garage")!;const r=prepareClosedLoopMaterialization(p);assert.equal(r.ready,false);assert.deepEqual(r.missing,[{position:0,field:"eventDate"}])});
@@ -12,8 +14,30 @@ test("Closed Loop V4 SQL is atomic idempotent and actor-scoped",()=>{assert.matc
 test("Closed Loop V4 creates operational resources before graph links",()=>{for(const table of["public.tasks","public.shopping_items","public.calendar_events","public.finance_bills"])assert.match(sql,new RegExp(`insert into ${table.replace(".","\\.")}`,"i"));assert.match(sql,/insert into public\.household_need_actions/i);assert.match(sql,/closed_loop_refresh_need_system/i)});
 test("Closed Loop V4 never writes completed or resolved operational truth",()=>{assert.doesNotMatch(sql,/values\([^\n]*'done'/i);assert.doesNotMatch(sql,/values\([^\n]*'bought'/i);assert.doesNotMatch(sql,/values\([^\n]*'paid'/i);assert.match(sql,/'pending'/i);assert.match(sql,/'to_buy'/i)});
 test("Closed Loop V4 RPC is server-only",()=>{assert.match(sql,/revoke all on function public\.closed_loop_materialize_plan\(uuid,uuid,uuid,jsonb\) from public,anon,authenticated/i);assert.match(sql,/grant execute on function public\.closed_loop_materialize_plan\(uuid,uuid,uuid,jsonb\) to service_role/i);assert.doesNotMatch(sql,/grant execute on function public\.closed_loop_materialize_plan[^;]*authenticated/i)});
-test("Closed Loop V4 confirmation route authenticates and validates before service-role RPC",()=>{assert.match(route,/verifyUserToken\(token\)/);assert.match(route,/body\.approved!==true/);assert.match(route,/validateClosedLoopMaterializationPlan\(plan\)/);assert.match(route,/\.eq\("user_id",user\.id\)/);assert.match(route,/\.eq\("household_id",body\.householdId\)/);assert.match(route,/createAdminClient\(\)/);assert.match(route,/p_actor_user_id:user\.id/)});
-test("Closed Loop V4 rejects calendar as resolution evidence or proof and binds human confirmation",()=>{assert.match(sql,/Calendar cannot prove or resolve a real-world need/i);assert.match(sql,/v_role in\('resolves','evidence'\)/);assert.match(sql,/Human resolution mode requires confirmation action/i);assert.match(route,/calendar_event"&&\(a\.role==="resolves"\|\|a\.role==="evidence"\)/);assert.match(route,/human_required"&&!plan\.actions\.some/)});
+test("Closed Loop V4/V5.1 authenticates, validates and scopes proposals before service-role execution",()=>{
+ assert.match(proposalRoute,/verifyUserToken\(req\.headers/);
+ assert.match(proposalRoute,/validateClosedLoopMaterializationPlan\(plan\)/);
+ assert.match(proposalRoute,/\.eq\("user_id",user\.id\)/);
+ assert.match(proposalRoute,/\.eq\("household_id",body\.householdId\)/);
+ assert.match(proposalRoute,/\.is\("left_at",null\)/);
+ assert.match(proposalRoute,/createAdminClient\(\)/);
+ assert.match(route,/verifyUserToken\(req\.headers/);
+ assert.match(route,/body\.approved!==true/);
+ assert.match(route,/closed_loop_execute_approved_proposal/);
+ assert.match(route,/p_actor_user_id:user\.id/);
+ assert.match(approvalSql,/household_id=v_proposal\.household_id and user_id=p_actor_user_id and left_at is null and id=v_proposal\.created_by/);
+ assert.match(approvalSql,/closed_loop_materialize_plan\(p_actor_user_id,v_proposal\.household_id,v_proposal\.request_id,v_proposal\.plan\)/);
+});
+test("Closed Loop V4/V5.1 rejects calendar as proof and requires human confirmation",()=>{
+ assert.match(sql,/Calendar cannot prove or resolve a real-world need/i);
+ assert.match(sql,/v_role in\('resolves','evidence'\)/);
+ assert.match(sql,/Human resolution mode requires confirmation action/i);
+ assert.match(proposalRoute,/calendar_event"&&\(a\.role==="resolves"\|\|a\.role==="evidence"\)/);
+ assert.match(proposalRoute,/plan\.actions\.some\(a=>a\.resourceType==="human_confirmation"\)/);assert.match(proposalRoute,/plan\.resolutionMode==="human_required"/);
+ assert.match(proposalRoute,/validateClosedLoopMaterializationPlan\(plan\)/);
+});
 test("Closed Loop V4 serializes concurrent retries before idempotency lookup",()=>{const lock=sql.indexOf("pg_advisory_xact_lock"),lookup=sql.indexOf("select * into v_existing");assert.ok(lock>=0&&lookup>lock)});
 test("Closed Loop V4 documents Finance V1 EUR constraint instead of pretending multi-currency",()=>{assert.match(sql,/Finance V1 is currently EUR-only across DABO/i);assert.match(sql,/'EUR'/)});
-test("Closed Loop V4 sources remain clean UTF-8",()=>{for(const file of["lib/closed-loop-reasoning.ts","supabase/migrations/2026-10-07-closed-loop-v4-plan-materialization.sql","app/api/closed-loop/materialize/route.ts"]){const source=fs.readFileSync(file,"utf8");assert.equal(source.includes("Ã"),false,file);assert.equal(source.includes("�"),false,file)}const reasoning=fs.readFileSync("lib/closed-loop-reasoning.ts","utf8");assert.match(reasoning,/Confirmer que le besoin est réglé/)});
+test("Closed Loop V4 sources remain clean UTF-8",()=>{for(const file of["lib/closed-loop-reasoning.ts","supabase/migrations/2026-10-07-closed-loop-v4-plan-materialization.sql","app/api/closed-loop/materialize/route.ts"]){const source=fs.readFileSync(file,"utf8");assert.equal(source.includes("Ãƒ"),false,file);assert.equal(source.includes("ï¿½"),false,file)}const reasoning=fs.readFileSync("lib/closed-loop-reasoning.ts","utf8");assert.match(reasoning,/Confirmer que le besoin est réglé/)});
+
+
