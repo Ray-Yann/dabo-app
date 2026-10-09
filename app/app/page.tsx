@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo } from "lucide-react";
+import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
@@ -78,6 +78,7 @@ export default function TodayPage() {
   const [householdAttentionReceipt, setHouseholdAttentionReceipt] = useState<HouseholdAttentionReceipt | null>(null);
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [householdInboxText, setHouseholdInboxText] = useState("");
   const [householdInboxProposal, setHouseholdInboxProposal] =
     useState<HouseholdInboxInterpretation | null>(null);
@@ -550,13 +551,41 @@ export default function TodayPage() {
 
   return (
     <main className="dabo-today-v2">
-      <header className="dabo-today-v2-header">
-        <p className="dabo-kicker">{household.name}</p>
-        <h1 className="dabo-today-v2-title">{t("hello")}, {me.first_name}</h1>
-        <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
+      <header className="dabo-premium-topbar">
+        <div className="dabo-premium-heading">
+          <p className="dabo-kicker">{household.name}</p>
+          <h1 className="dabo-today-v2-title">{t("hello")}, {me.first_name}</h1>
+          <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
+        </div>
+        <div className="dabo-premium-top-actions">
+          <button type="button" className="dabo-premium-avatars" onClick={() => setMembersOpen(true)} aria-label={t("settings_members")}>
+            {members.slice(0, 3).map((member) => (
+              <span key={member.id} className="dabo-premium-avatar" style={{ backgroundColor: member.avatar_color || "#d9e3d6" }}>
+                {member.avatar_url ? <img src={member.avatar_url} alt="" /> : member.avatar_emoji || member.first_name.slice(0, 1).toUpperCase()}
+              </span>
+            ))}
+            {members.length > 3 && <span className="dabo-premium-avatar dabo-premium-avatar-extra">+{members.length - 3}</span>}
+          </button>
+          <button type="button" className="dabo-premium-bell" onClick={() => router.push("/app/reglages")} aria-label={t("settings_notifications")} title={t("settings_notifications")}><Bell size={21}/></button>
+        </div>
       </header>
 
-      <div className="dabo-editorial-garden" aria-hidden="true" />
+      <section className="dabo-premium-hero" aria-label={household.name}>
+        <div className="dabo-premium-hero-image" aria-hidden="true" />
+        <div className="dabo-premium-hero-caption"><Sparkles size={15}/><span>{t("today_v2_calm_text")}</span></div>
+      </section>
+
+      {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
+        <section className="dabo-premium-sheet" role="dialog" aria-modal="true" aria-label={t("settings_members")} onClick={(event) => event.stopPropagation()}>
+          <div className="dabo-premium-sheet-title"><h2>{t("settings_members")}</h2><button type="button" onClick={() => setMembersOpen(false)} aria-label="×"><X size={22}/></button></div>
+          <p className="dabo-premium-sheet-household">{household.name}</p>
+          {members.map((member) => <div key={member.id} className="dabo-premium-member-row">
+            <span className="dabo-premium-avatar dabo-premium-member-avatar" style={{backgroundColor: member.avatar_color || "#d9e3d6"}}>{member.avatar_url ? <img src={member.avatar_url} alt=""/> : member.avatar_emoji || member.first_name.slice(0,1).toUpperCase()}</span>
+            <span>{member.first_name}{member.id === me.id ? ` · ${t("settings_profile_desc")}` : ""}</span>
+          </div>)}
+          <button type="button" className="dabo-premium-manage" onClick={() => router.push("/app/foyer")}><UsersRound size={20}/><span>{t("settings_members")}</span><ChevronRight size={18}/></button>
+        </section>
+      </div>}
 
       {dashboardLoadError ? (
         <section className="dabo-calm-state" role="status">
@@ -622,6 +651,20 @@ export default function TodayPage() {
           )}
         </>
       )}
+
+      {dashboardReady && !dashboardLoadError && <section className="dabo-premium-modules" aria-label={t("today_essentials")}>
+        <div className="dabo-premium-section-line"><h2>{t("today_essentials")}</h2><span>{household.name}</span></div>
+        <div className="dabo-premium-module-grid">
+          {[...quickViewItems,
+            { key: "balance", label: t("balance_title"), value: "", icon: Scale, href: "/app/equilibre" },
+            { key: "review", label: t("today_household_intelligence_title"), value: "", icon: Sparkles, href: "/app/bilan" },
+          ].map((module) => { const Icon = module.icon; return <button type="button" key={module.key} className={`dabo-premium-module dabo-premium-module-${module.key}`} onClick={() => router.push(module.href)}>
+            <span className="dabo-premium-module-icon"><Icon size={22}/></span>
+            <span className="dabo-premium-module-copy"><strong>{module.label}</strong>{module.value !== "" && <small>{module.value}</small>}</span>
+            <ChevronRight size={17} className="dabo-premium-module-arrow"/>
+          </button>; })}
+        </div>
+      </section>}
 
       {completionTarget && <TaskCompletionDialog task={completionTarget} me={me} members={members} t={t} onChoose={(performerIds) => void toggleTask(completionTarget, performerIds)} onCancel={() => setCompletionTarget(null)} />}
     </main>
