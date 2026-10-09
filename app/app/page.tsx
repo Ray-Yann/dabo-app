@@ -6,7 +6,7 @@ import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles } from "lucide-react";
+import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles, ArrowRight } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
@@ -547,13 +547,19 @@ export default function TodayPage() {
   const locale = lang === "fr" ? "fr-BE" : lang === "nl" ? "nl-BE" : lang === "de" ? "de-DE" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : lang === "pt" ? "pt-PT" : "en-GB";
   const todayLabel = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const visibleAttention = attentionItems.slice(0, 4);
+  const memberInitials = (name: string) => {
+    const parts = name.trim().split(/[\s-]+/).filter(Boolean);
+    return (parts.length > 1 ? parts.slice(0, 2).map((part) => part[0]).join("") : (parts[0] || "?").slice(0, 2)).toLocaleUpperCase();
+  };
+  const todayTasks = tasks.filter((task) => task.due_date === todayCivilDate()).slice(0, 4);
+
   const preparingInsight = daboInsights[0];
 
   return (
     <main className="dabo-today-v2">
       <header className="dabo-premium-topbar">
         <div className="dabo-premium-heading">
-          <p className="dabo-kicker">{household.name}</p>
+          <div className="dabo-premium-brand"><img src="/icon.svg" alt="DABO" width="52" height="52" /><span>{t("today_v2_calm_title")}</span></div>
           <h1 className="dabo-today-v2-title">{t("hello")}, {me.first_name}</h1>
           <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
         </div>
@@ -561,7 +567,7 @@ export default function TodayPage() {
           <button type="button" className="dabo-premium-avatars" onClick={() => setMembersOpen(true)} aria-label={t("settings_members")}>
             {members.slice(0, 3).map((member) => (
               <span key={member.id} className="dabo-premium-avatar" style={{ backgroundColor: member.avatar_color || "#d9e3d6" }}>
-                {member.avatar_url ? <img src={member.avatar_url} alt="" /> : member.avatar_emoji || member.first_name.slice(0, 1).toUpperCase()}
+                {member.avatar_url ? <img src={member.avatar_url} alt="" /> : member.avatar_emoji || memberInitials(member.first_name)}
               </span>
             ))}
             {members.length > 3 && <span className="dabo-premium-avatar dabo-premium-avatar-extra">+{members.length - 3}</span>}
@@ -572,7 +578,7 @@ export default function TodayPage() {
 
       <section className="dabo-premium-hero" aria-label={household.name}>
         <div className="dabo-premium-hero-image" aria-hidden="true" />
-        <div className="dabo-premium-hero-caption"><Sparkles size={15}/><span>{t("today_v2_calm_text")}</span></div>
+        <div className="dabo-premium-hero-caption"><span className="dabo-premium-hero-caption-icon"><Sparkles size={22}/></span><span><strong>{visibleAttention.length > 0 ? t("today_v2_needs_you") : t("today_v2_calm_title")}</strong><small>{t("today_v2_calm_text")}</small></span></div>
       </section>
 
       {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
@@ -580,7 +586,7 @@ export default function TodayPage() {
           <div className="dabo-premium-sheet-title"><h2>{t("settings_members")}</h2><button type="button" onClick={() => setMembersOpen(false)} aria-label="×"><X size={22}/></button></div>
           <p className="dabo-premium-sheet-household">{household.name}</p>
           {members.map((member) => <div key={member.id} className="dabo-premium-member-row">
-            <span className="dabo-premium-avatar dabo-premium-member-avatar" style={{backgroundColor: member.avatar_color || "#d9e3d6"}}>{member.avatar_url ? <img src={member.avatar_url} alt=""/> : member.avatar_emoji || member.first_name.slice(0,1).toUpperCase()}</span>
+            <span className="dabo-premium-avatar dabo-premium-member-avatar" style={{backgroundColor: member.avatar_color || "#d9e3d6"}}>{member.avatar_url ? <img src={member.avatar_url} alt=""/> : member.avatar_emoji || memberInitials(member.first_name)}</span>
             <span>{member.first_name}{member.id === me.id ? ` · ${t("settings_profile_desc")}` : ""}</span>
           </div>)}
           <button type="button" className="dabo-premium-manage" onClick={() => router.push("/app/foyer")}><UsersRound size={20}/><span>{t("settings_members")}</span><ChevronRight size={18}/></button>
@@ -653,16 +659,22 @@ export default function TodayPage() {
       )}
 
       {dashboardReady && !dashboardLoadError && <section className="dabo-premium-modules" aria-label={t("today_essentials")}>
-        <div className="dabo-premium-section-line"><h2>{t("today_essentials")}</h2><span>{household.name}</span></div>
-        <div className="dabo-premium-module-grid">
-          {[...quickViewItems,
-            { key: "balance", label: t("balance_title"), value: "", icon: Scale, href: "/app/equilibre" },
-            { key: "review", label: t("today_household_intelligence_title"), value: "", icon: Sparkles, href: "/app/bilan" },
-          ].map((module) => { const Icon = module.icon; return <button type="button" key={module.key} className={`dabo-premium-module dabo-premium-module-${module.key}`} onClick={() => router.push(module.href)}>
-            <span className="dabo-premium-module-icon"><Icon size={22}/></span>
-            <span className="dabo-premium-module-copy"><strong>{module.label}</strong>{module.value !== "" && <small>{module.value}</small>}</span>
-            <ChevronRight size={17} className="dabo-premium-module-arrow"/>
-          </button>; })}
+        <div className="dabo-premium-section-line"><h2>{({fr:"Raccourcis",nl:"Snelkoppelingen",en:"Shortcuts",de:"Schnellzugriff",es:"Accesos rápidos",it:"Scorciatoie",pt:"Atalhos"} as Record<string,string>)[lang] || "Shortcuts"}</h2><span>{household.name}</span></div>
+        <div className="dabo-premium-featured">
+          {[quickViewItems[2], quickViewItems[0]].map((module) => { const Icon = module.icon; return <button type="button" key={module.key} className="dabo-premium-feature" onClick={() => router.push(module.href)}><span className={`dabo-premium-feature-icon dabo-premium-color-${module.key}`}><Icon size={24}/></span><span><strong>{module.label}</strong><small>{module.value}</small></span><ChevronRight size={18} aria-hidden="true"/></button>; })}
+        </div>
+        <div className="dabo-premium-round-grid">
+          {[quickViewItems[1], quickViewItems[3],
+            {key:"balance",label:t("balance_title"),value:"",icon:Scale,href:"/app/equilibre"},
+            {key:"review",label:t("today_household_intelligence_title"),value:"",icon:Sparkles,href:"/app/bilan"}
+          ].map((module) => { const Icon = module.icon; return <button type="button" key={module.key} className="dabo-premium-round-shortcut" onClick={() => router.push(module.href)}><span className={`dabo-premium-round-icon dabo-premium-color-${module.key}`}><Icon size={26}/></span><strong>{module.label}</strong>{module.value !== "" && <small>{module.value}</small>}</button>; })}
+        </div>
+      </section>}
+
+      {dashboardReady && !dashboardLoadError && <section className="dabo-premium-today-list" aria-labelledby="dabo-premium-today-heading">
+        <div className="dabo-premium-section-line"><h2 id="dabo-premium-today-heading">{({fr:"Pour aujourd’hui",nl:"Voor vandaag",en:"For today",de:"Für heute",es:"Para hoy",it:"Per oggi",pt:"Para hoje"} as Record<string,string>)[lang] || "For today"}</h2><button type="button" onClick={() => router.push("/app/taches")}>{t("today_v2_discover")} <ArrowRight size={16}/></button></div>
+        <div className="dabo-premium-today-items">
+          {todayTasks.length ? todayTasks.map((task) => <button type="button" key={task.id} className="dabo-premium-today-item" onClick={() => router.push("/app/taches")}><span className="dabo-premium-check" aria-hidden="true"/><span className="dabo-premium-today-copy"><strong>{task.name}</strong><small>{t("today_attention_task_due_today")}</small></span>{task.assigned_to && members.find((member) => member.id === task.assigned_to) && <span className="dabo-premium-avatar" style={{backgroundColor:members.find((member) => member.id === task.assigned_to)?.avatar_color || "#d9e3d6"}}>{members.find((member) => member.id === task.assigned_to)?.avatar_url ? <img src={members.find((member) => member.id === task.assigned_to)?.avatar_url || ""} alt=""/> : memberInitials(members.find((member) => member.id === task.assigned_to)?.first_name || "")}</span>}<ChevronRight size={18} aria-hidden="true"/></button>) : <p className="dabo-premium-today-empty">{t("today_v2_calm_text")}</p>}
         </div>
       </section>}
 

@@ -787,3 +787,43 @@ input, select, textarea {
 @media(max-width:520px){.dabo-premium-topbar{align-items:flex-start}.dabo-premium-top-actions{gap:6px}.dabo-premium-avatar{width:29px;height:29px}.dabo-premium-module{padding:12px;gap:8px}.dabo-premium-module-icon{width:36px;height:36px}.dabo-premium-module-arrow{display:none}}
 @media(min-width:900px){.dabo-premium-module-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dabo-premium-sheet-backdrop{align-items:center}.dabo-premium-sheet{border-radius:26px}}
 @media(prefers-reduced-motion:no-preference){.dabo-premium-module{transition:transform .15s ease}.dabo-premium-module:hover{transform:translateY(-2px)}}
+
+/* Premium home V2.2: editorial hierarchy, photographic hero and compact shortcuts. */
+.dabo-today-v2{max-width:920px;padding-bottom:48px}
+.dabo-premium-brand{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.dabo-premium-brand img{width:48px;height:48px;border-radius:13px;flex:none}
+.dabo-premium-brand span{font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:var(--dabo-muted);font-weight:700}
+.dabo-premium-topbar{align-items:flex-start;margin-bottom:12px}
+.dabo-premium-heading .dabo-today-v2-title{font-family:var(--font-serif),Georgia,serif;font-weight:650;letter-spacing:-.04em;max-width:17ch}
+.dabo-premium-hero-image{height:clamp(250px,43vw,370px);background-image:linear-gradient(90deg,rgba(247,243,233,.08),transparent 45%),url('/illustrations/dabo-living-room.webp');background-position:center;box-shadow:0 18px 38px rgba(35,52,30,.12)}
+.dabo-premium-hero-caption{margin:-31px 16px 0;min-height:88px;gap:16px;padding:17px 19px;border:1px solid var(--dabo-line);border-radius:23px;background:var(--dabo-surface);box-shadow:0 16px 35px rgba(27,43,30,.10)}
+.dabo-premium-hero-caption-icon{display:grid;place-items:center;flex:none;width:52px;height:52px;border-radius:50%;background:color-mix(in srgb,var(--dabo-surface) 65%,#a8bfa1)}
+.dabo-premium-hero-caption strong{display:block;font-size:15px;font-weight:700;line-height:1.35}
+.dabo-premium-hero-caption small{display:block;font-size:13px;line-height:1.5;color:var(--dabo-muted);margin-top:4px}
+.dabo-premium-modules{margin-top:34px}
+.dabo-premium-section-line{margin:23px 0 17px;align-items:baseline}
+.dabo-premium-section-line h2{font-family:var(--font-serif),Georgia,serif;font-size:clamp(25px,4.6vw,33px);letter-spacing:-.025em}
+.dabo-premium-section-line button{display:flex;align-items:center;gap:6px;min-height:44px;color:var(--dabo-muted);font-size:13px}
+.dabo-premium-featured{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.dabo-premium-feature{display:flex;align-items:center;gap:12px;min-height:92px;padding:15px;border:1px solid var(--dabo-line);border-radius:22px;background:var(--dabo-surface);color:var(--dabo-text);text-align:left;box-shadow:0 7px 20px rgba(34,49,36,.035)}
+.dabo-premium-feature>span:nth-child(2){flex:1;min-width:0}
+.dabo-premium-feature strong,.dabo-premium-round-shortcut strong{display:block;font-size:14px;line-height:1.3;font-weight:700}
+.dabo-premium-feature small,.dabo-premium-round-shortcut small{display:block;font-size:12px;color:var(--dabo-muted);margin-top:5px}
+.dabo-premium-feature>svg{flex:none;color:var(--dabo-muted)}
+.dabo-premium-feature-icon{display:grid;place-items:center;flex:none;width:52px;height:52px;border-radius:17px}
+.dabo-premium-round-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:21px}
+.dabo-premium-round-shortcut{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;min-height:124px;padding:8px 2px;color:var(--dabo-text);text-align:center;border-radius:18px}
+.dabo-premium-round-icon{display:grid;place-items:center;width:62px;height:62px;border-radius:50%;margin-bottom:11px;box-shadow:inset 0 0 0 1px rgba(29,50,36,.06)}
+.dabo-premium-color-shopping{background:#164735;color:#fff}.dabo-premium-color-budget{background:#b6cbb4;color:#193c2b}.dabo-premium-color-balance{background:#d6aa64;color:#233d2e}.dabo-premium-color-review{background:#8da9b5;color:#fff}.dabo-premium-color-calendar{background:#b2c8be;color:#193e32}.dabo-premium-color-tasks{background:#e5d2a9;color:#283f2d}
+.dabo-premium-today-list{margin-top:24px}
+.dabo-premium-today-items{border:1px solid var(--dabo-line);border-radius:23px;background:var(--dabo-surface);padding:4px 18px;box-shadow:0 8px 22px rgba(25,44,30,.035)}
+.dabo-premium-today-item{display:flex;align-items:center;gap:14px;width:100%;min-height:77px;padding:12px 0;text-align:left;color:var(--dabo-text)}
+.dabo-premium-today-item+.dabo-premium-today-item{border-top:1px solid var(--dabo-line)}
+.dabo-premium-check{width:26px;height:26px;border:2px solid #c39a52;border-radius:9px;flex:none}
+.dabo-premium-today-copy{flex:1;min-width:0}.dabo-premium-today-copy strong{display:block;font-size:14px;line-height:1.4}.dabo-premium-today-copy small{display:block;font-size:12px;color:var(--dabo-muted);margin-top:3px}
+.dabo-premium-today-item>svg{flex:none;color:var(--dabo-muted)}
+.dabo-premium-today-empty{padding:22px 2px;font-size:13px;color:var(--dabo-muted)}
+.dabo-premium-avatars{gap:0}.dabo-premium-avatar{font-size:11px}
+@media(max-width:520px){.dabo-today-v2{padding-inline:17px}.dabo-premium-topbar{gap:7px}.dabo-premium-brand{gap:7px}.dabo-premium-brand img{width:40px;height:40px}.dabo-premium-brand span{font-size:8px;letter-spacing:.12em}.dabo-premium-top-actions{padding-top:4px}.dabo-premium-heading .dabo-today-v2-title{font-size:clamp(28px,8vw,38px)}.dabo-premium-hero-image{height:250px}.dabo-premium-feature{min-height:82px;padding:11px;gap:9px}.dabo-premium-feature-icon{width:42px;height:42px}.dabo-premium-feature strong{font-size:13px}.dabo-premium-round-grid{gap:5px}.dabo-premium-round-icon{width:57px;height:57px}.dabo-premium-round-shortcut strong{font-size:12px}.dabo-premium-round-shortcut small{font-size:11px}.dabo-premium-section-line h2{font-size:27px}}
+@media(min-width:900px){.dabo-premium-hero-image{height:370px}.dabo-premium-round-grid{gap:28px}}
+@media(prefers-reduced-motion:no-preference){.dabo-premium-feature,.dabo-premium-round-shortcut{transition:transform .16s ease}.dabo-premium-feature:hover,.dabo-premium-round-shortcut:hover{transform:translateY(-2px)}}
