@@ -9,12 +9,12 @@ import type { LobaHouseholdAction } from "@/lib/loba-household-actions";
 import { lobaNotificationPlan } from "@/lib/loba-notification-policy";
 import { notifyHousehold, notifyMembers, notifyBillPaid } from "@/lib/notifications";
 
-type Props = { householdName: string };
+type Props = { householdName: string; initialOpen?: boolean };
 type UiMessage = { r:"u"|"l"; t:string };
 
-export function LobaHouseholdChat({ householdName }: Props){
+export function LobaHouseholdChat({ householdName, initialOpen = false }: Props){
  const { household, me, supabase } = useHousehold();
- const [open,setOpen]=useState(false),[q,setQ]=useState(""),[messages,setMessages]=useState<UiMessage[]>([]),[busy,setBusy]=useState(false),[pending,setPending]=useState<LobaHouseholdAction|null>(null);
+ const [open,setOpen]=useState(initialOpen),[q,setQ]=useState(""),[messages,setMessages]=useState<UiMessage[]>([]),[busy,setBusy]=useState(false),[pending,setPending]=useState<LobaHouseholdAction|null>(null);
  async function token(){const {data}=await supabase.auth.getSession();return data.session?.access_token||null}
  async function ask(x:string){
   const c=x.trim(); if(!c||busy||!household)return;
