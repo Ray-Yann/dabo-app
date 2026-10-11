@@ -22,6 +22,22 @@ const proposal=(needTitle:string,planKind:ClosedLoopPlanKind,resolutionMode:Clos
 
 const afterVerb=(text:string,verbs:string)=>clean(text.replace(new RegExp(`^.*?\\b(?:${verbs})\\b\\s*`,`i`),""))||clean(text);
 
+function extractShoppingNeed(text:string):string|null{
+ const patterns=[
+  /^(?:il\s+(?:nous\s+)?manque|nous\s+manquons\s+de)\s+(.+)$/i,
+  /^(?:il\s+n['\u2019]?\s*y\s+a\s+plus\s+de|il\s+n\s+y\s+a\s+plus\s+de|plus\s+de)\s+(.+)$/i,
+  /^(?:nous\s+avons\s+besoin\s+de|on\s+a\s+besoin\s+de|j['\u2019]ai\s+besoin\s+de)\s+(.+)$/i,
+  /^(?:acheter|commander|prendre)\s+(.+)$/i
+ ];
+ for(const pattern of patterns){
+  const match=pattern.exec(text);
+  if(!match)continue;
+  const item=clean(match[1]).replace(/^(?:(?:de\s+la|des|du|de|les|le|la|un|une)\s+|(?:de\s+l|d|l)['\u2019])/i,"").trim();
+  if(item&&item.length<=160)return item;
+ }
+ return null;
+}
+
 /**
  * Household Reasoning V3. Conservative plan generator: it structures a household
  * need into operational capabilities, but never writes data and never decides truth.
@@ -34,17 +50,13 @@ export function proposeClosedLoop(input:string):ClosedLoopProposal|null{
  // Explicit multi-step instruction wins over broad intent classification.
  const buyThen=/\b(?:acheter|prendre|commander)\s+(.+?)\s+(?:puis|et ensuite|avant de)\s+(.+)$/i.exec(text);
  if(buyThen)return proposal(clean(buyThen[2]),"generic","human_required",[
-  shopping(buyThen[1]),task(buyThen[2]),humanConfirm()
+  shopping(extractShoppingNeed(`Acheter ${buyThen[1]}`) ?? buyThen[1]),task(buyThen[2]),humanConfirm()
  ],"Un achat prépare l'action réelle; seule la réalisation de l'action peut mener à la résolution.");
 
- // Shortage / grocery need: buying the missing item is itself deterministic resolution.
- if(/\b(plus de|manque|epuise|rupture|courses?)\b/.test(n)&&!(/\b(fuite|panne|casse|repar|remplac|probleme)\b/.test(n))){
-  const label=afterVerb(text,"acheter|prendre|commander");
-  return proposal(text,"shopping","deterministic",[{...shopping(label,"resolves"),phase:"execute"}],"Le besoin porte directement sur l'acquisition d'un article; l'état acheté peut donc constituer la vérité de résolution.");
- }
- if(/^\s*(acheter|commander)\b/i.test(text)||(/^\s*prendre\b/i.test(text)&&!/\b(rendez[- ]?vous|rdv)\b/.test(n))){
-  const label=afterVerb(text,"acheter|prendre|commander");
-  return proposal(text,"shopping","deterministic",[{...shopping(label,"resolves"),phase:"execute"}],"L'achat demandé est une action dont DABO peut vérifier l'achèvement via Courses.");
+ // Shopping intent: extract an actual product without inventing one.
+ const shoppingItem=/^prendre\s+/i.test(text)?null:extractShoppingNeed(text);
+ if(shoppingItem&&!/\b(rendez[- ]?vous|rdv)\b/.test(n)){
+  return proposal(text,"shopping","deterministic",[{...shopping(shoppingItem,"resolves"),phase:"execute"}],"L'achat demandé est vérifié via Courses; l'ajout à la liste ne prouve pas l'achat.");
  }
 
  // Repair/problem: never invent a part or supplier. Diagnose, act, then verify reality.

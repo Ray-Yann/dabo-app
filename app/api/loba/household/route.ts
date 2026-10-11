@@ -1,4 +1,4 @@
-import { NextRequest,NextResponse } from "next/server";
+﻿import { NextRequest,NextResponse } from "next/server";
 import { createAdminClient,createUserClient,verifyUserToken } from "@/lib/supabase-admin";
 import { buildHouseholdPrompt,sanitizeHouseholdHistory,type LobaHouseholdContext } from "@/lib/loba-household-ai";
 import { guardLobaNeverJudge } from "@/lib/loba-never-judge";
@@ -6,6 +6,8 @@ import { normalizeHouseholdAction,parseLobaHouseholdEnvelope,taskActionPoints,ty
 import { LOBA_DEFAULT_MODEL,type LobaAiMessage } from "@/lib/loba-ai";
 import { recordLobaUsage, reserveLobaDailyQuota } from "@/lib/loba-usage";
 import { detectHouseholdDomain,routeHouseholdContext } from "@/lib/loba-household-context-router";
+import { prepareLobaClosedLoop } from "@/lib/loba-closed-loop";
+import { validateClosedLoopMaterializationPlan } from "@/lib/closed-loop-materialization";
 import { computeContributionMemberPoints } from "@/lib/task-contributions";
 import { computeTaskPoints } from "@/lib/types";
 import { categoryTotals,financePeriodRange,normalizeMoney,sumPendingBills,sumPostedTransactions } from "@/lib/finance-engine";
@@ -44,7 +46,72 @@ export async function POST(req:NextRequest){
   if(a.type==="calendar.update"||a.type==="calendar.delete"){let q=db.from("calendar_events").select("id,title,event_date,visibility,recurring,private_owner_id").eq("id",a.eventId).eq("household_id",householdId);const{data:e}=await q.maybeSingle();if(!e)return NextResponse.json({error:"Cet événement n’est plus disponible."},{status:404});if(e.visibility==="personal"&&e.private_owner_id!==membership.id)return NextResponse.json({error:"Cet événement personnel ne t’appartient pas."},{status:403});if(!a.expected||!same(eventSnap(e),a.expected))return NextResponse.json({error:"Cet événement a changé depuis la proposition de LOBA. Demande-lui de vérifier à nouveau."},{status:409});if(a.type==="calendar.delete"){const{error}=await db.from("calendar_events").delete().eq("id",e.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu supprimer cet événement."},{status:500}):NextResponse.json({ok:true,action:a.type})}const u:any={};if(a.changes.title!==undefined)u.title=a.changes.title;if(a.changes.eventDate!==undefined)u.event_date=a.changes.eventDate;const{error}=await db.from("calendar_events").update(u).eq("id",e.id).eq("household_id",householdId);return error?NextResponse.json({error:"DABO n’a pas pu modifier cet événement."},{status:500}):NextResponse.json({ok:true,action:a.type})}
  }
 
- const question=typeof body.question==="string"?body.question.trim().slice(0,3000):"";if(!question)return NextResponse.json({error:"Question manquante"},{status:400});const apiKey=process.env.GROQ_API_KEY?.trim();if(!apiKey)return NextResponse.json({error:"LOBA IA n'est pas configurée."},{status:503});const since30d=new Date(Date.now()-30*86400000).toISOString();
+ const question=typeof body.question==="string"?body.question.trim().slice(0,3000):"";if(!question)return NextResponse.json({error:"Question manquante"},{status:400});const closedLoop=prepareLobaClosedLoop(question);
+if(closedLoop){
+ if(closedLoop.ready){
+  const validationErrors=validateClosedLoopMaterializationPlan(closedLoop.plan);
+  if(validationErrors.length){
+   console.error("[loba/closed-loop-validation]",{errors:validationErrors});
+   return NextResponse.json(
+    {error:"Le plan proposé ne respecte pas les règles de validation."},
+    {status:422}
+   );
+  }
+ }
+ let proposalId:string|null=null;
+ let version:number|null=null;
+ let draftId:string|null=null;
+ if(!closedLoop.ready){
+  const {data:draft,error:draftError}=await db
+   .from("closed_loop_drafts")
+   .insert({
+    household_id:householdId,
+    created_by:membership.id,
+    original_request:question,
+    proposal:closedLoop.proposal
+   })
+   .select("id")
+   .single();
+  if(draftError||!draft){
+   console.error("[loba/closed-loop-draft]",{code:draftError?.code});
+   return NextResponse.json({error:"Impossible d’enregistrer le brouillon."},{status:500});
+  }
+  draftId=draft.id;
+ }
+ if(closedLoop.ready){
+  const {data:stored,error:storeError}=await db
+   .from("closed_loop_proposals")
+   .insert({
+    household_id:householdId,
+    created_by:membership.id,
+    plan:closedLoop.plan
+   })
+   .select("id,version")
+   .single();
+  if(storeError||!stored){
+   console.error("[loba/closed-loop-proposal]",{code:storeError?.code});
+   return NextResponse.json({error:"Impossible d’enregistrer la proposition."},{status:500});
+  }
+  proposalId=stored.id;
+  version=stored.version;
+ }
+ return NextResponse.json({
+  answer:closedLoop.ready
+   ?"J’ai préparé un plan pour ce besoin. Vérifie les actions proposées avant toute confirmation."
+   :"J’ai préparé un plan, mais certaines informations doivent être précisées avant de continuer.",
+  closedLoop:{
+   proposalId,
+   version,
+   draftId,
+   plan:closedLoop.plan,
+   ready:closedLoop.ready,
+   missing:closedLoop.missing
+  },
+  proposedAction:null,
+  engine:"closed-loop-v5.2",
+  mode:closedLoop.ready?"persisted-proposal":"details-required"
+ });
+}const apiKey=process.env.GROQ_API_KEY?.trim();if(!apiKey)return NextResponse.json({error:"LOBA IA n'est pas configurée."},{status:503});const since30d=new Date(Date.now()-30*86400000).toISOString();
  const[householdRes,membersRes,tasksRes,shoppingRes,sharedEventsRes,personalEventsRes,contributionsRes]=await Promise.all([db.from("households").select("id,name").eq("id",householdId).single(),db.from("members").select("id,first_name,user_id,left_at").eq("household_id",householdId).is("left_at",null).not("user_id","is",null),db.from("tasks").select("id,name,status,urgent,due_date,assigned_to,duration_key,effort_level,routine_id").eq("household_id",householdId).eq("status","pending").limit(100),db.from("shopping_items").select("id,name,quantity,urgent,due_date,assigned_to,status").eq("household_id",householdId).eq("status","to_buy").limit(100),db.from("calendar_events").select("id,title,event_date,recurring,visibility,private_owner_id").eq("household_id",householdId).eq("visibility","household").limit(100),db.from("calendar_events").select("id,title,event_date,recurring,visibility,private_owner_id").eq("household_id",householdId).eq("visibility","personal").eq("private_owner_id",membership.id).limit(100),db.from("task_contributions").select("id,task_id,household_id,completed_at,duration_key,effort_level,weight_points,performer_status,cancelled_at").eq("household_id",householdId).gte("completed_at",since30d).is("cancelled_at",null)]);if(householdRes.error||!householdRes.data)return NextResponse.json({error:"Foyer introuvable"},{status:404});
  const now=new Date(),monthRange=financePeriodRange("month",now),yearRange=financePeriodRange("year",now);
  const[financeTransactionsRes,financeBillsRes,financeBudgetsRes]=await Promise.all([
@@ -76,3 +143,8 @@ return NextResponse.json({error:"Le contrôle d’usage de LOBA est momentanéme
    if(a.type==="finance.bill.pay"){const b=financeBills.find((x:any)=>x.id===a.billId);if(!b||!memberList.some(m=>m.id===a.paidBy))env.proposedAction=null;else env.proposedAction={...a,expected:billSnap(b),billLabel:b.label} as LobaHouseholdAction}
   }await recordLobaUsage({surface:"household",provider:"Groq",model,userId:user.id,householdId,domain,status:"success",usage:data.usage});return NextResponse.json({...safeEnv,engine:"ai",mode:"household-confirm-before-write"})}catch(error){console.error("[household/loba] AI request failed",safeRequestError(error));await recordLobaUsage({surface:"household",provider:"Groq",model,userId:user.id,householdId,domain,status:"request_error"});return NextResponse.json({error:"Le moteur IA de LOBA est momentanément indisponible.",code:"LOBA_AI_PROVIDER_ERROR"},{status:502})}
 }
+
+
+
+
+

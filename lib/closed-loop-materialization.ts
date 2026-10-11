@@ -1,4 +1,4 @@
-import type{ClosedLoopProposal,ClosedLoopProposalAction}from"@/lib/closed-loop-reasoning";
+﻿import type{ClosedLoopProposal,ClosedLoopProposalAction}from"@/lib/closed-loop-reasoning";
 
 export type ClosedLoopMaterializationAction={
  resourceType:ClosedLoopProposalAction["resourceType"];
@@ -47,7 +47,21 @@ export function validateClosedLoopMaterializationPlan(plan:ClosedLoopMaterializa
  if(!plan.needTitle.trim()||plan.needTitle.trim().length>240)errors.push("needTitle");
  if(!["deterministic","human_required"].includes(plan.resolutionMode))errors.push("resolutionMode");
  if(!plan.actions.length||plan.actions.length>20)errors.push("actions");
+ const validTypes=["task","shopping_item","calendar_event","finance_bill","human_confirmation"];
+ const validRoles=["progress","required","resolves","evidence"];
+
+ if(plan.resolutionMode==="deterministic"&&!plan.actions.some(a=>
+  a.role==="resolves"&&["task","shopping_item","finance_bill"].includes(a.resourceType)
+ ))errors.push("resolutionAction");
+
+ if(plan.resolutionMode==="human_required"&&!plan.actions.some(a=>
+  a.resourceType==="human_confirmation"
+ ))errors.push("humanConfirmation");
  plan.actions.forEach((a,i)=>{
+  if(!validTypes.includes(a.resourceType))errors.push(`actions.${i}.resourceType`);
+  if(!validRoles.includes(a.role))errors.push(`actions.${i}.role`);
+  if(a.resourceType==="calendar_event"&&["resolves","evidence"].includes(a.role))errors.push(`actions.${i}.calendarRole`);
+  if(a.resourceType==="human_confirmation"&&plan.resolutionMode!=="human_required")errors.push(`actions.${i}.confirmationMode`);
   if(a.position!==i)errors.push(`actions.${i}.position`);
   if(!a.label.trim()||a.label.trim().length>240)errors.push(`actions.${i}.label`);
   if(a.resourceType==="calendar_event"&&!isoDate(a.eventDate))errors.push(`actions.${i}.eventDate`);
@@ -56,3 +70,4 @@ export function validateClosedLoopMaterializationPlan(plan:ClosedLoopMaterializa
  });
  return errors;
 }
+
