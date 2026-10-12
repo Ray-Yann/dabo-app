@@ -678,22 +678,22 @@ export default function TodayPage() {
             <span className="dabo-v31-day-scope">{summaryLabels.scope}</span>
           </div>
           <div className="dabo-v31-day-grid">
-            <button type="button" className="dabo-v31-day-tile" onClick={() => router.push("/app/taches")} aria-label={`${summaryLabels.tasks}: ${summaryPendingTasks}`}>
+            <button type="button" className="dabo-v31-day-tile dabo-semantic-tasks" onClick={() => router.push("/app/taches")} aria-label={`${summaryLabels.tasks}: ${summaryPendingTasks}`}>
               <ListTodo size={19} aria-hidden="true" />
               <strong>{summaryPendingTasks}</strong><span>{summaryLabels.tasks}</span><ChevronRight size={15} aria-hidden="true" />
             </button>
-            <button type="button" className="dabo-v31-day-tile" onClick={() => router.push("/app/courses")} aria-label={`${summaryLabels.shopping}: ${summaryShoppingItems}`}>
+            <button type="button" className="dabo-v31-day-tile dabo-semantic-shopping" onClick={() => router.push("/app/courses")} aria-label={`${summaryLabels.shopping}: ${summaryShoppingItems}`}>
               <ShoppingBag size={19} aria-hidden="true" />
               <strong>{summaryShoppingItems}</strong><span>{summaryLabels.shopping}</span><ChevronRight size={15} aria-hidden="true" />
             </button>
-            <button type="button" className="dabo-v31-day-tile" onClick={() => router.push("/app/finances")} aria-label={`${summaryLabels.deadlines}: ${summaryDueBills}`}>
+            <button type="button" className="dabo-v31-day-tile dabo-semantic-deadlines" onClick={() => router.push("/app/finances")} aria-label={`${summaryLabels.deadlines}: ${summaryDueBills}`}>
               <CalendarDays size={19} aria-hidden="true" />
               <strong>{summaryDueBills}</strong><span>{summaryLabels.deadlines}</span><ChevronRight size={15} aria-hidden="true" />
             </button>
           </div>
         </section>
         <HomeCarousel title={carouselLabels.daily} labels={[carouselLabels.today, carouselLabels.upcoming, carouselLabels.shopping]}>
-        <section className="dabo-v3-panel" aria-labelledby="dabo-v3-today-title">
+        <section className="dabo-v3-panel dabo-semantic-today" aria-labelledby="dabo-v3-today-title">
           <div className="dabo-v3-section-heading">
             <h2 id="dabo-v3-today-title">{({fr:"Aujourd’hui",nl:"Vandaag",en:"Today",de:"Heute",es:"Hoy",it:"Oggi",pt:"Hoje"} as Record<string,string>)[lang] || "Today"}</h2>
             <button type="button" onClick={() => router.push("/app/taches")}>{t("tasks_title")} <ChevronRight size={17}/></button>
@@ -703,13 +703,13 @@ export default function TodayPage() {
               const detail = attentionDetails(attention);
               const urgent = attention.level === "action_now" || attention.reason === "overdue";
               return <button type="button" key={attention.id} onClick={detail.onAction} className="dabo-v3-line">
-                <span className={`dabo-v3-status ${urgent ? "dabo-v3-status-urgent" : ""}`} aria-hidden="true" />
+                <span className={`dabo-v3-status ${urgent ? "dabo-v3-status-urgent" : "dabo-status-today"}`} aria-hidden="true" />
                 <span className="dabo-v3-line-copy"><strong>{detail.title}</strong><small>{detail.description}</small></span>
                 <ChevronRight size={18} aria-hidden="true" />
               </button>;
             })}
             {todayTasks.map((task) => <button type="button" key={task.id} className="dabo-v3-line" onClick={() => void toggleTask(task)}>
-              <span className="dabo-v3-status" aria-hidden="true" />
+              <span className="dabo-v3-status dabo-status-today" aria-hidden="true" />
               <span className="dabo-v3-line-copy"><strong>{task.name}</strong><small>{t("today_attention_task_due_today")}</small></span>
               {task.assigned_to && members.find((member) => member.id === task.assigned_to) && <Avatar member={members.find((member) => member.id === task.assigned_to) || null} members={members} size={30} />}
               <ChevronRight size={18} aria-hidden="true" />
@@ -718,25 +718,25 @@ export default function TodayPage() {
             {attentionItems.length > visibleAttention.length && <button type="button" className="dabo-v3-expand" aria-expanded={showAllAttention} onClick={() => setShowAllAttention((previous) => !previous)}>{showAllAttention ? t("today_v3_less_attention") : t("today_v3_more_attention")}</button>}
           </div>
         </section>
-        {<section className="dabo-v3-panel dabo-v32-upcoming" aria-labelledby="dabo-v32-upcoming-title">
+        {<section className="dabo-v3-panel dabo-v32-upcoming dabo-semantic-upcoming" aria-labelledby="dabo-v32-upcoming-title">
           <div className="dabo-v3-section-heading"><h2 id="dabo-v32-upcoming-title">{uiLabels.upcoming}</h2><button type="button" onClick={() => router.push("/app/calendrier")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
           <div className="dabo-v3-list">
             {upcomingEvents.map(({event,occurrence}) => <button type="button" key={event.id} className="dabo-v3-line" onClick={() => router.push("/app/calendrier")}><CalendarDays size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{event.title}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short"}).format(occurrence)}</small></span><ChevronRight size={18}/></button>)}
             {upcomingEvents.length === 0 && upcomingTasks.length === 0 && <div className="dabo-v3-empty"><p>{carouselLabels.emptyUpcoming}</p></div>}
-            {upcomingTasks.map((task) => <button type="button" key={task.id} className="dabo-v3-line" onClick={() => router.push("/app/taches")}><Clock3 size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{task.name}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(`${task.due_date}T12:00:00Z`))}</small></span><ChevronRight size={18}/></button>)}
+            {upcomingTasks.map((task) => <button type="button" key={task.id} className="dabo-v3-line" onClick={() => router.push("/app/taches")}><Clock3 size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{task.name}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(`${task.due_date}T12:00:00Z`))}</small></span>{task.assigned_to && members.find((member) => member.id === task.assigned_to) && <Avatar member={members.find((member) => member.id === task.assigned_to) || null} members={members} size={28}/>}<ChevronRight size={18}/></button>)}
           </div>
         </section>}
-          <section className="dabo-v3-panel dabo-v32-shopping" aria-labelledby="dabo-v3-shopping-title">
+          <section className="dabo-v3-panel dabo-v32-shopping dabo-semantic-shopping" aria-labelledby="dabo-v3-shopping-title">
             <div className="dabo-v3-section-heading"><h2 id="dabo-v3-shopping-title">{t("courses_title")}</h2><button type="button" onClick={() => router.push("/app/courses")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
             <div className="dabo-v3-list">{pendingShoppingPreview.length > 0 ? pendingShoppingPreview.map((item) => <button type="button" key={item.id} className="dabo-v3-line" onClick={() => router.push("/app/courses")}><ShoppingBag size={19} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{item.name}</strong>{item.quantity && <small>{item.quantity}</small>}</span><ChevronRight size={18}/></button>) : <div className="dabo-v3-empty"><p>{carouselLabels.emptyShopping}</p></div>}</div>
           </section>
         </HomeCarousel>
         <HomeCarousel title={carouselLabels.household} labels={[uiLabels.finance, t("balance_title")]}>
-          <section className="dabo-v3-panel dabo-v31-finance" aria-label={uiLabels.finance}>
+          <section className="dabo-v3-panel dabo-v31-finance dabo-semantic-finance" aria-label={uiLabels.finance}>
             <div className="dabo-v3-section-heading"><h2>{uiLabels.finance}</h2><button type="button" onClick={() => router.push("/app/finances")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
             <div className="dabo-v31-feature"><WalletCards size={24} aria-hidden="true"/><strong>{summaryDueBills}</strong><span>{summaryLabels.deadlines}</span></div>
           </section>
-          <section className="dabo-v3-panel dabo-v31-equity" aria-label={t("balance_title")}>
+          <section className="dabo-v3-panel dabo-v31-equity dabo-semantic-equity" aria-label={t("balance_title")}>
             <div className="dabo-v3-section-heading"><h2>{t("balance_title")}</h2><button type="button" onClick={() => router.push("/app/equilibre")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
             <div className="dabo-v31-feature"><Scale size={24} aria-hidden="true"/><span>{carouselLabels.equityDescription}</span></div>
           </section>

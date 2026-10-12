@@ -10,11 +10,13 @@ import { DaboMainNav } from "@/components/DaboMainNav";
 import { LoadingState } from "@/components/LoadingState";
 import { detectAvailableLanguageFromDevice } from "@/lib/languages";
 import type { Lang } from "@/lib/i18n";
+import { DaboAppearanceControl } from "@/components/DaboAppearanceControl";
+import { APPEARANCE_EVENT, APPEARANCE_KEY, isAppearance, resolveDark } from "@/lib/dabo-appearance";
 
-function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean }) {
+function AppShell({ children, dark, legacyDark }: { children: React.ReactNode; dark: boolean; legacyDark: boolean }) {
   return (
     <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
-      <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
+      <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto"><div className="dabo-global-appearance"><DaboAppearanceControl legacyDark={legacyDark} /></div>{children}</div>
       <DaboMainNav />
     </div>
   );
@@ -49,6 +51,17 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [fallbackLang, setFallbackLang] = useState<Lang>("fr");
+  const [appearance, setAppearance] = useState<"light" | "dark" | "auto" | null>(null);
+  const [systemDark, setSystemDark] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = () => { const stored = window.localStorage.getItem(APPEARANCE_KEY); setAppearance(isAppearance(stored) ? stored : null); setSystemDark(media.matches); };
+    sync();
+    media.addEventListener("change", sync);
+    window.addEventListener(APPEARANCE_EVENT, sync);
+    return () => { media.removeEventListener("change", sync); window.removeEventListener(APPEARANCE_EVENT, sync); };
+  }, []);
+  const effectiveDark = resolveDark(appearance, !!me?.dark_mode, systemDark);
 
   useEffect(() => { setFallbackLang(detectAvailableLanguageFromDevice()); }, []);
 
@@ -60,7 +73,7 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    const dark = !!me?.dark_mode;
+    const dark = effectiveDark;
     root.classList.remove("dark");
     root.dataset.daboTheme = dark ? "dark" : "light";
     root.style.colorScheme = dark ? "dark" : "only light";
@@ -70,7 +83,7 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
       root.classList.remove("dark");
       root.style.colorScheme = "only light";
     };
-  }, [me?.dark_mode]);
+  }, [effectiveDark]);
 
   return (
     <LanguageProvider lang={me?.language || fallbackLang}>
@@ -80,14 +93,14 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
         <HouseholdLoadError onRetry={() => void retry()} />
       ) : offlineFallback ? (
         pathname === "/app/courses" ? (
-          <div className={`${me?.dark_mode ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
+          <div className={`${effectiveDark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
             <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
           </div>
         ) : (
           <div className="min-h-[100dvh] bg-paper flex items-center justify-center"><LoadingState /></div>
         )
       ) : (
-        <AppShell dark={!!me?.dark_mode}>{children}</AppShell>
+        <AppShell dark={effectiveDark} legacyDark={!!me?.dark_mode}>{children}</AppShell>
       )}
     </LanguageProvider>
   );

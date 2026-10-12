@@ -992,3 +992,28 @@ input, select, textarea {
 .dabo-today-v2 .dabo-v31-carousel-slide{align-self:flex-start;align-items:flex-start}
 .dabo-today-v2 .dabo-v31-carousel-slide>.dabo-v3-panel{flex:0 0 auto;align-self:flex-start}
 @media(prefers-reduced-motion:reduce){.dabo-today-v2 .dabo-v31-carousel-track{transition:none}}
+
+/* Premium V3.2: a consistent, accessible appearance control on each app page. */
+.dabo-app-content{position:relative}
+.dabo-global-appearance{position:sticky;top:env(safe-area-inset-top,0px);z-index:35;display:flex;justify-content:flex-end;pointer-events:none;height:0;padding-right:12px}
+.dabo-appearance-control{position:relative;pointer-events:auto;transform:translateY(10px)}
+.dabo-appearance-trigger{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--dabo-line);border-radius:50%;background:var(--dabo-surface);color:var(--dabo-text);box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.dabo-appearance-trigger:focus-visible,.dabo-appearance-menu button:focus-visible{outline:3px solid var(--dabo-text);outline-offset:2px}
+.dabo-appearance-menu{position:absolute;right:0;top:45px;min-width:150px;display:flex;flex-direction:column;padding:5px;background:var(--dabo-surface);color:var(--dabo-text);border:1px solid var(--dabo-line);border-radius:15px;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+.dabo-appearance-menu button{text-align:left;min-height:43px;padding:9px 12px;border-radius:10px;font-size:13px}
+.dabo-appearance-menu button[aria-pressed="true"]{background:color-mix(in srgb,var(--dabo-surface) 65%,#a9bda2);font-weight:700}
+/* Context = surface, person = avatar, time = indicator. Never use burgundy for ordinary overdue tasks. */
+.dabo-today-v2 .dabo-semantic-tasks{background:color-mix(in srgb,var(--dabo-surface) 70%,#adc6af);border-color:color-mix(in srgb,var(--dabo-line) 65%,#779e83)}
+.dabo-today-v2 .dabo-semantic-shopping{background:color-mix(in srgb,var(--dabo-surface) 69%,#e8cf9c);border-color:color-mix(in srgb,var(--dabo-line) 70%,#c5a46c)}
+.dabo-today-v2 .dabo-semantic-deadlines{background:color-mix(in srgb,var(--dabo-surface) 75%,#d7b879);border-color:color-mix(in srgb,var(--dabo-line) 65%,#b69755)}
+.dabo-today-v2 .dabo-semantic-today{background:color-mix(in srgb,var(--dabo-surface) 83%,#e3d09d)}
+.dabo-today-v2 .dabo-semantic-upcoming{background:color-mix(in srgb,var(--dabo-surface) 83%,#b6cbb8)}
+.dabo-today-v2 .dabo-semantic-shopping.dabo-v3-panel{background:color-mix(in srgb,var(--dabo-surface) 85%,#e8cf9c)}
+.dabo-today-v2 .dabo-semantic-finance{background:color-mix(in srgb,var(--dabo-surface) 83%,#d8c39c)}
+.dabo-today-v2 .dabo-semantic-equity{background:color-mix(in srgb,var(--dabo-surface) 79%,#a9c4ad)}
+.dabo-status-today{border-color:#a68136;background:color-mix(in srgb,#d5b46c 30%,transparent)}
+.dabo-v3-status-urgent{border-color:#9b622f;background:color-mix(in srgb,#c48b49 24%,transparent)}
+[data-dabo-theme="dark"] .dabo-today-v2 .dabo-semantic-tasks{background:color-mix(in srgb,var(--dabo-surface) 87%,#426b51)}
+[data-dabo-theme="dark"] .dabo-today-v2 .dabo-semantic-shopping{background:color-mix(in srgb,var(--dabo-surface) 87%,#806a43)}
+[data-dabo-theme="dark"] .dabo-today-v2 .dabo-semantic-deadlines{background:color-mix(in srgb,var(--dabo-surface) 88%,#927342)}
+@media(min-width:768px){.dabo-global-appearance{padding-right:18px}}
