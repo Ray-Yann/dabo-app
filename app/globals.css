@@ -1091,3 +1091,63 @@ input, select, textarea {
 [data-dabo-theme="dark"]{--dabo-v341-deadline-bg:#482638;--dabo-v341-deadline-border:#e68eb0;--dabo-v341-deadline-ink:#ffd2e3}
 .dabo-today-v2 .dabo-v31-day-tile.dabo-semantic-deadlines{background:var(--dabo-v341-deadline-bg);border-color:var(--dabo-v341-deadline-border);color:var(--dabo-v341-deadline-ink)}
 .dabo-today-v2 .dabo-v31-day-tile.dabo-semantic-deadlines>svg{color:var(--dabo-v341-deadline-ink)}
+
+
+/* DABO Premium V3.4.2 — desktop readability and navigation finish.
+   Scoped changes only; no business logic or translation changes. */
+.dabo-user-app .dabo-main-nav-v2 {
+  background: var(--dabo-canvas);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 -8px 24px rgba(20, 40, 32, .07);
+}
+.dabo-user-app .dabo-app-content {
+  padding-bottom: calc(122px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  /* Two complete editorial cards instead of a clipped second card. */
+  .dabo-today-v2 .dabo-v31-carousel-track {
+    height: auto !important;
+    align-items: stretch;
+  }
+  .dabo-today-v2 .dabo-v31-carousel-slide {
+    flex: 0 0 calc((100% - 13px) / 2);
+    align-self: stretch;
+    align-items: stretch;
+  }
+  .dabo-today-v2 .dabo-v31-carousel-slide > .dabo-v3-panel {
+    height: 100%;
+  }
+  /* Seven-day agenda stays a week, but days have room to be read.
+     Horizontal scrolling is intentional and visible. */
+  .dabo-week-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(185px, 1fr);
+    grid-template-columns: none;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    padding-bottom: 12px;
+  }
+  .dabo-week-day { scroll-snap-align: start; }
+  .dabo-week-item strong {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .dabo-week-item { padding: 10px; }
+}
+@media (max-width: 767px) {
+  /* Preserve the intentional next-card peek on touch devices. */
+  .dabo-today-v2 .dabo-v31-carousel-slide { flex-basis: 87%; }
+  .dabo-week-item strong {
+    -webkit-line-clamp: 3;
+    font-size: 12px;
+  }
+}
