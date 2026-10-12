@@ -73,17 +73,17 @@ export default function HouseholdPage() {
           <span className="dabo-soft-icon" aria-hidden="true"><HouseHeart size={20}/></span>
         </div>
 
-        <div className="mt-5 divide-y divide-borderLight">
-          {members.map((member) => <div key={member.id} className="flex min-h-16 items-center gap-3 py-3">
+        <div className="dabo-v33-member-strip mt-4" role="list">
+          {members.map((member) => <div key={member.id} role="listitem" className="dabo-v33-member">
             <Avatar member={member} members={members} size={42}/>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-ink">{member.first_name}</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{member.first_name}</p>
               <p className="text-xs text-muted">{member.id === me.id ? t("settings_you") : t("household_hub_member")}</p>
             </div>
           </div>)}
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <button onClick={() => setInviteOpen(true)} className="dabo-primary-action w-full justify-center">
             <UserRoundPlus size={18}/>{t("settings_invite_member")}
           </button>

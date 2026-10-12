@@ -10,13 +10,12 @@ import { DaboMainNav } from "@/components/DaboMainNav";
 import { LoadingState } from "@/components/LoadingState";
 import { detectAvailableLanguageFromDevice } from "@/lib/languages";
 import type { Lang } from "@/lib/i18n";
-import { DaboAppearanceControl } from "@/components/DaboAppearanceControl";
 import { APPEARANCE_EVENT, APPEARANCE_KEY, isAppearance, resolveDark } from "@/lib/dabo-appearance";
 
-function AppShell({ children, dark, legacyDark }: { children: React.ReactNode; dark: boolean; legacyDark: boolean }) {
+function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean }) {
   return (
     <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
-      <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto"><div className="dabo-global-appearance"><DaboAppearanceControl legacyDark={legacyDark} /></div>{children}</div>
+      <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
       <DaboMainNav />
     </div>
   );
@@ -100,7 +99,7 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
           <div className="min-h-[100dvh] bg-paper flex items-center justify-center"><LoadingState /></div>
         )
       ) : (
-        <AppShell dark={effectiveDark} legacyDark={!!me?.dark_mode}>{children}</AppShell>
+        <AppShell dark={effectiveDark}>{children}</AppShell>
       )}
     </LanguageProvider>
   );

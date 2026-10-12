@@ -14,7 +14,11 @@ test("V3.2 preserves legacy dark mode until user chooses a preference", () => {
 test("V3.2 appearance is shared by the app shell and translated in seven languages", () => {
   const shell = read("app/app/layout.tsx");
   const control = read("components/DaboAppearanceControl.tsx");
-  assert.match(shell, /DaboAppearanceControl/);
+  const settings = read("app/app/reglages/page.tsx");
+  assert.match(shell, /resolveDark/);
+  assert.match(shell, /APPEARANCE_EVENT/);
+  assert.match(settings, /DaboAppearanceControl/);
+  assert.doesNotMatch(shell, /<DaboAppearanceControl/);
   for (const lang of ["fr", "nl", "en", "de", "es", "it", "pt"]) assert.ok(control.includes(`${lang}: [`));
 });
 test("V3.2 uses contextual cards and avatars, not member urgency colors", () => {

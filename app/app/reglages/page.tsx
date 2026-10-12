@@ -10,6 +10,7 @@ import {
 } from "@/lib/household-offline-storage";
 import { clearShoppingOfflineData } from "@/lib/shopping-offline-storage";
 import { Header } from "@/components/Header";
+import { DaboAppearanceControl } from "@/components/DaboAppearanceControl";
 import { Avatar } from "@/components/Avatar";
 import { Copy, LogOut, Bell, Check, UserMinus, ShieldPlus, Pencil, MoreHorizontal, Share2, ImagePlus, Download } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
@@ -451,15 +452,6 @@ export default function SettingsPage() {
   async function toggleEquity() {
     if (!household) return;
     const { error } = await supabase.from("households").update({ equity_score_enabled: !household.equity_score_enabled }).eq("id", household.id);
-    if (error) {
-      showFeedback("error", t("settings_error_save"));
-      return;
-    }
-    refresh();
-  }
-  async function toggleDarkMode() {
-    if (!me) return;
-    const { error } = await supabase.from("members").update({ dark_mode: !me.dark_mode }).eq("id", me.id);
     if (error) {
       showFeedback("error", t("settings_error_save"));
       return;
@@ -1275,9 +1267,7 @@ export default function SettingsPage() {
                 <div className="text-sm text-ink font-medium">{t("settings_dark_mode")}</div>
                 <div className="text-xs text-muted">{t("settings_dark_mode_desc")}</div>
               </div>
-              <button onClick={toggleDarkMode} role="switch" aria-checked={me.dark_mode} aria-label={t("settings_dark_mode")} className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${me.dark_mode ? "bg-ink" : "bg-border"}`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-paper rounded-full transition-all ${me.dark_mode ? "left-5" : "left-0.5"}`} />
-              </button>
+              <DaboAppearanceControl legacyDark={!!me.dark_mode} />
             </div>
             <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between gap-4">
               <div>

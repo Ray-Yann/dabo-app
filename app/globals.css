@@ -1017,3 +1017,20 @@ input, select, textarea {
 [data-dabo-theme="dark"] .dabo-today-v2 .dabo-semantic-shopping{background:color-mix(in srgb,var(--dabo-surface) 87%,#806a43)}
 [data-dabo-theme="dark"] .dabo-today-v2 .dabo-semantic-deadlines{background:color-mix(in srgb,var(--dabo-surface) 88%,#927342)}
 @media(min-width:768px){.dabo-global-appearance{padding-right:18px}}
+
+
+/* Premium V3.3: settings-owned appearance, compact household and readable mobile week. */
+.dabo-appearance-inline{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;transform:none;max-width:100%;padding:3px;border:1px solid var(--dabo-line);border-radius:14px;background:var(--dabo-surface-soft)}
+.dabo-appearance-option{display:flex;align-items:center;justify-content:center;gap:5px;min-height:40px;padding:8px 9px;border-radius:10px;font-size:12px;font-weight:650;color:var(--dabo-muted)}
+.dabo-appearance-option[aria-pressed="true"]{background:var(--dabo-surface);color:var(--dabo-text);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.dabo-appearance-option:focus-visible{outline:3px solid var(--dabo-forest);outline-offset:2px}
+.dabo-v33-member-strip{display:flex;gap:10px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:2px 0 8px;scrollbar-width:thin}
+.dabo-v33-member{display:flex;flex:0 0 auto;min-width:125px;max-width:180px;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--dabo-line);border-radius:16px;background:var(--dabo-surface-soft);scroll-snap-align:start}
+@media(max-width:760px){
+  .dabo-week-grid{scrollbar-width:thin;scroll-padding-inline:3px;-webkit-overflow-scrolling:touch}
+  .dabo-week-day{flex-basis:min(78vw,290px)}
+  .dabo-week-board{min-width:0}
+  .dabo-appearance-inline{justify-content:flex-start}
+  .dabo-appearance-option{min-width:0;padding:8px 7px}
+  .dabo-appearance-option span{font-size:11px}
+}
