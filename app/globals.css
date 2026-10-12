@@ -1085,3 +1085,9 @@ input, select, textarea {
 .dabo-today-v2 .dabo-semantic-tasks strong,.dabo-today-v2 .dabo-semantic-upcoming h2,.dabo-today-v2 .dabo-semantic-shopping h2,.dabo-today-v2 .dabo-semantic-finance h2{color:var(--dabo-text)}
 @media(min-width:1100px){.dabo-week-grid{gap:10px}.dabo-week-item{padding:9px 7px}.dabo-week-item strong{font-size:11px;overflow-wrap:anywhere}}
 @media(max-width:760px){.dabo-planning-context{min-height:58px}.dabo-planning-context-copy strong{font-size:14px}.dabo-week-item strong{font-size:12px}}
+
+/* Premium V3.4.1 — distinct rose deadline category; not an urgency state. */
+:root{--dabo-v341-deadline-bg:#f8dce6;--dabo-v341-deadline-border:#b65379;--dabo-v341-deadline-ink:#802c4b}
+[data-dabo-theme="dark"]{--dabo-v341-deadline-bg:#482638;--dabo-v341-deadline-border:#e68eb0;--dabo-v341-deadline-ink:#ffd2e3}
+.dabo-today-v2 .dabo-v31-day-tile.dabo-semantic-deadlines{background:var(--dabo-v341-deadline-bg);border-color:var(--dabo-v341-deadline-border);color:var(--dabo-v341-deadline-ink)}
+.dabo-today-v2 .dabo-v31-day-tile.dabo-semantic-deadlines>svg{color:var(--dabo-v341-deadline-ink)}
