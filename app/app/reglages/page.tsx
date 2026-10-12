@@ -1262,10 +1262,10 @@ export default function SettingsPage() {
             <p className="text-xs text-muted mt-0.5">{t("settings_preferences_desc")}</p>
           </div>
           <div className="space-y-3">
-            <div className="bg-white2 rounded-2xl p-4 flex items-center justify-between gap-4">
+            <div className="dabo-v331-appearance-setting bg-white2 rounded-2xl p-4 flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm text-ink font-medium">{t("settings_dark_mode")}</div>
-                <div className="text-xs text-muted">{t("settings_dark_mode_desc")}</div>
+                <div className="text-sm text-ink font-medium">{({fr:"Apparence",nl:"Weergave",en:"Appearance",de:"Darstellung",es:"Apariencia",it:"Aspetto",pt:"Aparência"} as Record<string,string>)[me.language || "fr"] || "Apparence"}</div>
+                <div className="text-xs text-muted">{({fr:"Choisissez l’ambiance qui vous convient.",nl:"Kies de weergave die bij u past.",en:"Choose the appearance that suits you.",de:"Wählen Sie Ihre bevorzugte Darstellung.",es:"Elige la apariencia que prefieras.",it:"Scegli l’aspetto che preferisci.",pt:"Escolha a aparência que prefere."} as Record<string,string>)[me.language || "fr"] || "Choisissez l’ambiance qui vous convient."}</div>
               </div>
               <DaboAppearanceControl legacyDark={!!me.dark_mode} />
             </div>

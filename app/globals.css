@@ -1034,3 +1034,20 @@ input, select, textarea {
   .dabo-appearance-option{min-width:0;padding:8px 7px}
   .dabo-appearance-option span{font-size:11px}
 }
+
+/* V3.3.1: visible, accessible personal/household calendar context */
+.dabo-planning-context{display:flex;align-items:center;gap:10px;min-height:53px;margin-top:12px;padding:10px 13px;border:1px solid var(--dabo-line);border-radius:15px;background:var(--dabo-surface-soft);color:var(--dabo-text)}
+.dabo-planning-context.is-me,.dabo-planning-context.is-personal{border-color:color-mix(in srgb,var(--dabo-sage) 60%,var(--dabo-line));background:color-mix(in srgb,var(--dabo-sage) 28%,var(--dabo-surface))}
+.dabo-planning-context.is-household{border-color:color-mix(in srgb,var(--dabo-gold,#b9975b) 46%,var(--dabo-line));background:color-mix(in srgb,var(--dabo-gold,#b9975b) 12%,var(--dabo-surface))}
+.dabo-planning-context-icon{display:grid;flex:none;place-items:center;width:31px;height:31px;border-radius:10px;background:var(--dabo-surface);color:var(--dabo-forest)}
+.dabo-planning-context-copy{display:flex;min-width:0;flex-direction:column;gap:2px}.dabo-planning-context-copy strong{font-size:13px}.dabo-planning-context-copy small{font-size:11px;color:var(--dabo-muted)}
+.dabo-planning-context-editor{margin-top:10px;min-height:42px;padding:6px 10px;font-size:12px}
+.dabo-week-item.is-personal,.dabo-timeline-card.dabo-event-personal{border-left:3px solid var(--dabo-forest)}
+.dabo-week-item.is-household,.dabo-timeline-card.dabo-event-household{border-left:3px solid var(--dabo-gold,#b9975b)}
+.dabo-event-origin{display:flex!important;align-items:center;gap:4px;margin-top:4px;font-size:10px!important;color:var(--dabo-muted)}
+.dabo-v33-member-strip.is-few{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}
+.dabo-v33-member-strip.is-few .dabo-v33-member{min-width:0;max-width:none;width:100%;padding:9px 7px}
+.dabo-v33-member-strip.is-few .dabo-v33-member .min-w-0{min-width:0;overflow:hidden}
+.dabo-v331-report-action{display:flex!important;align-items:center;gap:8px}.dabo-v331-report-action svg{flex:none}
+.dabo-v331-appearance-setting{flex-wrap:wrap}.dabo-v331-appearance-setting .dabo-appearance-inline{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch}.dabo-v331-appearance-setting .dabo-appearance-option{min-width:0;white-space:nowrap}
+@media(max-width:760px){.dabo-v331-appearance-setting{align-items:flex-start}.dabo-week-grid{scroll-snap-type:x proximity}.dabo-week-day{flex:0 0 min(72vw,260px)}.dabo-v33-member-strip.is-few .dabo-v33-member{gap:6px}.dabo-v33-member-strip.is-few .dabo-v33-member p{font-size:12px}}

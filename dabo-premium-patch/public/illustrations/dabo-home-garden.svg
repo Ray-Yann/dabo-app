@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 380" role="img" aria-labelledby="title desc">
+<title id="title">Une maison paisible au milieu d'un jardin</title><desc id="desc">Illustration originale de maison, plantes et lumière douce.</desc>
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#F6E7CE"/><stop offset="1" stop-color="#E9E9D9"/></linearGradient><linearGradient id="wall" x2="1" y2="1"><stop stop-color="#F5E7CF"/><stop offset="1" stop-color="#DEC7A7"/></linearGradient></defs>
+<rect width="960" height="380" rx="32" fill="url(#sky)"/><circle cx="734" cy="90" r="55" fill="#F8D9A2" opacity=".7"/>
+<path d="M0 298Q195 225 360 299T720 294T960 288V380H0Z" fill="#B6C5A5"/><path d="M0 339Q180 287 390 337T960 320V380H0Z" fill="#78977B"/>
+<g fill="#446E55"><path d="M130 326Q75 242 97 120Q170 168 130 326Z"/><path d="M131 325Q137 194 210 136Q229 251 131 325Z"/><path d="M830 335Q787 231 827 130Q889 211 830 335Z"/><path d="M831 336Q854 209 918 187Q936 298 831 336Z"/></g>
+<g stroke="#284F3A" stroke-width="5" stroke-linecap="round"><path d="M132 346V198M132 263l-29-54M132 285l45-69M833 349V208M833 279l37-53"/></g>
+<path d="M311 190L482 65L662 190V345H311Z" fill="url(#wall)" stroke="#BAA88E" stroke-width="4"/><path d="M276 193L481 39L694 193L663 203L481 84L306 210Z" fill="#315542"/><path d="M470 343V236Q470 216 490 216H550Q570 216 570 236V343" fill="#38634B"/><circle cx="551" cy="284" r="5" fill="#EAC784"/>
+<g fill="#E3D6B6" stroke="#315542" stroke-width="7"><rect x="352" y="219" width="72" height="80" rx="26"/><rect x="598" y="219" width="42" height="80" rx="19"/></g><path d="M388 223V297M352 260H423M620 223V297" stroke="#315542" stroke-width="4"/>
+<g fill="#D6AA74"><path d="M268 344Q332 310 396 343Z"/><path d="M580 343Q646 310 715 343Z"/></g><g fill="#638668"><circle cx="279" cy="310" r="30"/><circle cx="313" cy="315" r="34"/><circle cx="699" cy="308" r="34"/><circle cx="735" cy="320" r="26"/></g>
+<path d="M478 346Q469 364 447 380H598Q555 357 548 345Z" fill="#D9C6A8"/>
+<g fill="#E8C58E"><circle cx="214" cy="347" r="7"/><circle cx="244" cy="359" r="5"/><circle cx="777" cy="351" r="7"/></g>
+</svg>

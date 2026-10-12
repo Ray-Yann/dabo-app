@@ -73,7 +73,7 @@ export default function HouseholdPage() {
           <span className="dabo-soft-icon" aria-hidden="true"><HouseHeart size={20}/></span>
         </div>
 
-        <div className="dabo-v33-member-strip mt-4" role="list">
+        <div className={`dabo-v33-member-strip mt-4 ${members.length <= 2 ? "is-few" : ""}`} role="list">
           {members.map((member) => <div key={member.id} role="listitem" className="dabo-v33-member">
             <Avatar member={member} members={members} size={42}/>
             <div className="min-w-0">
@@ -103,7 +103,7 @@ export default function HouseholdPage() {
           <p className="mt-2 text-sm leading-6 text-muted">{t("household_hub_now_desc")}</p>
         </div>
       </div>
-      <button onClick={() => router.push("/app/bilan")} className="dabo-primary-action mt-5 w-full justify-center">
+      <button onClick={() => router.push("/app/bilan")} className="dabo-primary-action dabo-v331-report-action mt-5 w-full justify-center">
         {t("household_hub_open_report")}<ChevronRight size={18}/>
       </button>
       <p className="mt-3 text-xs leading-5 text-muted">{t("household_hub_control_note")}</p>

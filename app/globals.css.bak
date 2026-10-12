@@ -1,0 +1,773 @@
+@import "tailwindcss";
+
+/* DABO pilote lui-même son thème.
+   Sur certains navigateurs Android/Samsung, un mode sombre système peut
+   sinon recolorer automatiquement une page pourtant réglée en clair. */
+:root {
+  color-scheme: only light;
+}
+
+html {
+  color-scheme: only light;
+}
+
+
+@theme {
+  --color-paper: #F0EFE6;
+  --color-ink: #22301F;
+  --color-mustard: #B98A2E;
+  --color-mustardBg: #F3E9D2;
+  --color-muted: #6E6A5A;
+  --color-border: #DCD8CB;
+  --color-borderLight: #E4E1D5;
+  --color-white2: #FFFFFF;
+
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-plex-mono), monospace;
+}
+
+/* Mode sombre — les mêmes noms de rôle changent de valeur, sans toucher
+   au code des pages : bg-paper, text-ink, etc. s'adaptent automatiquement
+   dès que cette classe est posée sur <html>. */
+.dabo-dark {
+  --color-paper: #1C1B17;
+  --color-ink: #EDEAE0;
+  --color-mustard: #D8A94A;
+  --color-mustardBg: #3A2E18;
+  --color-muted: #A79F8C;
+  --color-border: #3A382F;
+  --color-borderLight: #2E2C26;
+  --color-white2: #26251F;
+  color-scheme: dark;
+}
+
+/* Le thème clair est explicite et scoped à l'app. Il gagne même si un
+   navigateur/OS ajoute ou conserve une classe sombre ailleurs dans le DOM. */
+.dabo-light {
+  --color-paper: #F0EFE6;
+  --color-ink: #22301F;
+  --color-mustard: #B98A2E;
+  --color-mustardBg: #F3E9D2;
+  --color-muted: #6E6A5A;
+  --color-border: #DCD8CB;
+  --color-borderLight: #E4E1D5;
+  --color-white2: #FFFFFF;
+  color-scheme: only light;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  min-height: 100vh;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0.7); opacity: 0.5; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-check-pop {
+  animation: check-pop 0.28s ease-out;
+}
+
+
+/* Accessibilité DABO — lisibilité renforcée dans l'application foyer.
+   V2 augmente la hiérarchie typographique du contenu (titres, lignes,
+   métadonnées, boutons et formulaires) sans modifier le cockpit Admin. */
+.dabo-user-app {
+  font-size: 17px;
+}
+
+/* Micro-textes et métadonnées : restent secondaires, mais lisibles. */
+.dabo-user-app .text-\[9px\],
+.dabo-user-app .text-\[10px\] {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dabo-user-app .text-\[11px\],
+.dabo-user-app .text-xs {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Texte courant, noms de tâches/courses, boutons et champs. */
+.dabo-user-app .text-sm {
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.dabo-user-app .text-base {
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* Hiérarchie des titres de pages et de blocs. */
+.dabo-user-app .text-lg {
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.dabo-user-app .text-xl {
+  font-size: 23px;
+  line-height: 1.3;
+}
+
+.dabo-user-app .text-2xl {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.dabo-user-app .text-3xl {
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+/* Les contrôles doivent rester confortables à lire, y compris sur mobile. */
+.dabo-user-app input,
+.dabo-user-app select,
+.dabo-user-app textarea {
+  font-size: max(16px, 1em);
+}
+
+/* La navigation V1 est déjà validée : conserver exactement sa taille. */
+.dabo-user-app .dabo-main-nav .text-\[10px\] {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Navigation principale : contraste suffisant même pour les onglets inactifs. */
+.dabo-user-app nav,
+.dabo-user-app button {
+  -webkit-font-smoothing: antialiased;
+}
+
+
+/* DABO Mobile UX — safe areas et navigation réellement adaptées aux appareils.
+   L'iPhone réserve une zone système en haut et autour de l'indicateur Home.
+   DABO laisse volontairement ces zones respirer au lieu de placer du contenu
+   ou des onglets dessous. Sur desktop, les inset valent 0 et n'ajoutent rien. */
+.dabo-app-frame {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.dabo-app-content {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+.dabo-main-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dabo-main-nav-grid {
+  min-width: 0;
+}
+
+.dabo-main-nav-button,
+.dabo-main-nav-pill {
+  min-width: 0;
+}
+
+.dabo-main-nav-pill {
+  width: calc(100% - 4px);
+}
+
+.dabo-main-nav-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: clamp(9px, 2.55vw, 11px) !important;
+}
+
+/* Les petits téléphones ont moins de 60 px par onglet avec six destinations.
+   On conserve les six libellés, mais on réduit seulement les espaces décoratifs. */
+@media (max-width: 380px) {
+  .dabo-main-nav-pill {
+    width: 100%;
+    padding-left: 1px;
+    padding-right: 1px;
+  }
+
+  .dabo-main-nav-button {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .dabo-app-content {
+    padding-bottom: 88px;
+  }
+}
+
+
+/* UX Mobile V1.1 — le libellé français « Aujourd’hui » est le seul des six
+   onglets qui dépasse sur les largeurs iPhone. On adapte uniquement ce libellé,
+   sans réduire la lisibilité des cinq autres destinations. */
+@media (max-width: 430px) {
+  .dabo-main-nav-label-today {
+    font-size: 9px !important;
+    letter-spacing: -0.025em;
+  }
+}
+
+@media (max-width: 360px) {
+  .dabo-main-nav-label-today {
+    font-size: 8.5px !important;
+  }
+}
+
+
+/* DABO Visual Identity V1 — une identité plus chaleureuse sans alourdir UX Light.
+   Les rôles existants restent la source de vérité ; cette couche ajoute seulement
+   profondeur, rythme et micro-réactions. */
+.dabo-app-frame {
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--color-mustardBg) 52%, transparent) 0, transparent 30rem),
+    radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--color-white2) 72%, transparent) 0, transparent 28rem),
+    var(--color-paper);
+}
+
+.dabo-user-app button:not(:disabled),
+.dabo-user-app a {
+  transition: transform 150ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease, opacity 180ms ease;
+}
+
+.dabo-user-app button:not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.dabo-user-app input,
+.dabo-user-app select,
+.dabo-user-app textarea {
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.dabo-user-app input:focus,
+.dabo-user-app select:focus,
+.dabo-user-app textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.dabo-empty-state {
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+.dabo-empty-state-icon {
+  transform: rotate(-3deg);
+}
+
+.dabo-main-nav {
+  background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dabo-main-nav-pill {
+  transition: transform 160ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+@media (hover: hover) {
+  .dabo-main-nav-button:hover .dabo-main-nav-pill {
+    transform: translateY(-1px);
+  }
+}
+
+/* Sur grand écran DABO n'est plus une simple colonne mobile perdue au centre.
+   La largeur reste volontairement contenue : on gagne de la présence sans
+   transformer les listes en lignes interminables. */
+@media (min-width: 768px) {
+  .dabo-app-content {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .dabo-main-nav-grid {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-user-app *,
+  .dabo-user-app *::before,
+  .dabo-user-app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* DABO Visual Identity V1.1 — le foyer devient la seconde signature visuelle.
+   Le vert reste la marque DABO ; les accents membres, magasins et calendrier
+   donnent de la vie sans transformer l'interface en mosaïque de couleurs. */
+.dabo-member-task-group {
+  position: relative;
+  border-radius: 16px;
+}
+
+.dabo-member-task-group[style]::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 29px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--dabo-member-accent);
+  opacity: .38;
+}
+
+.dabo-member-group-heading {
+  min-height: 24px;
+}
+
+.dabo-task-row {
+  transition: background-color 160ms ease, transform 150ms ease;
+}
+
+@media (hover: hover) {
+  .dabo-member-task-group[style] .dabo-task-row:hover {
+    background: color-mix(in srgb, var(--dabo-member-accent) 4%, transparent);
+  }
+}
+
+.dabo-store-heading {
+  border-radius: 10px;
+}
+
+.dabo-store-heading-icon {
+  display: inline-flex;
+  height: 24px;
+  width: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-white2);
+  color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--color-borderLight);
+}
+
+.dabo-calendar-event {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--color-ink) 3%, transparent);
+}
+
+.dabo-calendar-event::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--color-mustard);
+  opacity: .52;
+}
+
+.dabo-calendar-event-personal::before {
+  background: var(--color-ink);
+  opacity: .28;
+}
+
+.dabo-calendar-event-today::before {
+  opacity: .9;
+}
+
+.dabo-main-nav-label-calendar {
+  white-space: nowrap;
+  overflow: visible;
+  letter-spacing: -0.035em;
+}
+
+@media (max-width: 390px) {
+  .dabo-main-nav-label-calendar {
+    font-size: 8px !important;
+  }
+}
+
+
+/* DABO Brand Language V1 — signature propriétaire.
+   Trois gestes seulement, répétés avec retenue : l'orbite organique du logo,
+   le point solaire moutarde et une courbe vivante sur les surfaces clés. */
+.dabo-brand-header {
+  isolation: isolate;
+}
+
+.dabo-brand-orbit {
+  position: absolute;
+  right: 14px;
+  top: 17px;
+  width: 86px;
+  height: 64px;
+  opacity: .9;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dabo-brand-leaf {
+  position: absolute;
+  display: block;
+  border: 1.5px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  border-radius: 100% 0 100% 0;
+  transform-origin: center;
+}
+
+.dabo-brand-leaf-a {
+  width: 54px;
+  height: 30px;
+  right: 6px;
+  top: 11px;
+  transform: rotate(-17deg);
+}
+
+.dabo-brand-leaf-b {
+  width: 39px;
+  height: 23px;
+  right: 31px;
+  top: 29px;
+  transform: rotate(19deg) scaleX(-1);
+  opacity: .68;
+}
+
+.dabo-brand-sun {
+  position: absolute;
+  right: 25px;
+  top: 27px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-mustard);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-mustardBg) 62%, transparent);
+}
+
+/* Le point doré devient le repère actif de navigation : minuscule, mais
+   constant sur chaque écran. */
+.dabo-main-nav-pill-active {
+  position: relative;
+}
+
+.dabo-main-nav-pill-active::after {
+  content: "";
+  position: absolute;
+  right: 9px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-mustard);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-paper) 22%, transparent);
+}
+
+/* Les quatre cartes de la tour de contrôle portent une courbe DABO presque
+   imperceptible. Elle n'ajoute aucune information et ne concurrence pas les
+   couleurs des membres. */
+.dabo-home-orbit-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--color-ink) 3%, transparent);
+}
+
+.dabo-home-orbit-card::after {
+  content: "";
+  position: absolute;
+  right: -23px;
+  bottom: -31px;
+  width: 68px;
+  height: 54px;
+  border: 1px solid color-mix(in srgb, var(--color-mustard) 17%, transparent);
+  border-radius: 100% 0 100% 0;
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+/* Quand DABO est calme, le vide porte lui aussi la marque : une grande feuille
+   en filigrane, jamais une illustration décorative supplémentaire. */
+.dabo-empty-state-leaf {
+  position: absolute;
+  right: -25px;
+  top: -26px;
+  width: 105px;
+  height: 78px;
+  border: 1.5px solid color-mix(in srgb, var(--color-mustard) 18%, transparent);
+  border-radius: 100% 0 100% 0;
+  transform: rotate(-15deg);
+  pointer-events: none;
+}
+
+@media (max-width: 390px) {
+  .dabo-brand-orbit {
+    right: 8px;
+    width: 72px;
+    transform: scale(.88);
+    transform-origin: right top;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-brand-orbit,
+  .dabo-brand-leaf,
+  .dabo-brand-sun {
+    animation: none !important;
+  }
+}
+
+/* DABO Brand Language V1.1 — la forme devient interface.
+   Une asymétrie unique remplace la décoration répétée : le coin bas-droit
+   se resserre comme la pointe de la feuille DABO. */
+.dabo-organic-header {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Sur les en-têtes métier, l'orbite vit dans le même espace que le titre,
+   sans déplacer le contenu ni ajouter de bloc. */
+.dabo-organic-header > .relative .dabo-brand-orbit {
+  right: -4px;
+  top: -18px;
+  transform: scale(.72);
+  transform-origin: right top;
+  opacity: .72;
+}
+
+.dabo-primary-action {
+  border-radius: 14px 14px 5px 14px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.dabo-organic-card,
+.dabo-empty-state {
+  border-radius: 22px 22px 8px 22px !important;
+}
+
+/* Le point solaire est réservé aux repères DABO : navigation et orbite.
+   Les couleurs de membres restent donc libres de raconter les personnes. */
+.dabo-primary-action,
+.dabo-organic-card,
+.dabo-empty-state {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-radius 160ms ease;
+}
+
+.dabo-primary-action:active {
+  transform: translateY(1px) scale(.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-primary-action,
+  .dabo-organic-card,
+  .dabo-empty-state {
+    transition: none !important;
+  }
+}
+
+/* Dark Mode Readability V1 — AttentionCard utilise des tons explicites.
+   Ne pas utiliser de pseudo-variante `dabo-dark:` : le thème DABO est une
+   classe applicative et non une variante Tailwind. Les surfaces et textes
+   doivent donc être pilotés ensemble pour conserver le contraste. */
+.dabo-attention-card {
+  --dabo-attention-accent: var(--color-muted);
+  --dabo-attention-surface: var(--color-white2);
+  --dabo-attention-border: var(--color-borderLight);
+  background: var(--dabo-attention-surface);
+  border-color: var(--dabo-attention-border);
+}
+.dabo-attention-accent,
+.dabo-attention-icon { color: var(--dabo-attention-accent); }
+.dabo-attention-icon { background: color-mix(in srgb, var(--color-white2) 82%, transparent); }
+.dabo-attention-action-now { --dabo-attention-accent: #BE123C; --dabo-attention-surface: color-mix(in srgb, #FFF1F2 80%, transparent); --dabo-attention-border: color-mix(in srgb, #FECDD3 80%, transparent); }
+.dabo-attention-anticipate { --dabo-attention-accent: #B45309; --dabo-attention-surface: color-mix(in srgb, #FFFBEB 80%, transparent); --dabo-attention-border: color-mix(in srgb, #FDE68A 80%, transparent); }
+.dabo-attention-suggestion { --dabo-attention-accent: #0369A1; --dabo-attention-surface: color-mix(in srgb, #F0F9FF 70%, transparent); --dabo-attention-border: color-mix(in srgb, #BAE6FD 80%, transparent); }
+
+.dabo-dark .dabo-attention-action-now { --dabo-attention-accent: #FDA4AF; --dabo-attention-surface: color-mix(in srgb, #4C0519 22%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #881337 52%, var(--color-border)); }
+.dabo-dark .dabo-attention-anticipate { --dabo-attention-accent: #FCD34D; --dabo-attention-surface: color-mix(in srgb, #451A03 24%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #78350F 52%, var(--color-border)); }
+.dabo-dark .dabo-attention-suggestion { --dabo-attention-accent: #7DD3FC; --dabo-attention-surface: color-mix(in srgb, #082F49 24%, var(--color-white2)); --dabo-attention-border: color-mix(in srgb, #0C4A6E 52%, var(--color-border)); }
+.dabo-dark .dabo-attention-information { --dabo-attention-accent: var(--color-muted); --dabo-attention-surface: var(--color-white2); --dabo-attention-border: var(--color-borderLight); }
+
+/* ========================================================================
+   DABO V2 — Premium household interface
+   Reference: warm editorial cream, deep forest, sage, restrained gold and
+   garnet for genuine urgency. These semantic roles work in both themes.
+   ======================================================================== */
+:root,
+.dabo-light {
+  --dabo-canvas: #f3efe4;
+  --dabo-surface: #fbf8f0;
+  --dabo-surface-soft: #ebe6d7;
+  --dabo-sage: #dce2ce;
+  --dabo-sage-strong: #cbd5b9;
+  --dabo-forest: #153c2d;
+  --dabo-forest-soft: #2d5745;
+  --dabo-gold: #a98442;
+  --dabo-gold-soft: #eee2c6;
+  --dabo-garnet: #8f3f43;
+  --dabo-garnet-soft: #f2dedb;
+  --dabo-text: #173428;
+  --dabo-muted: #6e756b;
+  --dabo-line: rgba(21, 60, 45, 0.12);
+  --dabo-shadow: 0 14px 38px rgba(39, 48, 38, 0.08);
+}
+
+.dabo-dark {
+  --dabo-canvas: #151914;
+  --dabo-surface: #1d241d;
+  --dabo-surface-soft: #252c23;
+  --dabo-sage: #2b382d;
+  --dabo-sage-strong: #344735;
+  --dabo-forest: #dbe8d9;
+  --dabo-forest-soft: #bdd0bd;
+  --dabo-gold: #d4b46d;
+  --dabo-gold-soft: #3a3222;
+  --dabo-garnet: #e09a9c;
+  --dabo-garnet-soft: #3c2527;
+  --dabo-text: #eef2e9;
+  --dabo-muted: #b2b9ae;
+  --dabo-line: rgba(238, 242, 233, 0.12);
+  --dabo-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
+}
+
+.dabo-app-frame {
+  background: var(--dabo-canvas);
+}
+
+.dabo-user-app {
+  color: var(--dabo-text);
+}
+
+.dabo-v2-page { min-height: 100%; }
+.dabo-kicker { font-size: 11px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: var(--dabo-muted); }
+.dabo-v2-panel { border: 1px solid var(--dabo-line); border-radius: 26px; background: var(--dabo-surface); box-shadow: var(--dabo-shadow); }
+.dabo-soft-icon { display:inline-flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:15px; background:var(--dabo-sage); color:var(--dabo-forest); }
+.dabo-v2-link-card { display:flex; min-height:82px; align-items:center; gap:12px; border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-surface); padding:15px; color:var(--dabo-text); box-shadow:0 7px 22px rgba(39,48,38,.045); }
+.dabo-secondary-action { display:flex; min-height:48px; align-items:center; justify-content:center; gap:8px; border:1px solid var(--dabo-line); border-radius:16px; background:var(--dabo-surface-soft); padding:10px 16px; font-weight:700; color:var(--dabo-text); }
+
+.dabo-main-nav-v2 {
+  border-top: 1px solid var(--dabo-line);
+  background: color-mix(in srgb, var(--dabo-canvas) 94%, transparent);
+  box-shadow: 0 -10px 32px rgba(39,48,38,.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.dabo-main-nav-v2 .dabo-main-nav-grid { height: 74px; }
+.dabo-main-nav-v2 .dabo-main-nav-button { display:flex; min-width:0; min-height:68px; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--dabo-muted); }
+.dabo-main-nav-v2 .dabo-main-nav-icon { display:flex; height:31px; min-width:42px; align-items:center; justify-content:center; border-radius:14px; }
+.dabo-main-nav-v2 .dabo-main-nav-icon.is-active { background:var(--dabo-sage); color:var(--dabo-forest); }
+.dabo-main-nav-v2 .dabo-main-nav-label { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px !important; line-height:1.15; font-weight:600; }
+.dabo-main-nav-v2 .dabo-main-nav-label.is-active { color:var(--dabo-forest); font-weight:750; }
+.dabo-main-nav-add { transform:translateY(-9px); }
+.dabo-main-nav-add-circle { display:flex; width:54px; height:54px; align-items:center; justify-content:center; border-radius:50%; background:var(--dabo-forest); color:var(--dabo-canvas); box-shadow:0 10px 24px rgba(21,60,45,.24); }
+.dabo-main-nav-add .dabo-main-nav-label { margin-top:0; }
+
+.dabo-sheet-backdrop { position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center; background:rgba(10,18,13,.34); backdrop-filter:blur(3px); }
+.dabo-sheet { width:100%; max-width:620px; border:1px solid var(--dabo-line); border-bottom:0; border-radius:30px 30px 0 0; background:var(--dabo-canvas); padding:10px 20px calc(24px + env(safe-area-inset-bottom,0px)); box-shadow:0 -22px 70px rgba(0,0,0,.18); }
+.dabo-sheet-handle { width:42px; height:4px; margin:0 auto 17px; border-radius:99px; background:color-mix(in srgb,var(--dabo-muted) 45%,transparent); }
+.dabo-icon-button { display:flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:50%; background:var(--dabo-surface); color:var(--dabo-text); border:1px solid var(--dabo-line); }
+.dabo-action-tile { display:flex; min-height:98px; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:12px; border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-surface); padding:16px; text-align:left; font-weight:700; color:var(--dabo-text); }
+.dabo-action-tile svg { color:var(--dabo-forest); }
+
+/* Today V2: editorial hierarchy instead of a stack of identical white cards. */
+.dabo-today-v2 { max-width:760px; margin:0 auto; padding:30px 20px 28px; }
+.dabo-today-v2-header { position:relative; padding:8px 2px 22px; }
+.dabo-today-v2-title { font-family:var(--font-serif); font-size:clamp(31px,7vw,42px); line-height:1.02; letter-spacing:-.035em; color:var(--dabo-text); }
+.dabo-today-v2-date { margin-top:7px; color:var(--dabo-muted); font-size:14px; }
+.dabo-attention-summary { margin:18px 0 28px; font-family:var(--font-serif); font-size:clamp(25px,6vw,34px); line-height:1.12; letter-spacing:-.025em; color:var(--dabo-text); }
+.dabo-v2-section { margin-top:28px; }
+.dabo-v2-section-title { margin-bottom:10px; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--dabo-muted); }
+.dabo-today-row { display:flex; min-height:68px; align-items:center; gap:12px; border-bottom:1px solid var(--dabo-line); padding:12px 2px; }
+.dabo-today-row:last-child { border-bottom:0; }
+.dabo-today-row-icon { display:flex; width:38px; height:38px; flex:0 0 auto; align-items:center; justify-content:center; border-radius:14px; background:var(--dabo-surface-soft); color:var(--dabo-forest); }
+.dabo-urgent-badge { display:inline-flex; align-items:center; border-radius:999px; background:var(--dabo-garnet-soft); padding:4px 8px; color:var(--dabo-garnet); font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.dabo-preparing-card { border:1px solid color-mix(in srgb,var(--dabo-forest) 13%,transparent); border-radius:26px; background:var(--dabo-sage); padding:18px; color:var(--dabo-text); }
+.dabo-calm-state { margin-top:42px; min-height:42vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.dabo-calm-mark { position:relative; width:92px; height:92px; margin-top:30px; border-radius:50%; background:var(--dabo-sage); }
+.dabo-calm-mark::before,.dabo-calm-mark::after { content:""; position:absolute; width:42px; height:20px; border:2px solid var(--dabo-forest); border-left:0; border-bottom:0; border-radius:100% 0; transform:rotate(-30deg); }
+.dabo-calm-mark::before { left:14px; top:34px; }.dabo-calm-mark::after { right:10px; top:22px; transform:rotate(150deg); }
+.dabo-offline-note { border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-gold-soft); padding:16px; }
+
+@media (min-width: 900px) {
+  .dabo-app-content { padding-bottom: 104px; }
+  .dabo-today-v2 { padding-top:48px; }
+  .dabo-v2-panel, .dabo-preparing-card { border-radius:30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dabo-user-app *, .dabo-user-app *::before, .dabo-user-app *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
+}
+
+/* DABO Planning V2 */
+.dabo-planning-header{max-width:980px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:38px 20px 18px}.dabo-planning-title{font-family:var(--font-serif);font-size:clamp(34px,7vw,48px);line-height:1;letter-spacing:-.04em;color:var(--dabo-text)}.dabo-planning-subtitle{max-width:580px;margin-top:8px;color:var(--dabo-muted);font-size:14px;line-height:1.55}.dabo-planning-controls{max-width:980px;margin:0 auto;padding:0 20px 22px}.dabo-segmented{display:grid;grid-template-columns:repeat(3,1fr);padding:4px;border:1px solid var(--dabo-line);border-radius:18px;background:var(--dabo-surface-soft)}.dabo-segmented button{min-height:42px;border-radius:14px;color:var(--dabo-muted);font-size:14px;font-weight:700}.dabo-segmented button.is-active{background:var(--dabo-surface);color:var(--dabo-forest);box-shadow:0 4px 14px rgba(39,48,38,.08)}.dabo-planning-scopes{display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:2px}.dabo-planning-scopes button{white-space:nowrap;border:1px solid var(--dabo-line);border-radius:999px;padding:8px 13px;color:var(--dabo-muted);font-size:12px;font-weight:700}.dabo-planning-scopes button.is-active{border-color:var(--dabo-forest);background:var(--dabo-forest);color:#fff}.dabo-planning-stream,.dabo-planning-mixed{max-width:980px;margin:0 auto;padding:0 20px 22px}.dabo-planning-mixed{margin-bottom:4px}.dabo-planning-section-heading{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 8px;color:var(--dabo-muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.dabo-planning-row{display:flex;width:100%;min-height:70px;align-items:center;gap:12px;border-bottom:1px solid var(--dabo-line);padding:12px 2px;text-align:left;color:var(--dabo-text)}.dabo-planning-row-icon{display:flex;width:40px;height:40px;flex:0 0 auto;align-items:center;justify-content:center;border-radius:14px;background:var(--dabo-sage);color:var(--dabo-forest)}.dabo-planning-row strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.dabo-planning-row small{display:block;margin-top:3px;color:var(--dabo-muted);font-size:11px}@media(min-width:900px){.dabo-planning-controls{display:grid;grid-template-columns:minmax(360px,1fr) auto;align-items:center;gap:18px}.dabo-planning-scopes{margin-top:0}.dabo-planning-stream,.dabo-planning-mixed{padding-left:20px;padding-right:20px}}
+
+/* DABO Planning V2.1 — véritable emploi du temps du foyer */
+.dabo-day-planner{max-width:980px;margin:0 auto 24px;padding:0 20px}.dabo-day-nav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;margin-bottom:12px}.dabo-day-nav>button:not(.dabo-day-date){display:flex;width:44px;height:44px;align-items:center;justify-content:center;border:1px solid var(--dabo-line);border-radius:15px;background:var(--dabo-surface);color:var(--dabo-text)}.dabo-day-date{text-align:center;color:var(--dabo-text)}.dabo-day-date strong{display:block;font-family:var(--font-serif);font-size:21px;line-height:1.15;text-transform:capitalize}.dabo-day-date span{display:block;margin-top:3px;color:var(--dabo-muted);font-size:11px}.dabo-day-summary{display:flex;align-items:center;gap:8px;margin:0 0 16px;padding:11px 13px;border:1px solid color-mix(in srgb,var(--dabo-sage) 70%,var(--dabo-line));border-radius:16px;background:color-mix(in srgb,var(--dabo-sage) 42%,var(--dabo-surface));color:var(--dabo-forest);font-size:12px;font-weight:700}.dabo-day-summary strong{margin-left:auto;display:grid;min-width:25px;height:25px;place-items:center;border-radius:999px;background:var(--dabo-surface);font-size:11px}.dabo-timeline{position:relative;padding:4px 0 8px}.dabo-timeline:before{content:"";position:absolute;left:54px;top:8px;bottom:8px;width:1px;background:var(--dabo-line)}.dabo-timeline-item{position:relative;display:grid;grid-template-columns:45px minmax(0,1fr);gap:18px;margin-bottom:10px}.dabo-timeline-time{padding-top:15px;color:var(--dabo-muted);font-size:11px;font-weight:700;text-align:right}.dabo-timeline-card{position:relative;width:100%;padding:13px 14px;border:1px solid var(--dabo-line);border-radius:18px;background:var(--dabo-surface);box-shadow:0 8px 24px rgba(39,48,38,.04);text-align:left;color:var(--dabo-text)}.dabo-timeline-card:before{content:"";position:absolute;left:-23px;top:20px;width:9px;height:9px;border:2px solid var(--dabo-surface);border-radius:999px;background:var(--dabo-forest);box-shadow:0 0 0 1px var(--dabo-line)}.dabo-timeline-task:before{background:var(--dabo-gold,#b9975b)}.dabo-timeline-card-top{display:flex;align-items:center;gap:10px}.dabo-timeline-card-top>div{min-width:0}.dabo-timeline-card-top strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.dabo-timeline-card-top small{display:block;margin-top:2px;color:var(--dabo-muted);font-size:11px}.dabo-timeline-icon{display:grid;width:34px;height:34px;flex:0 0 auto;place-items:center;border-radius:12px;background:var(--dabo-sage);color:var(--dabo-forest)}.dabo-responsibility{display:flex;align-items:center;gap:7px;margin:10px 0 0 44px;padding-top:8px;border-top:1px solid var(--dabo-line);color:var(--dabo-muted);font-size:11px}.dabo-responsibility span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dabo-responsibility b{color:var(--dabo-forest);font-weight:800}.dabo-free-day{display:flex;align-items:center;gap:12px;margin:4px 0 12px 64px;padding:16px;border:1px dashed var(--dabo-line);border-radius:18px;color:var(--dabo-muted)}.dabo-free-day strong{display:block;color:var(--dabo-text);font-size:13px}.dabo-free-day span{display:block;margin-top:2px;font-size:11px;line-height:1.4}.dabo-unscheduled{margin-top:10px;padding:14px;border:1px solid var(--dabo-line);border-radius:20px;background:var(--dabo-surface-soft)}.dabo-place-row{display:flex;width:100%;align-items:center;gap:10px;padding:11px 2px;border-top:1px solid var(--dabo-line);text-align:left;color:var(--dabo-text)}.dabo-place-row>div:first-child{min-width:0;flex:1}.dabo-place-row strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.dabo-place-row small{display:block;margin-top:2px;color:var(--dabo-muted);font-size:11px}.dabo-place-row>button,.dabo-slot-editor button{flex:0 0 auto;border:1px solid var(--dabo-forest);border-radius:11px;padding:7px 10px;color:var(--dabo-forest);font-size:11px;font-weight:800}.dabo-slot-editor{display:flex!important;flex:0 0 auto!important;align-items:center;gap:6px}.dabo-slot-editor input{width:88px;border:1px solid var(--dabo-line);border-radius:10px;background:var(--dabo-surface);padding:7px;color:var(--dabo-text);font-size:11px}.dabo-preparation-box{padding:12px;border:1px solid var(--dabo-line);border-radius:14px;background:var(--dabo-sage)}@media(max-width:480px){.dabo-day-planner{padding:0 14px}.dabo-timeline:before{left:45px}.dabo-timeline-item{grid-template-columns:37px minmax(0,1fr);gap:16px}.dabo-timeline-card:before{left:-20px}.dabo-free-day{margin-left:53px}.dabo-slot-editor{align-items:stretch;flex-direction:column}.dabo-slot-editor input{width:100%}}
+.dabo-month-compact{display:flex;width:100%;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--dabo-line);border-radius:14px;background:var(--dabo-surface-soft);text-align:left;color:var(--dabo-text)}.dabo-month-compact>span{min-width:0}.dabo-month-compact strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.dabo-month-compact small{display:block;margin-top:1px;color:var(--dabo-muted);font-size:10px}
+.dabo-responsibility-check{width:15px;height:15px;flex:0 0 auto;border:1.5px solid var(--dabo-forest);border-radius:999px}.dabo-add-responsibility{margin:9px 0 0 44px;color:var(--dabo-forest);font-size:11px;font-weight:800}.dabo-responsibility-editor{display:grid;gap:7px;margin:10px 0 0 44px;padding-top:9px;border-top:1px solid var(--dabo-line)}.dabo-responsibility-editor input,.dabo-responsibility-editor select{width:100%;border:1px solid var(--dabo-line);border-radius:10px;background:var(--dabo-surface-soft);padding:8px 9px;color:var(--dabo-text);font-size:11px}.dabo-responsibility-editor>div{display:flex;gap:7px}.dabo-responsibility-editor button{border:1px solid var(--dabo-line);border-radius:9px;padding:6px 9px;color:var(--dabo-text);font-size:10px;font-weight:800}.dabo-responsibility-editor button:first-child{border-color:var(--dabo-forest);background:var(--dabo-forest);color:#fff}.dabo-responsibility-editor button:disabled{opacity:.4}
+
+/* DABO Planning V2.2 — audit terrain: timeline, semaine, responsabilités */
+.dabo-timeline:before{left:78px}.dabo-timeline-item{grid-template-columns:68px minmax(0,1fr);gap:20px}.dabo-timeline-time{padding-top:15px;white-space:normal;overflow-wrap:anywhere;line-height:1.15}.dabo-timeline-card:before{left:-26px}.dabo-free-day{margin-left:88px}.dabo-completed-responsibilities{margin:9px 0 0 44px;padding-top:7px;border-top:1px solid var(--dabo-line);font-size:11px;color:var(--dabo-muted)}.dabo-completed-responsibilities summary{cursor:pointer;font-weight:700}.dabo-responsibility.is-done{margin-left:0;opacity:.78}.dabo-responsibility.is-done span{text-decoration:line-through}.dabo-responsibility.is-done button{font-weight:800;color:var(--dabo-forest)}.dabo-responsibility-details-toggle{margin-top:7px!important;padding:4px 0!important;border:0!important;background:transparent!important;color:var(--dabo-forest)!important;font-size:11px!important;font-weight:800!important}.dabo-responsibility-details{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}.dabo-responsibility-details input{width:100%;border:1px solid var(--dabo-line);border-radius:10px;background:var(--dabo-surface);padding:8px;color:var(--dabo-text);font-size:11px}.dabo-week-board{max-width:980px;margin:0 auto 28px;padding:0 20px}.dabo-week-heading{display:flex;align-items:end;justify-content:space-between;margin-bottom:12px}.dabo-week-heading strong{display:block;font-family:var(--font-serif);font-size:20px;color:var(--dabo-text)}.dabo-week-heading span{display:block;margin-top:2px;color:var(--dabo-muted);font-size:11px}.dabo-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}.dabo-week-day{min-width:0;border:1px solid var(--dabo-line);border-radius:18px;background:var(--dabo-surface);overflow:hidden}.dabo-week-day.is-today{border-color:color-mix(in srgb,var(--dabo-gold,#b9975b) 70%,var(--dabo-line));background:color-mix(in srgb,var(--dabo-gold,#b9975b) 8%,var(--dabo-surface))}.dabo-week-day>header{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 8px;border-bottom:1px solid var(--dabo-line);text-transform:capitalize}.dabo-week-day>header span{color:var(--dabo-muted);font-size:10px;font-weight:800}.dabo-week-day>header strong{display:grid;width:25px;height:25px;place-items:center;border-radius:999px;color:var(--dabo-text);font-size:12px}.dabo-week-day.is-today>header strong{background:var(--dabo-forest);color:#fff}.dabo-week-items{display:flex;min-height:110px;flex-direction:column;gap:6px;padding:8px}.dabo-week-item{display:block;width:100%;padding:8px;border-radius:11px;text-align:left;background:var(--dabo-surface-soft);color:var(--dabo-text)}.dabo-week-item span{display:block;margin-bottom:3px;color:var(--dabo-muted);font-size:9px;font-weight:700}.dabo-week-item strong{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:10px;line-height:1.25}.dabo-week-item.is-task{background:color-mix(in srgb,var(--dabo-sage) 55%,var(--dabo-surface))}.dabo-week-item.is-bill{background:color-mix(in srgb,var(--dabo-gold,#b9975b) 13%,var(--dabo-surface))}.dabo-week-empty{margin:auto;color:var(--dabo-line)}.dabo-editing-stream{margin-top:-12px}.dabo-planning-toast{position:fixed;z-index:70;left:50%;bottom:92px;display:flex;max-width:calc(100% - 28px);transform:translateX(-50%);align-items:center;gap:12px;padding:11px 13px;border-radius:15px;background:var(--dabo-forest);box-shadow:0 12px 30px rgba(20,49,39,.22);color:#fff;font-size:12px;font-weight:700}.dabo-planning-toast button{color:#fff;font-weight:800}.dabo-planning-toast button:last-child{font-size:18px;line-height:1;opacity:.8}
+@media(max-width:760px){.dabo-week-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.dabo-week-day{flex:0 0 min(72vw,260px);scroll-snap-align:start}.dabo-week-items{min-height:92px}}
+@media(max-width:480px){.dabo-timeline:before{left:64px}.dabo-timeline-item{grid-template-columns:56px minmax(0,1fr);gap:17px}.dabo-timeline-card:before{left:-23px}.dabo-free-day{margin-left:73px}.dabo-timeline-time{font-size:10px}.dabo-responsibility-details{grid-template-columns:1fr}.dabo-week-board{padding:0 14px}}
+
+/* DABO Planning V2.2.1 — finition responsive auditée mobile + desktop */
+.dabo-timeline:before{left:84px}.dabo-timeline-item{grid-template-columns:70px minmax(0,1fr);gap:26px}.dabo-timeline-card:before{left:-30px}.dabo-free-day{margin-left:96px}.dabo-responsibility-details label{display:grid;gap:4px;min-width:0;color:var(--dabo-muted);font-size:10px;font-weight:700}.dabo-responsibility-details label>span{display:block}.dabo-responsibility-details label>input{min-width:0}.dabo-responsibility span{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}.dabo-responsibility b{flex:0 0 auto;align-self:flex-start}.dabo-responsibility.is-done{align-items:flex-start}.dabo-responsibility.is-done span{white-space:normal;overflow:visible;text-overflow:clip}.dabo-responsibility.is-done button{flex:0 0 auto;align-self:flex-start}
+@media(max-width:480px){.dabo-timeline:before{left:68px}.dabo-timeline-item{grid-template-columns:56px minmax(0,1fr);gap:23px}.dabo-timeline-card:before{left:-28px}.dabo-free-day{margin-left:79px}.dabo-responsibility{align-items:flex-start;flex-wrap:wrap}.dabo-responsibility span{flex:1 1 calc(100% - 24px)}.dabo-responsibility b{margin-left:22px}.dabo-responsibility.is-done{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.dabo-responsibility.is-done span{min-width:0}.dabo-responsibility.is-done button{margin:0}.dabo-responsibility-details{grid-template-columns:1fr 1fr}}
+
+/* DABO Planning V2.2.2 — rail temporel premium : le libellé, le marqueur et l’axe ont chacun leur zone */
+.dabo-timeline:before{left:84px}
+.dabo-timeline-item{grid-template-columns:64px minmax(0,1fr);column-gap:34px}
+.dabo-timeline-time{padding-right:0;overflow-wrap:normal;word-break:normal}
+.dabo-timeline-card:before{left:-21px}
+.dabo-free-day{margin-left:98px}
+@media(max-width:480px){
+  .dabo-timeline:before{left:68px}
+  .dabo-timeline-item{grid-template-columns:52px minmax(0,1fr);column-gap:36px}
+  .dabo-timeline-card:before{left:-27px}
+  .dabo-free-day{margin-left:88px}
+}
+
+/* Universal + V2 — fast creation first, delegated capture second. */
+.dabo-universal-add-sheet { max-height:min(88dvh,760px); overflow-y:auto; overscroll-behavior:contain; }
+.dabo-universal-section-label { margin:20px 0 9px; font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; color:var(--dabo-muted); }
+.dabo-delegate-card { width:100%; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:13px; border:1px solid color-mix(in srgb,var(--dabo-forest) 14%,var(--dabo-line)); border-radius:22px; background:var(--dabo-sage); padding:15px; text-align:left; color:var(--dabo-text); }
+.dabo-delegate-card strong,.dabo-delegate-card small { display:block; }.dabo-delegate-card small { margin-top:3px; color:var(--dabo-muted); font-size:12px; font-weight:500; line-height:1.35; }
+.dabo-delegate-icon { display:flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:15px; background:var(--dabo-surface); color:var(--dabo-forest); }
+.dabo-universal-textarea { width:100%; margin-top:7px; resize:vertical; min-height:92px; border:1px solid var(--dabo-line); border-radius:18px; background:var(--dabo-surface); padding:13px 14px; color:var(--dabo-text); outline:none; }
+.dabo-universal-textarea:focus { border-color:color-mix(in srgb,var(--dabo-forest) 55%,var(--dabo-line)); box-shadow:0 0 0 3px color-mix(in srgb,var(--dabo-sage) 70%,transparent); }
+.dabo-inbox-proposal { margin-top:16px; border:1px solid var(--dabo-line); border-radius:22px; background:var(--dabo-surface-soft); padding:15px; }
+.dabo-inbox-result { display:flex; flex-direction:column; gap:3px; }.dabo-inbox-result strong { color:var(--dabo-forest); }.dabo-inbox-result small { color:var(--dabo-muted); }
+.dabo-choice-chip { min-height:46px; border:1px solid var(--dabo-line); border-radius:15px; background:var(--dabo-surface); padding:9px 11px; text-align:left; font-weight:700; color:var(--dabo-text); }
+@media (min-width:900px) { .dabo-sheet-backdrop { align-items:center; padding:24px; } .dabo-sheet { border-bottom:1px solid var(--dabo-line); border-radius:30px; } }
+
+/* DABO Editorial Garden — first production-safe visual foundation.
+   Original SVG, no remote font/image request, decorative only. */
+.dabo-today-v2 { padding-top: clamp(22px, 4vw, 38px); }
+.dabo-today-v2-header { padding-bottom: 18px; }
+.dabo-editorial-garden {
+  height: clamp(148px, 29vw, 218px);
+  margin: 0 0 24px;
+  border: 1px solid var(--dabo-line);
+  border-radius: 27px;
+  background: #e8e6d6 url('/illustrations/dabo-home-garden.svg') center 52% / cover no-repeat;
+  box-shadow: 0 12px 28px rgba(30,55,36,.09);
+}
+.dabo-dark .dabo-editorial-garden { filter: brightness(.76) saturate(.82); }
+.dabo-today-v2-title { font-weight: 650; }
+.dabo-v2-link-card, .dabo-action-tile, .dabo-preparing-card { transition: transform .16s ease, box-shadow .16s ease; }
+@media (hover:hover) and (pointer:fine) {
+  .dabo-v2-link-card:hover, .dabo-action-tile:hover, .dabo-preparing-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(30,55,36,.10); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .dabo-v2-link-card, .dabo-action-tile, .dabo-preparing-card { transition: none; }
+}
+@media (min-width:900px) {
+  .dabo-today-v2 { max-width: 920px; padding-inline: 32px; }
+  .dabo-editorial-garden { height: 240px; }
+}
