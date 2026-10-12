@@ -777,7 +777,7 @@ function HomeCarousel({ title, labels, children }: { title: string; labels: stri
     if (next >= 0) setActive(next);
   }
   return <section className="dabo-v31-carousel" aria-label={title}>
-    <div className="dabo-v31-carousel-heading"><h2>{title}</h2><span aria-live="polite">{labels[active]}</span></div>
+    <div className="dabo-v31-carousel-heading"><h2>{title}</h2><span className="sr-only" aria-live="polite">{labels[active]}</span></div>
     <div className="dabo-v31-carousel-track" ref={track} onScroll={syncActive}>
       {slides.map((slide, index) => <div className="dabo-v31-carousel-slide" key={index}>{slide}</div>)}
     </div>

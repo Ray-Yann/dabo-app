@@ -957,3 +957,32 @@ input, select, textarea {
 .dabo-v31-feature span{flex-basis:100%;font-size:14px;color:var(--dabo-muted)}
 @media(min-width:1000px){.dabo-v31-carousel-slide{flex-basis:min(62%,620px)}}
 @media(prefers-reduced-motion:reduce){.dabo-v31-carousel-dots button span{transition:none}.dabo-v31-carousel-track{scroll-behavior:auto}}
+
+/* Premium V3.1.1 — restrained, responsive editorial density. Scoped to the home. */
+.dabo-today-v2 .dabo-v31-carousel{margin:14px 0 8px}
+.dabo-today-v2 .dabo-v31-carousel-heading{margin-bottom:8px}
+.dabo-today-v2 .dabo-v31-carousel-heading h2,
+.dabo-today-v2 .dabo-v31-day-heading h2{font-family:var(--font-serif);font-weight:520;letter-spacing:-.035em;font-size:clamp(24px,4vw,30px)}
+.dabo-today-v2 .dabo-premium-heading .dabo-today-v2-title{font-family:var(--font-serif);font-weight:520;letter-spacing:-.045em}
+.dabo-today-v2 .dabo-v31-carousel-slide>.dabo-v3-panel{min-height:156px;height:auto;padding:14px 17px 12px;border-radius:20px}
+.dabo-today-v2 .dabo-v31-carousel-slide .dabo-v3-section-heading{padding:0 0 7px}
+.dabo-today-v2 .dabo-v31-carousel-slide .dabo-v3-section-heading h2{font-family:var(--font-serif);font-weight:540;font-size:clamp(21px,3.5vw,26px)}
+.dabo-today-v2 .dabo-v31-carousel-slide .dabo-v3-list{padding:0}
+.dabo-today-v2 .dabo-v31-carousel-slide .dabo-v3-line{min-height:54px;padding-block:8px}
+.dabo-today-v2 .dabo-v31-carousel-slide .dabo-v31-feature{padding:12px 0 6px}
+.dabo-today-v2 .dabo-v31-carousel-slide .dabo-v31-feature strong{font-size:30px}
+.dabo-today-v2 .dabo-v31-carousel-dots{margin:0 0 3px}
+.dabo-today-v2 .dabo-v31-day-summary{margin:15px 0 12px}
+.dabo-today-v2 .dabo-v31-day-tile{min-height:110px}
+/* All six shortcuts remain visible: a deliberate 3 × 2 grid on narrow screens. */
+@media(max-width:600px){
+  .dabo-today-v2 .dabo-v32-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px 8px;overflow:visible;mask-image:none;-webkit-mask-image:none;padding:4px 0 6px;margin:0}
+  .dabo-today-v2 .dabo-v32-shortcut{width:100%;min-width:0;min-height:68px;gap:5px;flex-basis:auto;font-size:12px}
+  .dabo-today-v2 .dabo-v32-shortcut-icon{width:43px;height:43px}
+  .dabo-today-v2 .dabo-v31-carousel-slide{flex-basis:87%}
+  .dabo-today-v2 .dabo-v31-day-tile{min-height:112px}
+}
+@media(min-width:601px){
+  .dabo-today-v2 .dabo-v32-shortcuts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;overflow:visible;mask-image:none;-webkit-mask-image:none;padding-right:0}
+  .dabo-today-v2 .dabo-v32-shortcut{min-width:0;width:100%;flex-basis:auto}
+}
