@@ -1051,3 +1051,37 @@ input, select, textarea {
 .dabo-v331-report-action{display:flex!important;align-items:center;gap:8px}.dabo-v331-report-action svg{flex:none}
 .dabo-v331-appearance-setting{flex-wrap:wrap}.dabo-v331-appearance-setting .dabo-appearance-inline{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:stretch}.dabo-v331-appearance-setting .dabo-appearance-option{min-width:0;white-space:nowrap}
 @media(max-width:760px){.dabo-v331-appearance-setting{align-items:flex-start}.dabo-week-grid{scroll-snap-type:x proximity}.dabo-week-day{flex:0 0 min(72vw,260px)}.dabo-v33-member-strip.is-few .dabo-v33-member{gap:6px}.dabo-v33-member-strip.is-few .dabo-v33-member p{font-size:12px}}
+
+/* DABO Premium V3.4 — expressive, semantic colour, never colour alone. */
+:root{
+  --dabo-v34-personal-bg:#d9eee5;--dabo-v34-personal-border:#29816a;--dabo-v34-personal-ink:#12523f;
+  --dabo-v34-household-bg:#ffe2ad;--dabo-v34-household-border:#b66b13;--dabo-v34-household-ink:#70410b;
+  --dabo-v34-info-bg:#e0edfb;--dabo-v34-info-border:#3474ae;--dabo-v34-info-ink:#194d7b;
+  --dabo-v34-success-bg:#d8f0e0;--dabo-v34-success-border:#35815a;--dabo-v34-success-ink:#1c583b;
+}
+[data-dabo-theme="dark"]{
+  --dabo-v34-personal-bg:#163d32;--dabo-v34-personal-border:#65c7a2;--dabo-v34-personal-ink:#b5f1d9;
+  --dabo-v34-household-bg:#493113;--dabo-v34-household-border:#efb45b;--dabo-v34-household-ink:#ffdfa1;
+  --dabo-v34-info-bg:#18364f;--dabo-v34-info-border:#79b8ec;--dabo-v34-info-ink:#c4e4ff;
+  --dabo-v34-success-bg:#173b2b;--dabo-v34-success-border:#71c69a;--dabo-v34-success-ink:#b5efcf;
+}
+.dabo-planning-context.is-me,.dabo-planning-context.is-personal{background:var(--dabo-v34-personal-bg);border:2px solid var(--dabo-v34-personal-border);color:var(--dabo-v34-personal-ink)}
+.dabo-planning-context.is-household{background:var(--dabo-v34-household-bg);border:2px solid var(--dabo-v34-household-border);color:var(--dabo-v34-household-ink)}
+.dabo-planning-context.is-all{background:var(--dabo-v34-info-bg);border:1px solid var(--dabo-v34-info-border);color:var(--dabo-v34-info-ink)}
+.dabo-planning-context .dabo-planning-context-icon{background:color-mix(in srgb,currentColor 12%,transparent);color:inherit}
+.dabo-planning-context .dabo-planning-context-copy small{color:inherit;opacity:.85}
+.dabo-planning-scopes button[aria-pressed="true"]{box-shadow:0 2px 8px rgba(0,0,0,.09)}
+.dabo-planning-scopes button[aria-pressed="true"]:nth-child(2){background:var(--dabo-v34-personal-ink);border-color:var(--dabo-v34-personal-border);color:var(--dabo-v34-personal-bg)}
+.dabo-planning-scopes button[aria-pressed="true"]:nth-child(3){background:var(--dabo-v34-household-ink);border-color:var(--dabo-v34-household-border);color:var(--dabo-v34-household-bg)}
+.dabo-week-item.is-personal,.dabo-timeline-card.dabo-event-personal{background:var(--dabo-v34-personal-bg);border-left:4px solid var(--dabo-v34-personal-border);color:var(--dabo-v34-personal-ink)}
+.dabo-week-item.is-household,.dabo-timeline-card.dabo-event-household{background:var(--dabo-v34-household-bg);border-left:4px solid var(--dabo-v34-household-border);color:var(--dabo-v34-household-ink)}
+.dabo-week-item.is-personal span,.dabo-week-item.is-household span,.dabo-week-item.is-personal .dabo-event-origin,.dabo-week-item.is-household .dabo-event-origin,.dabo-timeline-card.dabo-event-personal small,.dabo-timeline-card.dabo-event-household small{color:inherit;opacity:.85}
+.dabo-week-item.is-task{background:var(--dabo-v34-success-bg);border-left:4px solid var(--dabo-v34-success-border);color:var(--dabo-v34-success-ink)}
+.dabo-week-item.is-task span{color:inherit;opacity:.85}
+.dabo-today-v2 .dabo-semantic-tasks,.dabo-today-v2 .dabo-semantic-upcoming,.dabo-today-v2 .dabo-semantic-equity{background:var(--dabo-v34-personal-bg);border-color:var(--dabo-v34-personal-border)}
+.dabo-today-v2 .dabo-semantic-shopping,.dabo-today-v2 .dabo-semantic-finance{background:var(--dabo-v34-household-bg);border-color:var(--dabo-v34-household-border)}
+.dabo-today-v2 .dabo-semantic-today{background:var(--dabo-v34-info-bg);border-color:var(--dabo-v34-info-border)}
+.dabo-today-v2 .dabo-semantic-deadlines{background:var(--dabo-v34-household-bg);border-color:var(--dabo-v34-household-border)}
+.dabo-today-v2 .dabo-semantic-tasks strong,.dabo-today-v2 .dabo-semantic-upcoming h2,.dabo-today-v2 .dabo-semantic-shopping h2,.dabo-today-v2 .dabo-semantic-finance h2{color:var(--dabo-text)}
+@media(min-width:1100px){.dabo-week-grid{gap:10px}.dabo-week-item{padding:9px 7px}.dabo-week-item strong{font-size:11px;overflow-wrap:anywhere}}
+@media(max-width:760px){.dabo-planning-context{min-height:58px}.dabo-planning-context-copy strong{font-size:14px}.dabo-week-item strong{font-size:12px}}
