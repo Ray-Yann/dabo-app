@@ -986,3 +986,9 @@ input, select, textarea {
   .dabo-today-v2 .dabo-v32-shortcuts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;overflow:visible;mask-image:none;-webkit-mask-image:none;padding-right:0}
   .dabo-today-v2 .dabo-v32-shortcut{min-width:0;width:100%;flex-basis:auto}
 }
+
+/* Premium V3.1.2: prevent the tallest preview from stretching every slide. */
+.dabo-today-v2 .dabo-v31-carousel-track{align-items:flex-start;overflow-y:hidden;transition:height .18s ease}
+.dabo-today-v2 .dabo-v31-carousel-slide{align-self:flex-start;align-items:flex-start}
+.dabo-today-v2 .dabo-v31-carousel-slide>.dabo-v3-panel{flex:0 0 auto;align-self:flex-start}
+@media(prefers-reduced-motion:reduce){.dabo-today-v2 .dabo-v31-carousel-track{transition:none}}

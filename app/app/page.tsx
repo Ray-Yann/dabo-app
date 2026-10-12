@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
@@ -602,7 +602,7 @@ export default function TodayPage() {
   } as const)[lang];
   const shortcutItems = [
     { id: "tasks", label: t("tasks_title"), icon: ListTodo, href: "/app/taches" },
-    { id: "planning", label: t("calendar_title"), icon: CalendarDays, href: "/app/calendrier" },
+    { id: "planning", label: ({fr:"Planning",nl:"Planning",en:"Planning",de:"Planung",es:"Planificación",it:"Pianificazione",pt:"Planeamento"} as Record<string,string>)[lang] || "Planning", icon: CalendarDays, href: "/app/calendrier" },
     { id: "shopping", label: t("courses_title"), icon: ShoppingBag, href: "/app/courses" },
     { id: "finance", label: uiLabels.finance, icon: WalletCards, href: "/app/finances" },
     { id: "balance", label: t("balance_title"), icon: Scale, href: "/app/equilibre" },
@@ -762,6 +762,23 @@ function HomeCarousel({ title, labels, children }: { title: string; labels: stri
   const track = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const slides = [children].flat().filter(Boolean) as React.ReactNode[];
+  const [trackHeight, setTrackHeight] = useState<number | undefined>();
+  // Each carousel follows its active slide, not its tallest sibling.
+  // ResizeObserver also responds to late content/font changes without polling.
+  useLayoutEffect(() => {
+    const element = track.current;
+    const slide = element?.children[active] as HTMLElement | undefined;
+    if (!element || !slide) return;
+    const update = () => {
+      const nextHeight = Math.ceil(slide.getBoundingClientRect().height);
+      if (nextHeight > 0) setTrackHeight((previous) => previous === nextHeight ? previous : nextHeight);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(slide);
+    return () => observer.disconnect();
+  }, [active, slides.length]);
   function goTo(index: number) {
     const element = track.current;
     if (!element) return;
@@ -778,7 +795,7 @@ function HomeCarousel({ title, labels, children }: { title: string; labels: stri
   }
   return <section className="dabo-v31-carousel" aria-label={title}>
     <div className="dabo-v31-carousel-heading"><h2>{title}</h2><span className="sr-only" aria-live="polite">{labels[active]}</span></div>
-    <div className="dabo-v31-carousel-track" ref={track} onScroll={syncActive}>
+    <div className="dabo-v31-carousel-track" ref={track} onScroll={syncActive} style={trackHeight ? { height: trackHeight + 12 } : undefined}>
       {slides.map((slide, index) => <div className="dabo-v31-carousel-slide" key={index}>{slide}</div>)}
     </div>
     <div className="dabo-v31-carousel-dots" role="group" aria-label={title}>
