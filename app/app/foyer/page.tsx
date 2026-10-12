@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Copy, HouseHeart, Scale, Settings, Share2, Sparkles, UserRoundPlus, UsersRound, X } from "lucide-react";
+import { ChevronRight, ClipboardList, Copy, HouseHeart, Scale, Settings, Share2, Sparkles, UserRoundPlus, UsersRound, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
@@ -118,6 +118,11 @@ export default function HouseholdPage() {
         <button onClick={() => router.push("/app/equilibre")} className="dabo-v2-link-card">
           <span className="dabo-soft-icon"><Scale size={19}/></span>
           <span className="min-w-0 flex-1 text-left"><strong className="block">{t("tab_balance")}</strong><span className="text-xs text-muted">{t("weekly_report_balance_note")}</span></span>
+          <ChevronRight size={18}/>
+        </button>
+        <button onClick={() => router.push("/app/foyer/besoins")} className="dabo-v2-link-card">
+          <span className="dabo-soft-icon"><ClipboardList size={19}/></span>
+          <span className="min-w-0 flex-1 text-left"><strong className="block">{t("household_needs_title")}</strong><span className="text-xs text-muted">{t("household_needs_description")}</span></span>
           <ChevronRight size={18}/>
         </button>
         <button onClick={() => router.push("/app/reglages")} className="dabo-v2-link-card">
