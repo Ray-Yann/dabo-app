@@ -935,3 +935,25 @@ input, select, textarea {
 @media(hover:hover){.dabo-v31-day-tile:hover{transform:translateY(-2px)}}
 @media(max-width:520px){.dabo-v31-day-grid{gap:7px}.dabo-v31-day-tile{padding:12px 9px;min-height:124px}.dabo-v31-day-tile strong{font-size:26px}.dabo-v31-day-tile span{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.dabo-v31-day-tile{transition:none}}
+
+/* Premium V3.1: touch-first editorial carousels; no automatic movement. */
+.dabo-v31-carousel{margin:22px 0 16px;min-width:0}
+.dabo-v31-carousel-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 8px;color:var(--dabo-text)}
+.dabo-v31-carousel-heading h2{font-family:var(--font-serif),Georgia,serif;font-size:clamp(25px,4.4vw,32px);letter-spacing:-.025em;font-weight:650}
+.dabo-v31-carousel-heading span{font-size:12px;color:var(--dabo-muted);font-weight:600}
+.dabo-v31-carousel-track{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-inline:contain;scroll-padding-inline:1px;padding:2px 2px 10px;align-items:stretch}
+.dabo-v31-carousel-track::-webkit-scrollbar{display:none}
+.dabo-v31-carousel-slide{flex:0 0 min(87%,620px);scroll-snap-align:start;min-width:0;display:flex}
+.dabo-v31-carousel-slide>.dabo-v3-panel{width:100%;margin:0;min-height:210px}
+.dabo-v31-carousel-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin:2px 0 6px}
+.dabo-v31-carousel-dots button{min-width:35px;min-height:35px;display:grid;place-items:center;border-radius:50%}
+.dabo-v31-carousel-dots button span{display:block;width:7px;height:7px;border-radius:20px;background:var(--dabo-muted);opacity:.45;transition:width .18s ease,opacity .18s ease}
+.dabo-v31-carousel-dots button.is-active span{width:22px;opacity:1;background:var(--dabo-text)}
+.dabo-v31-carousel-dots button:focus-visible{outline:2px solid var(--dabo-text);outline-offset:1px}
+.dabo-v31-finance{background:color-mix(in srgb,var(--dabo-surface) 86%,#d9c4a0)}
+.dabo-v31-equity{background:color-mix(in srgb,var(--dabo-surface) 86%,#b8cbb4)}
+.dabo-v31-feature{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:18px 0;color:var(--dabo-text)}
+.dabo-v31-feature strong{font-family:var(--font-serif),Georgia,serif;font-size:35px}
+.dabo-v31-feature span{flex-basis:100%;font-size:14px;color:var(--dabo-muted)}
+@media(min-width:1000px){.dabo-v31-carousel-slide{flex-basis:min(62%,620px)}}
+@media(prefers-reduced-motion:reduce){.dabo-v31-carousel-dots button span{transition:none}.dabo-v31-carousel-track{scroll-behavior:auto}}

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
 import { BalanceBar } from "@/components/BalanceBar";
 import { Task, ShoppingItem, CalendarEvent, Routine } from "@/lib/types";
-import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, ScanLine, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles, ArrowRight } from "lucide-react";
+import { ShoppingBag, Info, Plus, Clock3, CalendarDays, Scale, UserRoundPlus, WalletCards, ListTodo, Bell, UsersRound, ChevronRight, X, Sparkles, ArrowRight } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { InviteNudge } from "@/components/InviteNudge";
@@ -591,6 +591,15 @@ export default function TodayPage() {
     it: { upcoming: "In arrivo", suggestions: "Suggerimenti di DABO", balance: "Vedi riepilogo", all: "Vedi tutto", scan: "Scansione", finance: "Finanze", loba: "LOBA" },
     pt: { upcoming: "Em breve", suggestions: "Sugestões da DABO", balance: "Ver resumo", all: "Ver tudo", scan: "Digitalizar", finance: "Finanças", loba: "LOBA" },
   } as const)[lang];
+  const carouselLabels = ({
+    fr: { daily: "Mon quotidien", household: "Vie du foyer", today: "Aujourd’hui", upcoming: "À venir", shopping: "Courses", emptyShopping: "Aucun article à acheter pour le moment.", emptyUpcoming: "Rien de prévu dans les prochains jours.", equityDescription: "Découvrez comment les contributions se répartissent dans votre foyer." },
+    nl: { daily: "Mijn dagelijks leven", household: "Ons huishouden", today: "Vandaag", upcoming: "Binnenkort", shopping: "Boodschappen", emptyShopping: "Momenteel niets te kopen.", emptyUpcoming: "Geen komende afspraken.", equityDescription: "Bekijk hoe de bijdragen binnen het huishouden verdeeld zijn." },
+    en: { daily: "My everyday", household: "Household life", today: "Today", upcoming: "Coming up", shopping: "Shopping", emptyShopping: "Nothing to buy right now.", emptyUpcoming: "Nothing coming up soon.", equityDescription: "Explore how contributions are shared in your household." },
+    de: { daily: "Mein Alltag", household: "Unser Haushalt", today: "Heute", upcoming: "Demnächst", shopping: "Einkäufe", emptyShopping: "Derzeit keine Einkäufe.", emptyUpcoming: "Demnächst steht nichts an.", equityDescription: "Sieh dir an, wie die Beiträge im Haushalt verteilt sind." },
+    es: { daily: "Mi día a día", household: "Vida del hogar", today: "Hoy", upcoming: "Próximamente", shopping: "Compras", emptyShopping: "No hay artículos pendientes.", emptyUpcoming: "No hay próximos eventos.", equityDescription: "Descubre cómo se reparten las contribuciones en el hogar." },
+    it: { daily: "La mia quotidianità", household: "Vita in casa", today: "Oggi", upcoming: "In arrivo", shopping: "Spesa", emptyShopping: "Nessun articolo da acquistare.", emptyUpcoming: "Nessun evento imminente.", equityDescription: "Scopri come sono distribuiti i contributi in casa." },
+    pt: { daily: "O meu dia a dia", household: "Vida em casa", today: "Hoje", upcoming: "Em breve", shopping: "Compras", emptyShopping: "Nenhum artigo por comprar.", emptyUpcoming: "Nada previsto para breve.", equityDescription: "Descobre como são partilhadas as contribuições em casa." },
+  } as const)[lang];
   const shortcutItems = [
     { id: "tasks", label: t("tasks_title"), icon: ListTodo, href: "/app/taches" },
     { id: "planning", label: t("calendar_title"), icon: CalendarDays, href: "/app/calendrier" },
@@ -598,7 +607,6 @@ export default function TodayPage() {
     { id: "finance", label: uiLabels.finance, icon: WalletCards, href: "/app/finances" },
     { id: "balance", label: t("balance_title"), icon: Scale, href: "/app/equilibre" },
     { id: "loba", label: uiLabels.loba, icon: Sparkles, href: "" },
-    { id: "scan", label: uiLabels.scan, icon: ScanLine, href: "/app/courses?scan=1" },
   ];
 
   return (
@@ -684,6 +692,7 @@ export default function TodayPage() {
             </button>
           </div>
         </section>
+        <HomeCarousel title={carouselLabels.daily} labels={[carouselLabels.today, carouselLabels.upcoming, carouselLabels.shopping]}>
         <section className="dabo-v3-panel" aria-labelledby="dabo-v3-today-title">
           <div className="dabo-v3-section-heading">
             <h2 id="dabo-v3-today-title">{({fr:"Aujourd’hui",nl:"Vandaag",en:"Today",de:"Heute",es:"Hoy",it:"Oggi",pt:"Hoje"} as Record<string,string>)[lang] || "Today"}</h2>
@@ -709,13 +718,29 @@ export default function TodayPage() {
             {attentionItems.length > visibleAttention.length && <button type="button" className="dabo-v3-expand" aria-expanded={showAllAttention} onClick={() => setShowAllAttention((previous) => !previous)}>{showAllAttention ? t("today_v3_less_attention") : t("today_v3_more_attention")}</button>}
           </div>
         </section>
-        {(upcomingEvents.length > 0 || upcomingTasks.length > 0) && <section className="dabo-v3-panel dabo-v32-upcoming" aria-labelledby="dabo-v32-upcoming-title">
+        {<section className="dabo-v3-panel dabo-v32-upcoming" aria-labelledby="dabo-v32-upcoming-title">
           <div className="dabo-v3-section-heading"><h2 id="dabo-v32-upcoming-title">{uiLabels.upcoming}</h2><button type="button" onClick={() => router.push("/app/calendrier")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
           <div className="dabo-v3-list">
             {upcomingEvents.map(({event,occurrence}) => <button type="button" key={event.id} className="dabo-v3-line" onClick={() => router.push("/app/calendrier")}><CalendarDays size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{event.title}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short"}).format(occurrence)}</small></span><ChevronRight size={18}/></button>)}
+            {upcomingEvents.length === 0 && upcomingTasks.length === 0 && <div className="dabo-v3-empty"><p>{carouselLabels.emptyUpcoming}</p></div>}
             {upcomingTasks.map((task) => <button type="button" key={task.id} className="dabo-v3-line" onClick={() => router.push("/app/taches")}><Clock3 size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{task.name}</strong><small>{new Intl.DateTimeFormat(locale,{day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(`${task.due_date}T12:00:00Z`))}</small></span><ChevronRight size={18}/></button>)}
           </div>
         </section>}
+          <section className="dabo-v3-panel dabo-v32-shopping" aria-labelledby="dabo-v3-shopping-title">
+            <div className="dabo-v3-section-heading"><h2 id="dabo-v3-shopping-title">{t("courses_title")}</h2><button type="button" onClick={() => router.push("/app/courses")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
+            <div className="dabo-v3-list">{pendingShoppingPreview.length > 0 ? pendingShoppingPreview.map((item) => <button type="button" key={item.id} className="dabo-v3-line" onClick={() => router.push("/app/courses")}><ShoppingBag size={19} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{item.name}</strong>{item.quantity && <small>{item.quantity}</small>}</span><ChevronRight size={18}/></button>) : <div className="dabo-v3-empty"><p>{carouselLabels.emptyShopping}</p></div>}</div>
+          </section>
+        </HomeCarousel>
+        <HomeCarousel title={carouselLabels.household} labels={[uiLabels.finance, t("balance_title")]}>
+          <section className="dabo-v3-panel dabo-v31-finance" aria-label={uiLabels.finance}>
+            <div className="dabo-v3-section-heading"><h2>{uiLabels.finance}</h2><button type="button" onClick={() => router.push("/app/finances")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
+            <div className="dabo-v31-feature"><WalletCards size={24} aria-hidden="true"/><strong>{summaryDueBills}</strong><span>{summaryLabels.deadlines}</span></div>
+          </section>
+          <section className="dabo-v3-panel dabo-v31-equity" aria-label={t("balance_title")}>
+            <div className="dabo-v3-section-heading"><h2>{t("balance_title")}</h2><button type="button" onClick={() => router.push("/app/equilibre")}>{uiLabels.all}<ChevronRight size={17}/></button></div>
+            <div className="dabo-v31-feature"><Scale size={24} aria-hidden="true"/><span>{carouselLabels.equityDescription}</span></div>
+          </section>
+        </HomeCarousel>
         {preparingInsight && <section className="dabo-v3-panel dabo-v32-suggestions" aria-labelledby="dabo-v32-suggestions-title" data-source={t("today_v2_preparing")}>
           <div className="dabo-v3-section-heading"><h2 id="dabo-v32-suggestions-title">{uiLabels.suggestions}</h2></div>
           <div className="dabo-v3-line dabo-v3-insight"><Sparkles size={20} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{t(preparingInsight.titleKey)}</strong><small>{t(preparingInsight.messageKey)}</small></span></div>
@@ -725,13 +750,39 @@ export default function TodayPage() {
           <div><strong>{t("today_household_intelligence_title")}</strong><small>{t("today_household_intelligence_meta")}</small></div>
           <button type="button" onClick={() => router.push("/app/bilan")}>{uiLabels.balance} <ChevronRight size={16}/></button>
         </section>}
-        {activeHouseholdShoppingCount > 0 && <section className="dabo-v3-panel dabo-v32-shopping" aria-labelledby="dabo-v3-shopping-title">
-          <div className="dabo-v3-section-heading"><h2 id="dabo-v3-shopping-title">{t("courses_title")}</h2><button type="button" onClick={() => router.push("/app/courses")}>{activeHouseholdShoppingCount} <ChevronRight size={17}/></button></div>
-          <div className="dabo-v3-list">{pendingShoppingPreview.map((item) => <button type="button" key={item.id} className="dabo-v3-line" onClick={() => router.push("/app/courses")}><ShoppingBag size={19} aria-hidden="true"/><span className="dabo-v3-line-copy"><strong>{item.name}</strong>{item.quantity && <small>{item.quantity}</small>}</span><ChevronRight size={18}/></button>)}</div>
-        </section>}
+
       </>}
 
       {completionTarget && <TaskCompletionDialog task={completionTarget} me={me} members={members} t={t} onChoose={(performerIds) => void toggleTask(completionTarget, performerIds)} onCancel={() => setCompletionTarget(null)} />}
     </main>
   );
+}
+
+function HomeCarousel({ title, labels, children }: { title: string; labels: string[]; children: React.ReactNode }) {
+  const track = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const slides = [children].flat().filter(Boolean) as React.ReactNode[];
+  function goTo(index: number) {
+    const element = track.current;
+    if (!element) return;
+    const slide = element.children[index] as HTMLElement | undefined;
+    slide?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    setActive(index);
+  }
+  function syncActive() {
+    const element = track.current;
+    if (!element) return;
+    const positions = Array.from(element.children).map((node) => Math.abs((node as HTMLElement).offsetLeft - (element.children[0] as HTMLElement).offsetLeft - element.scrollLeft));
+    const next = positions.indexOf(Math.min(...positions));
+    if (next >= 0) setActive(next);
+  }
+  return <section className="dabo-v31-carousel" aria-label={title}>
+    <div className="dabo-v31-carousel-heading"><h2>{title}</h2><span aria-live="polite">{labels[active]}</span></div>
+    <div className="dabo-v31-carousel-track" ref={track} onScroll={syncActive}>
+      {slides.map((slide, index) => <div className="dabo-v31-carousel-slide" key={index}>{slide}</div>)}
+    </div>
+    <div className="dabo-v31-carousel-dots" role="group" aria-label={title}>
+      {labels.map((label, index) => <button key={index} type="button" className={active === index ? "is-active" : ""} onClick={() => goTo(index)} aria-label={label} aria-current={active === index ? "true" : undefined}><span /></button>)}
+    </div>
+  </section>;
 }

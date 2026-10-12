@@ -6,7 +6,7 @@ const courses = readFileSync("app/app/courses/page.tsx", "utf8");
 const css = readFileSync("app/globals.css", "utf8");
 const loba = readFileSync("components/LobaHouseholdChat.tsx", "utf8");
 test("V3.1 displays the household hero before functional shortcuts", () => {
-  for (const id of ["tasks", "shopping", "finance", "balance", "loba", "scan"]) assert.match(home, new RegExp(`id: "${id}"`));
+  for (const id of ["tasks", "planning", "shopping", "finance", "balance", "loba"]) assert.match(home, new RegExp(`id: "${id}"`));
   assert.ok(home.indexOf('className="dabo-v3-hero"') < home.indexOf('className="dabo-v32-shortcuts"'));
   assert.match(css, /overflow-x:auto/);
 });
@@ -24,6 +24,6 @@ test("V3.2 previews actual shopping item names", () => {
 test("V3.2 shortcut opens existing LOBA and scan workflows", () => {
   assert.match(home, /<LobaHouseholdChat householdName=\{household\.name\} initialOpen/);
   assert.match(loba, /initialOpen\?: boolean/);
-  assert.match(home, /\/app\/courses\?scan=1/);
+  assert.doesNotMatch(home, /id: "scan"/);
   assert.match(courses, /searchParams\.get\("scan"\)/);
 });
