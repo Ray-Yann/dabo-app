@@ -83,7 +83,7 @@ export default function HouseholdPage() {
           </div>)}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="dabo-household-member-actions mt-4 grid grid-cols-2 gap-2">
           <button onClick={() => setInviteOpen(true)} className="dabo-primary-action w-full justify-center">
             <UserRoundPlus size={18}/>{t("settings_invite_member")}
           </button>
