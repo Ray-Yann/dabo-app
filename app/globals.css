@@ -918,3 +918,20 @@ input, select, textarea {
   .dabo-v3-line, .dabo-v3-list > button { min-height: 60px; padding-block: 9px; gap: 12px; }
   .dabo-v3-section-heading h2, .dabo-v3-panel > h2 { font-size: clamp(23px, 5vw, 27px); }
 }
+/* Aujourd'hui Premium V3.1 — factual, member-scoped day summary */
+.dabo-v31-day-summary{margin:21px 0 18px;color:var(--dabo-text)}
+.dabo-v31-day-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.dabo-v31-day-heading h2{font-family:var(--font-serif),Georgia,serif;font-size:clamp(25px,4.4vw,32px);font-weight:650;letter-spacing:-.025em}
+.dabo-v31-day-scope{font-size:12px;color:var(--dabo-muted);font-weight:650;white-space:nowrap}
+.dabo-v31-day-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.dabo-v31-day-tile{display:grid;grid-template-columns:1fr auto;align-content:start;gap:7px 4px;min-height:125px;padding:15px 13px;text-align:left;border-radius:17px;border:1px solid var(--dabo-line);background:color-mix(in srgb,var(--dabo-surface) 86%,#afc4a9);color:var(--dabo-text);transition:transform .18s ease}
+.dabo-v31-day-tile:nth-child(2){background:color-mix(in srgb,var(--dabo-surface) 88%,#d9c4a0)}
+.dabo-v31-day-tile:nth-child(3){background:color-mix(in srgb,var(--dabo-surface) 88%,#b9cbd0)}
+.dabo-v31-day-tile>svg:first-child{grid-column:1/-1;color:var(--dabo-muted)}
+.dabo-v31-day-tile strong{font-family:var(--font-serif),Georgia,serif;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.dabo-v31-day-tile span{grid-column:1/-1;font-size:12px;line-height:1.35;font-weight:600;overflow-wrap:anywhere}
+.dabo-v31-day-tile>svg:last-child{grid-column:2;grid-row:2;color:var(--dabo-muted)}
+.dabo-v31-day-tile:focus-visible{outline:2px solid var(--dabo-text);outline-offset:3px}
+@media(hover:hover){.dabo-v31-day-tile:hover{transform:translateY(-2px)}}
+@media(max-width:520px){.dabo-v31-day-grid{gap:7px}.dabo-v31-day-tile{padding:12px 9px;min-height:124px}.dabo-v31-day-tile strong{font-size:26px}.dabo-v31-day-tile span{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.dabo-v31-day-tile{transition:none}}

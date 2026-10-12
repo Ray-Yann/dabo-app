@@ -562,6 +562,26 @@ export default function TodayPage() {
   const upcomingTasks = tasks.filter((task) => task.status === "pending" && !!task.due_date && task.due_date > today)
     .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || "")).slice(0, 3);
   const pendingShoppingPreview = items.filter((item) => item.status === "to_buy").slice(0, 3);
+  // V3.1: summary uses only the data this member is authorised to read.
+  // Never use the global household shopping count for a member-specific shortcut.
+  const summaryPendingTasks = tasks.filter((task) => task.status === "pending").length;
+  const summaryShoppingItems = items.filter((item) => item.status === "to_buy").length;
+  const summaryDeadlineLimit = new Date(`${today}T12:00:00Z`);
+  summaryDeadlineLimit.setUTCDate(summaryDeadlineLimit.getUTCDate() + 3);
+  const summaryDeadlineCutoff = summaryDeadlineLimit.toISOString().slice(0, 10);
+  const summaryDueBills = financeBills.filter((bill) =>
+    bill.status === "pending" && !!bill.due_on && bill.due_on <= summaryDeadlineCutoff
+  ).length;
+  const summaryLabels = ({
+    fr: { title: "Votre journée", scope: "Le foyer", tasks: "Tâches à faire", shopping: "Articles à acheter", deadlines: "Échéances à surveiller" },
+    nl: { title: "Jouw dag", scope: "Het huishouden", tasks: "Openstaande taken", shopping: "Te kopen artikelen", deadlines: "Te bewaken vervaldagen" },
+    en: { title: "Your day", scope: "Household", tasks: "Tasks to do", shopping: "Items to buy", deadlines: "Due dates to watch" },
+    de: { title: "Dein Tag", scope: "Haushalt", tasks: "Offene Aufgaben", shopping: "Artikel zum Kaufen", deadlines: "Anstehende Fristen" },
+    es: { title: "Tu día", scope: "Hogar", tasks: "Tareas pendientes", shopping: "Artículos por comprar", deadlines: "Vencimientos a vigilar" },
+    it: { title: "La tua giornata", scope: "Casa", tasks: "Attività da fare", shopping: "Articoli da acquistare", deadlines: "Scadenze da seguire" },
+    pt: { title: "O teu dia", scope: "Lar", tasks: "Tarefas por fazer", shopping: "Artigos para comprar", deadlines: "Prazos a acompanhar" },
+  } as const)[lang];
+
   const uiLabels = ({
     fr: { upcoming: "À venir", suggestions: "Suggestions de DABO", balance: "Voir le bilan", all: "Tout voir", scan: "Scan", finance: "Finances", loba: "LOBA" },
     nl: { upcoming: "Binnenkort", suggestions: "Suggesties van DABO", balance: "Bekijk het overzicht", all: "Alles bekijken", scan: "Scan", finance: "Financiën", loba: "LOBA" },
@@ -644,6 +664,26 @@ export default function TodayPage() {
           </div>
         </section>
       ) : <>
+        <section className="dabo-v31-day-summary" aria-labelledby="dabo-v31-day-summary-title">
+          <div className="dabo-v31-day-heading">
+            <h2 id="dabo-v31-day-summary-title">{summaryLabels.title}</h2>
+            <span className="dabo-v31-day-scope">{summaryLabels.scope}</span>
+          </div>
+          <div className="dabo-v31-day-grid">
+            <button type="button" className="dabo-v31-day-tile" onClick={() => router.push("/app/taches")} aria-label={`${summaryLabels.tasks}: ${summaryPendingTasks}`}>
+              <ListTodo size={19} aria-hidden="true" />
+              <strong>{summaryPendingTasks}</strong><span>{summaryLabels.tasks}</span><ChevronRight size={15} aria-hidden="true" />
+            </button>
+            <button type="button" className="dabo-v31-day-tile" onClick={() => router.push("/app/courses")} aria-label={`${summaryLabels.shopping}: ${summaryShoppingItems}`}>
+              <ShoppingBag size={19} aria-hidden="true" />
+              <strong>{summaryShoppingItems}</strong><span>{summaryLabels.shopping}</span><ChevronRight size={15} aria-hidden="true" />
+            </button>
+            <button type="button" className="dabo-v31-day-tile" onClick={() => router.push("/app/finances")} aria-label={`${summaryLabels.deadlines}: ${summaryDueBills}`}>
+              <CalendarDays size={19} aria-hidden="true" />
+              <strong>{summaryDueBills}</strong><span>{summaryLabels.deadlines}</span><ChevronRight size={15} aria-hidden="true" />
+            </button>
+          </div>
+        </section>
         <section className="dabo-v3-panel" aria-labelledby="dabo-v3-today-title">
           <div className="dabo-v3-section-heading">
             <h2 id="dabo-v3-today-title">{({fr:"Aujourd’hui",nl:"Vandaag",en:"Today",de:"Heute",es:"Hoy",it:"Oggi",pt:"Hoje"} as Record<string,string>)[lang] || "Today"}</h2>
