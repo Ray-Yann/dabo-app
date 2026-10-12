@@ -573,6 +573,7 @@ export default function TodayPage() {
   } as const)[lang];
   const shortcutItems = [
     { id: "tasks", label: t("tasks_title"), icon: ListTodo, href: "/app/taches" },
+    { id: "planning", label: t("calendar_title"), icon: CalendarDays, href: "/app/calendrier" },
     { id: "shopping", label: t("courses_title"), icon: ShoppingBag, href: "/app/courses" },
     { id: "finance", label: uiLabels.finance, icon: WalletCards, href: "/app/finances" },
     { id: "balance", label: t("balance_title"), icon: Scale, href: "/app/equilibre" },
@@ -599,6 +600,11 @@ export default function TodayPage() {
         </div>
       </header>
 
+      <section className="dabo-v3-hero" aria-label={household.name}>
+        <div className="dabo-v3-hero-photo" role="img" aria-label={household.name} />
+        <div className="dabo-v3-hero-legend">{household.name}</div>
+      </section>
+
       <nav className="dabo-v32-shortcuts" aria-label={t("quick_actions_title")}>
         {shortcutItems.map((shortcut) => <button type="button" key={shortcut.id} className="dabo-v32-shortcut"
           onClick={() => shortcut.id === "loba" ? setShowLobaShortcut(true) : router.push(shortcut.href)}>
@@ -607,11 +613,6 @@ export default function TodayPage() {
         </button>)}
       </nav>
       {showLobaShortcut && <section className="dabo-v32-loba" aria-label="LOBA"><LobaHouseholdChat householdName={household.name} initialOpen /></section>}
-
-      <section className="dabo-v3-hero" aria-label={household.name}>
-        <div className="dabo-v3-hero-photo" role="img" aria-label={household.name} />
-        <div className="dabo-v3-hero-legend">{household.name}</div>
-      </section>
 
       {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
         <section className="dabo-premium-sheet" role="dialog" aria-modal="true" aria-label={t("settings_members")} onClick={(event) => event.stopPropagation()}>
