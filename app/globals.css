@@ -1208,3 +1208,39 @@ input, select, textarea {
     line-height: 1.35;
   }
 }
+
+/* DABO Premium V3.4.5 — Seven-column desktop agenda, including scaled Windows PWAs.
+   The previous 1200px breakpoint left common 1000–1199 CSS-pixel windows
+   in the horizontal-scrolling tablet layout. Keep touch/mobile behavior. */
+@media (min-width: 900px) {
+  .dabo-week-board {
+    box-sizing: border-box;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(100vw - 48px), 1320px);
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-inline: 12px;
+  }
+  .dabo-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    overflow-x: visible;
+    gap: 7px;
+  }
+  .dabo-week-day { min-width: 0; }
+  .dabo-week-item { min-width: 0; padding: 8px 6px; }
+  .dabo-week-item strong {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
