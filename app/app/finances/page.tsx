@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, ReceiptText, WalletCards } from "lucide-react";
@@ -42,7 +42,9 @@ const LOCALES = { fr:"fr-BE", nl:"nl-BE", en:"en-GB", de:"de-DE", es:"es-ES", it
 
 function money(value: number, locale: string) { return new Intl.NumberFormat(locale, { style:"currency", currency:"EUR" }).format(value); }
 function parseMoneyInput(raw: string) {
-  let value = raw.trim().replace(/Â /g, "").replace(/\s/g, "").replace(/EUR/gi, "").replace(/â‚¬/g, "");
+  // Accept both user-entered amounts and values formatted by Intl.NumberFormat
+  // (including narrow no-break spaces and the EUR symbol).
+  let value = raw.trim().replace(/[\s\u00a0\u202f]/g, "").replace(/EUR|€/gi, "");
   if (!value) return null;
 
   const comma = value.lastIndexOf(",");
@@ -58,7 +60,15 @@ function parseMoneyInput(raw: string) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : null;
 }
-function todayKey() { return new Date().toISOString().slice(0,10); }
+function todayKey() {
+  // Financial dates are calendar dates in the user's local timezone, not UTC.
+  // ISO UTC dates can move a transaction to yesterday or tomorrow near midnight.
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export default function BudgetPage() {
   const { loading, household, me, members, supabase } = useHousehold();
@@ -139,7 +149,8 @@ export default function BudgetPage() {
   const monthRange=financePeriodRange("month",periodAnchor);
   const monthCats=categoryTotals(transactions,monthRange.start,monthRange.endExclusive);
   const visibleTx=transactions.filter(t=>t.status==="posted"&&t.occurred_on>=range.start&&t.occurred_on<range.endExclusive).slice(0,8);
-  const visibleBills=bills.filter(b=>b.status==="pending"&&b.due_on>=range.start&&b.due_on<range.endExclusive).slice(0,8);
+  const periodBills=bills.filter(b=>b.status==="pending"&&b.due_on>=range.start&&b.due_on<range.endExclusive);
+  const visibleBills=periodBills.slice(0,8);
 
   function reset(next:FormKind=null){setForm(next);setEditingExpense(null);setLabel("");setAmount("");setCategory("autre");setDate(todayKey());setPayer(me?.id||"");setBillRecurrence("once");setError(null);}
   function startExpenseEdit(tx:Transaction){
@@ -218,17 +229,17 @@ export default function BudgetPage() {
       </div>
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metric label={t("finance_spent")} value={money(spent, locale)} note={change===null?t("finance_no_comparison"):change===0?t("finance_stable_previous"):`${change>0?"+":""}${change}% ${t("finance_vs_previous")}`}/>
-        <Metric label={t("finance_still_to_pay")} value={money(pending, locale)} note={`${visibleBills.length} ${visibleBills.length===1?t("finance_bill_singular"):t("finance_bill_plural")} ${t("finance_in_period")}`}/>
+        <Metric label={t("finance_still_to_pay")} value={money(pending, locale)} note={`${periodBills.length} ${periodBills.length===1?t("finance_bill_singular"):t("finance_bill_plural")} ${t("finance_in_period")}`}/>
         <Metric label={t("finance_known_commitments")} value={money(commitments, locale)} note={t("finance_commitments_note")}/>
       </div>
     </section>
-
-    {error&&<div className="mx-5 mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
     <div className="mx-5 mt-5 grid grid-cols-3 gap-2">
       <ActionButton onClick={()=>reset("expense")} label={t("finance_expense")}/><ActionButton onClick={()=>reset("bill")} label={t("finance_bill")}/><ActionButton onClick={()=>reset("reference")} label={t("finance_reference")}/>
     </div>
     </>}
+
+    {error&&<div role="alert" className="mx-5 mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
     {form&&<section className="mx-5 mt-4 rounded-3xl border border-borderLight bg-paper p-5">
       <div className="flex items-center justify-between"><h3 className="font-serif text-lg">{form==="expense"?(editingExpense?t("finance_edit_expense"):t("finance_add_expense")):form==="bill"?t("finance_add_bill"):t("finance_add_reference")}</h3><button onClick={()=>reset()} className="text-sm text-muted">{t("finance_cancel")}</button></div>

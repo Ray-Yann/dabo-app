@@ -80,6 +80,49 @@ export default function TodayPage() {
   const [showEquityInfo, setShowEquityInfo] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  const membersDialogRef = useRef<HTMLElement>(null);
+  const membersTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!membersOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const dialog = membersDialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) ?? []).filter((element) => element.getClientRects().length > 0);
+    (focusable()[0] ?? dialog)?.focus();
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMembersOpen(false);
+      }
+      if (event.key !== "Tab") return;
+      const controls = focusable();
+      if (!controls.length) {
+        event.preventDefault();
+        dialog?.focus();
+        return;
+      }
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => {
+      window.removeEventListener("keydown", onEscape);
+      document.body.style.overflow = previousBodyOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+      else membersTriggerRef.current?.focus();
+    };
+  }, [membersOpen]);
   const [showAllAttention, setShowAllAttention] = useState(false);
   const [showLobaShortcut, setShowLobaShortcut] = useState(false);
   const [householdInboxText, setHouseholdInboxText] = useState("");
@@ -618,7 +661,7 @@ export default function TodayPage() {
           <p className="dabo-today-v2-date">{todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}</p>
         </div>
         <div className="dabo-premium-top-actions">
-          <button type="button" className="dabo-premium-avatars" onClick={() => setMembersOpen(true)} aria-label={t("settings_members")}>
+          <button type="button" ref={membersTriggerRef} className="dabo-premium-avatars" onClick={() => setMembersOpen(true)} aria-label={t("settings_members")} aria-haspopup="dialog" aria-expanded={membersOpen} aria-controls="dabo-members-dialog">
             {members.slice(0, 3).map((member) => (
               <span key={member.id} className="dabo-premium-avatar"><Avatar member={member} members={members} size={33} /></span>
             ))}
@@ -643,14 +686,16 @@ export default function TodayPage() {
       {showLobaShortcut && <section className="dabo-v32-loba" aria-label="LOBA"><LobaHouseholdChat householdName={household.name} initialOpen /></section>}
 
       {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
-        <section className="dabo-premium-sheet" role="dialog" aria-modal="true" aria-label={t("settings_members")} onClick={(event) => event.stopPropagation()}>
-          <div className="dabo-premium-sheet-title"><h2>{t("settings_members")}</h2><button type="button" onClick={() => setMembersOpen(false)} aria-label="×"><X size={22}/></button></div>
+        <section id="dabo-members-dialog" ref={membersDialogRef} tabIndex={-1} className="dabo-premium-sheet" role="dialog" aria-modal="true" aria-labelledby="dabo-members-dialog-title" onClick={(event) => event.stopPropagation()}>
+          <div className="dabo-premium-sheet-title"><h2 id="dabo-members-dialog-title">{t("settings_members")}</h2><button type="button" onClick={() => setMembersOpen(false)} aria-label={t("close")}><X size={22}/></button></div>
           <p className="dabo-premium-sheet-household">{household.name}</p>
-          {members.map((member) => <div key={member.id} className="dabo-premium-member-row">
-            <Avatar member={member} members={members} size={44} />
-            <span>{member.first_name}{member.id === me.id ? ` · ${t("settings_profile_desc")}` : ""}</span>
-          </div>)}
-          <button type="button" className="dabo-premium-manage" onClick={() => router.push("/app/foyer")}><UsersRound size={20}/><span>{t("settings_members")}</span><ChevronRight size={18}/></button>
+          <div role="list" aria-label={t("settings_members")}>
+            {members.map((member) => <div key={member.id} role="listitem" className="dabo-premium-member-row">
+              <Avatar member={member} members={members} size={44} />
+              <span>{member.first_name}{member.id === me.id ? ` · ${t("settings_profile_desc")}` : ""}</span>
+            </div>)}
+          </div>
+          <button type="button" className="dabo-premium-manage" onClick={() => { setMembersOpen(false); router.push("/app/foyer"); }}><UsersRound size={20}/><span>{t("settings_members")}</span><ChevronRight size={18}/></button>
         </section>
       </div>}
 

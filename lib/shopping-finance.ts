@@ -26,3 +26,12 @@ export function shoppingSessionPromptEligible(
   if (!Number.isFinite(promptedAt)) return true;
   return now.getTime() - promptedAt >= snoozeMinutes * 60_000;
 }
+
+/** Parse a positive EUR amount without silently rounding or accepting malformed input. */
+export function parseShoppingFinanceAmount(input: string): number | null {
+  const compact = input.trim().replace(/[\s\u00a0\u202f]/g, "").replace(/€$/, "");
+  if (!/^(?:\d+)(?:[.,]\d{1,2})?$/.test(compact)) return null;
+  const value = Number(compact.replace(",", "."));
+  if (!Number.isFinite(value) || value <= 0 || !Number.isSafeInteger(Math.round(value * 100))) return null;
+  return Math.round(value * 100) / 100;
+}

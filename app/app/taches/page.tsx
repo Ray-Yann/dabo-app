@@ -218,6 +218,8 @@ export default function TasksPage() {
   const deferredDoneSearch = useDeferredValue(doneSearch);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [recurrenceDeleteTarget, setRecurrenceDeleteTarget] = useState<Task | null>(null);
+  const recurrenceDialogRef = useRef<HTMLDivElement | null>(null);
+  const recurrenceReturnFocusRef = useRef<HTMLElement | null>(null);
   const [showFloatingAdd, setShowFloatingAdd] = useState(false);
   const [taskContributions, setTaskContributions] = useState<Record<string, { id: string; hidden_from_task_history: boolean; cancelled_at: string | null }>>({});
   const [historyActionTask, setHistoryActionTask] = useState<Task | null>(null);
@@ -227,6 +229,42 @@ export default function TasksPage() {
   const [completedConfirmation, setCompletedConfirmation] = useState(false);
   const [completionTarget, setCompletionTarget] = useState<Task | null>(null);
   const topAddRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!recurrenceDeleteTarget) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    recurrenceReturnFocusRef.current = previousFocus;
+    const dialog = recurrenceDialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog?.querySelector<HTMLButtonElement>("button")?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setRecurrenceDeleteTarget(null);
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button:not([disabled])"));
+      if (!buttons.length) return;
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [recurrenceDeleteTarget]);
 
   async function loadTasks() {
     setRoutineAdaptationNow(Date.now());
@@ -985,10 +1023,10 @@ export default function TasksPage() {
 
       {recurrenceDeleteTarget && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4" onClick={() => setRecurrenceDeleteTarget(null)}>
-          <div className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div ref={recurrenceDialogRef} role="dialog" aria-modal="true" aria-labelledby="recurrence-delete-dialog-title" aria-describedby="recurrence-delete-dialog-description" className="w-full sm:max-w-md bg-paper rounded-t-3xl sm:rounded-3xl p-5 pb-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5 sm:hidden" />
-            <h2 className="font-serif text-xl text-ink mb-1">{t("recurrence_delete_title")}</h2>
-            <p className="text-sm text-muted mb-5">{t("recurrence_delete_intro")}</p>
+            <h2 id="recurrence-delete-dialog-title" className="font-serif text-xl text-ink mb-1">{t("recurrence_delete_title")}</h2>
+            <p id="recurrence-delete-dialog-description" className="text-sm text-muted mb-5">{t("recurrence_delete_intro")}</p>
             <div className="space-y-2">
               <button type="button" onClick={() => handleRecurringDelete("occurrence")} className="w-full text-left border border-border rounded-2xl p-4 hover:bg-white2 transition-colors">
                 <div className="text-sm font-medium text-ink">{t("recurrence_delete_occurrence")}</div>

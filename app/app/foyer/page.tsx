@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ClipboardList, Copy, HouseHeart, Scale, Settings, Share2, Sparkles, UserRoundPlus, UsersRound, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
@@ -15,6 +15,67 @@ export default function HouseholdPage() {
   const t = useT();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const inviteTriggerRef = useRef<HTMLButtonElement>(null);
+  const inviteDialogRef = useRef<HTMLElement>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+  }, []);
+
+  function markInviteCopied() {
+    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+    setCopied(true);
+    copiedTimerRef.current = setTimeout(() => {
+      setCopied(false);
+      copiedTimerRef.current = null;
+    }, 1500);
+  }
+
+  useEffect(() => {
+    if (!inviteOpen) {
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = null;
+      setCopied(false);
+      return;
+    }
+    const dialog = inviteDialogRef.current;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : inviteTriggerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const getFocusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) ?? []).filter((element) => element.getClientRects().length > 0);
+    (getFocusable()[0] ?? dialog)?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setInviteOpen(false);
+      } else if (event.key === "Tab") {
+        const focusable = getFocusable();
+        if (focusable.length === 0) {
+          event.preventDefault();
+          dialog?.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [inviteOpen]);
   if (loading || !household || !me) return <LoadingState />;
 
   const memberCountLabel = t("household_hub_member_count").replace("{count}", String(members.length));
@@ -28,8 +89,7 @@ export default function HouseholdPage() {
     try {
       if (!navigator.clipboard || !inviteUrl) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      markInviteCopied();
     } catch {
       setCopied(false);
     }
@@ -48,8 +108,7 @@ export default function HouseholdPage() {
     try {
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(`${inviteText} ${inviteUrl}`);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      markInviteCopied();
     } catch {
       setCopied(false);
     }
@@ -84,7 +143,7 @@ export default function HouseholdPage() {
         </div>
 
         <div className="dabo-household-member-actions mt-4 grid grid-cols-2 gap-2">
-          <button onClick={() => setInviteOpen(true)} className="dabo-primary-action w-full justify-center">
+          <button ref={inviteTriggerRef} type="button" aria-haspopup="dialog" aria-expanded={inviteOpen} onClick={() => setInviteOpen(true)} className="dabo-primary-action w-full justify-center">
             <UserRoundPlus size={18}/>{t("settings_invite_member")}
           </button>
           <button onClick={() => router.push("/app/reglages#dabo-members")} className="dabo-secondary-action w-full justify-center">
@@ -134,7 +193,7 @@ export default function HouseholdPage() {
     </section>
 
     {inviteOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/35 p-0 sm:items-center sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInviteOpen(false); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="household-invite-title" className="w-full max-w-md rounded-t-[1.75rem] border border-borderLight bg-paper p-5 shadow-2xl sm:rounded-[1.75rem] sm:p-6">
+      <section ref={inviteDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="household-invite-title" className="w-full max-w-md rounded-t-[1.75rem] border border-borderLight bg-paper p-5 shadow-2xl sm:rounded-[1.75rem] sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="dabo-kicker">DABO</p>
@@ -158,6 +217,7 @@ export default function HouseholdPage() {
           {inviteUrl && <p className="mt-2 truncate text-xs text-muted">{inviteUrl}</p>}
         </div>
 
+        <p role="status" aria-live="polite" className="sr-only">{copied ? t("copied") : ""}</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" onClick={() => void copyInviteLink()} className="dabo-secondary-action w-full justify-center">
             <Copy size={17}/>{copied ? t("copied") : t("copy")}

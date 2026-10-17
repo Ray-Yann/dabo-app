@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
@@ -91,6 +91,37 @@ export default function CalendarPage() {
   const [editReminderDays, setEditReminderDays] = useState(0);
   const [showEditMoreOptions, setShowEditMoreOptions] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const deleteDialogRef = useRef<HTMLDivElement>(null);
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const dialog = deleteDialogRef.current;
+    if (!dialog) return;
+    deleteTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+    controls()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setDeleteTarget(null); return; }
+      if (event.key !== "Tab") return;
+      const focusable = controls();
+      if (!focusable.length) { event.preventDefault(); return; }
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      deleteTriggerRef.current?.focus();
+    };
+  }, [deleteTarget]);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [firstValueConfirmation, setFirstValueConfirmation] = useState(false);
   useEffect(() => {
@@ -908,6 +939,7 @@ export default function CalendarPage() {
           onClick={() => setDeleteTarget(null)}
         >
           <div
+            ref={deleteDialogRef}
             className="w-full max-w-sm rounded-3xl border border-borderLight bg-white2 p-5 shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >

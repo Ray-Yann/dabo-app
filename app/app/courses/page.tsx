@@ -18,7 +18,7 @@ import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { NativeNameInput } from "@/components/NativeNameInput";
 import { DaboScanView } from "@/components/DaboScanView";
-import { shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
+import { parseShoppingFinanceAmount, shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
@@ -174,6 +174,8 @@ export default function CoursesPage() {
   const [suggestionMenuOpen, setSuggestionMenuOpen] = useState(false);
   const [actionItemId, setActionItemId] = useState<string | null>(null);
   const headerAddButtonRef = useRef<HTMLButtonElement | null>(null);
+  const addChoiceDialogRef = useRef<HTMLDivElement | null>(null);
+  const addChoiceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [headerAddButtonVisible, setHeaderAddButtonVisible] = useState(true);
   const [shoppingFinanceSession, setShoppingFinanceSession] = useState<ShoppingFinanceSession | null>(null);
   const [shoppingFinanceAmount, setShoppingFinanceAmount] = useState("");
@@ -200,6 +202,43 @@ export default function CoursesPage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!showAddChoice) return;
+    const dialog = addChoiceDialogRef.current;
+    const trigger = document.activeElement instanceof HTMLButtonElement
+      ? document.activeElement
+      : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog?.querySelector<HTMLButtonElement>("button")?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setShowAddChoice(false);
+      } else if (event.key === "Tab" && dialog) {
+        const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button:not([disabled])"));
+        if (!buttons.length) return;
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      const restoreTarget = addChoiceTriggerRef.current ?? trigger;
+      if (restoreTarget?.isConnected) restoreTarget.focus();
+    };
+  }, [showAddChoice]);
+
   const loadShoppingFinancePrompt = useCallback(async () => {
     if (!household) return;
     const { data, error } = await supabase
@@ -217,9 +256,8 @@ export default function CoursesPage() {
 
   async function recordShoppingFinance() {
     if (!shoppingFinanceSession || !shoppingFinancePayer) return;
-    const normalized = shoppingFinanceAmount.replace(/\s/g, "").replace("€", "").replace(",", ".");
-    const value = Number(normalized);
-    if (!Number.isFinite(value) || value <= 0) {
+    const value = parseShoppingFinanceAmount(shoppingFinanceAmount);
+    if (value === null) {
       setShoppingFinanceError(t("courses_finance_amount_error"));
       return;
     }
@@ -227,7 +265,7 @@ export default function CoursesPage() {
     setShoppingFinanceError("");
     const { error } = await supabase.rpc("dabo_record_shopping_session_expense", {
       p_session_id: shoppingFinanceSession.id,
-      p_amount: Math.round(value * 100) / 100,
+      p_amount: value,
       p_paid_by_member_id: shoppingFinancePayer,
     });
     setShoppingFinanceBusy(false);
@@ -243,16 +281,22 @@ export default function CoursesPage() {
   }
 
   async function postponeShoppingFinance() {
-    if (!shoppingFinanceSession) return;
-    await supabase.from("shopping_sessions").update({ prompted_at: new Date().toISOString() }).eq("id", shoppingFinanceSession.id);
+    if (!shoppingFinanceSession || shoppingFinanceBusy) return;
+    setShoppingFinanceBusy(true);
+    const { error } = await supabase.from("shopping_sessions").update({ prompted_at: new Date().toISOString() }).eq("id", shoppingFinanceSession.id).eq("household_id", shoppingFinanceSession.household_id).eq("state", "pending").select("id").single();
+    setShoppingFinanceBusy(false);
+    if (error) { setShoppingFinanceError(t("courses_finance_save_error")); return; }
     setShoppingFinanceSession(null);
     setShoppingFinanceAmount("");
     setShoppingFinanceError("");
   }
 
   async function dismissShoppingFinance() {
-    if (!shoppingFinanceSession) return;
-    await supabase.from("shopping_sessions").update({ state: "dismissed", prompted_at: new Date().toISOString() }).eq("id", shoppingFinanceSession.id);
+    if (!shoppingFinanceSession || shoppingFinanceBusy) return;
+    setShoppingFinanceBusy(true);
+    const { error } = await supabase.from("shopping_sessions").update({ state: "dismissed", prompted_at: new Date().toISOString() }).eq("id", shoppingFinanceSession.id).eq("household_id", shoppingFinanceSession.household_id).eq("state", "pending").select("id").single();
+    setShoppingFinanceBusy(false);
+    if (error) { setShoppingFinanceError(t("courses_finance_save_error")); return; }
     setShoppingFinanceSession(null);
     setShoppingFinanceAmount("");
     setShoppingFinanceError("");
@@ -953,9 +997,10 @@ export default function CoursesPage() {
             <button
               ref={headerAddButtonRef}
               type="button"
-              onClick={() => setShowAddChoice(true)}
+              onClick={(event) => { addChoiceTriggerRef.current = event.currentTarget; setShowAddChoice(true); }}
               className="dabo-primary-action bg-ink text-paper px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5"
               aria-haspopup="dialog"
+              aria-expanded={showAddChoice}
             >
               <Plus size={15} /> {t("add")}
             </button>
@@ -972,6 +1017,7 @@ export default function CoursesPage() {
             aria-label={t("close")}
           />
           <div
+            ref={addChoiceDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="courses-add-choice-title"
@@ -1141,7 +1187,7 @@ export default function CoursesPage() {
             </label>
           </div>
           <p className="mt-2 text-xs text-muted">{t("courses_finance_amount_hint")}</p>
-          {shoppingFinanceError && <p className="mt-2 text-xs font-medium text-red-700">{shoppingFinanceError}</p>}
+          {shoppingFinanceError && <p role="alert" className="mt-2 text-xs font-medium text-red-700">{shoppingFinanceError}</p>}
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
             <button disabled={shoppingFinanceBusy} onClick={recordShoppingFinance} className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">{shoppingFinanceBusy ? t("scan_saving") : t("courses_finance_record")}</button>
             <button disabled={shoppingFinanceBusy} onClick={postponeShoppingFinance} className="rounded-xl border border-borderLight px-4 py-2.5 text-sm font-medium text-ink disabled:opacity-50">{t("courses_finance_later")}</button>
@@ -1548,7 +1594,7 @@ export default function CoursesPage() {
       {!offlineShoppingMode && effectiveView === "to_buy" && !showAdd && !headerAddButtonVisible && (
         <button
           type="button"
-          onClick={() => setShowAddChoice(true)}
+          onClick={(event) => { addChoiceTriggerRef.current = event.currentTarget; setShowAddChoice(true); }}
           className="md:hidden fixed right-5 bottom-24 z-20 rounded-full bg-ink px-4 py-3 text-sm font-medium text-paper shadow-lg"
           aria-haspopup="dialog"
         >

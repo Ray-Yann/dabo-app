@@ -9,7 +9,7 @@ test("Courses uses the primary Add action to open the shopping action chooser", 
     coursesSource.includes("const [showAddChoice, setShowAddChoice] = useState(false);"),
   );
   assert.ok(
-    coursesSource.includes("onClick={() => setShowAddChoice(true)}"),
+    coursesSource.includes("setShowAddChoice(true); }"),
   );
 });
 
@@ -41,4 +41,18 @@ test("Courses action chooser is implemented as an accessible mobile bottom sheet
   assert.ok(coursesSource.includes('aria-modal="true"'));
   assert.ok(coursesSource.includes('t("courses_add_choice_title")'));
   assert.ok(coursesSource.includes('aria-haspopup="dialog"'));
+});
+
+
+test("Courses chooser traps keyboard focus and closes with Escape", () => {
+  assert.match(coursesSource, /if \(event\.key === "Escape"\)/);
+  assert.match(coursesSource, /event\.key === "Tab" && dialog/);
+  assert.match(coursesSource, /ref=\{addChoiceDialogRef\}/);
+});
+
+test("Courses chooser restores focus and background scrolling", () => {
+  assert.match(coursesSource, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(coursesSource, /document\.body\.style\.overflow = previousOverflow/);
+  assert.match(coursesSource, /restoreTarget\.focus\(\)/);
+  assert.match(coursesSource, /aria-expanded=\{showAddChoice\}/);
 });
