@@ -28,10 +28,15 @@ test("Primary shortcuts use recognizable, distinct functional pictograms", () =>
 });
 
 test("Aujourd'hui preserves its editorial structure and bottom navigation", () => {
-  for (const marker of ["dabo-premium-topbar", "dabo-v3-hero", "dabo-v32-shortcuts", "dabo-v3-insight"]) {
+  for (const marker of ["dabo-premium-topbar", "dabo-v3-hero", "dabo-v3-insight"]) {
     assert.ok(home.includes(marker), `Missing validated home marker: ${marker}`);
   }
-  assert.match(css, /\.dabo-today-v2 \.dabo-v32-shortcuts\{display:grid/);
+  // The six frozen primary shortcuts now appear inside the accessible single-row carousel.
+  assert.match(home, /<DaboQuickAccessCarousel language=\{lang\} primary=\{shortcutItems\}/);
+  const carousel = fs.readFileSync("components/DaboGlobalSearch.tsx", "utf8");
+  assert.match(carousel, /className="dabo-quick-track"/);
+  assert.match(carousel, /className="dabo-v32-shortcut"/);
+  assert.match(css, /overflow-x:auto/);
   const layout = fs.readFileSync("app/app/layout.tsx", "utf8");
   assert.match(layout, /AppShell/);
 });

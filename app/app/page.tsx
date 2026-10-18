@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
+import { DaboGlobalSearch, DaboQuickAccessCarousel } from "@/components/DaboGlobalSearch";
 import { Avatar } from "@/components/Avatar";
 import { useHousehold } from "@/lib/use-household";
 import { Header } from "@/components/Header";
@@ -667,6 +668,7 @@ export default function TodayPage() {
             ))}
             {members.length > 3 && <span className="dabo-premium-avatar dabo-premium-avatar-extra">+{members.length - 3}</span>}
           </button>
+          <DaboGlobalSearch language={lang} tasks={tasks} shopping={items} />
           <button type="button" className="dabo-premium-bell" onClick={() => router.push("/app/reglages")} aria-label={t("settings_notifications")} title={t("settings_notifications")}><Bell size={21}/></button>
         </div>
       </header>
@@ -676,13 +678,7 @@ export default function TodayPage() {
         <div className="dabo-v3-hero-legend">{household.name}</div>
       </section>
 
-      <nav className="dabo-v32-shortcuts" aria-label={t("quick_actions_title")}>
-        {shortcutItems.map((shortcut) => <button type="button" key={shortcut.id} className="dabo-v32-shortcut"
-          onClick={() => shortcut.id === "loba" ? setShowLobaShortcut(true) : router.push(shortcut.href)}>
-          <span className={`dabo-v32-shortcut-icon dabo-v32-shortcut-${shortcut.id}`}><shortcut.icon size={22} aria-hidden="true" /></span>
-          <span>{shortcut.label}</span>
-        </button>)}
-      </nav>
+      <DaboQuickAccessCarousel language={lang} primary={shortcutItems} onLoba={() => setShowLobaShortcut(true)} />
       {showLobaShortcut && <section className="dabo-v32-loba" aria-label="LOBA"><LobaHouseholdChat householdName={household.name} initialOpen /></section>}
 
       {membersOpen && <div className="dabo-premium-sheet-backdrop" onClick={() => setMembersOpen(false)}>
@@ -747,8 +743,9 @@ export default function TodayPage() {
             {displayedAttention.map((attention) => {
               const detail = attentionDetails(attention);
               const urgent = attention.level === "action_now" || attention.reason === "overdue";
-              return <button type="button" key={attention.id} onClick={detail.onAction} className="dabo-v3-line">
-                <span className={`dabo-v3-status ${urgent ? "dabo-v3-status-urgent" : "dabo-status-today"}`} aria-hidden="true" />
+              const isSuggestion = attention.source === "shopping" && attention.action === "open_shopping_suggestions";
+              return <button type="button" key={attention.id} onClick={detail.onAction} className={`dabo-v3-line ${isSuggestion ? "dabo-v22-suggestion-line" : ""}`}>
+                {isSuggestion ? <Sparkles size={19} aria-hidden="true" /> : <span className={`dabo-v3-status ${urgent ? "dabo-v3-status-urgent" : "dabo-status-today"}`} aria-hidden="true" />}
                 <span className="dabo-v3-line-copy"><strong>{detail.title}</strong><small>{detail.description}</small></span>
                 <ChevronRight size={18} aria-hidden="true" />
               </button>;

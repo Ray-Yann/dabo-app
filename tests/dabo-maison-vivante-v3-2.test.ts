@@ -7,7 +7,7 @@ const css = readFileSync("app/globals.css", "utf8");
 const loba = readFileSync("components/LobaHouseholdChat.tsx", "utf8");
 test("V3.1 displays the household hero before functional shortcuts", () => {
   for (const id of ["tasks", "planning", "shopping", "finance", "balance", "loba"]) assert.match(home, new RegExp(`id: "${id}"`));
-  assert.ok(home.indexOf('className="dabo-v3-hero"') < home.indexOf('className="dabo-v32-shortcuts"'));
+  assert.ok(home.indexOf('className="dabo-v3-hero"') < home.indexOf('<DaboQuickAccessCarousel'));
   assert.match(css, /overflow-x:auto/);
 });
 test("V3.2 uses real upcoming occurrences and does not call them suggestions", () => {

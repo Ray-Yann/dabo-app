@@ -1244,3 +1244,45 @@ input, select, textarea {
     line-height: 1.35;
   }
 }
+
+/* DABO Premium — compact search overlay and genuinely horizontal secondary navigation */
+.dabo-search-backdrop{position:fixed;inset:0;z-index:1200;background:rgba(15,30,24,.52);display:flex;justify-content:center;align-items:flex-start;padding:clamp(16px,7vh,80px) 16px 16px}
+.dabo-search-dialog{width:min(100%,580px);max-height:min(82vh,720px);display:flex;flex-direction:column;overflow:hidden;background:var(--dabo-surface,#fff);color:var(--dabo-text);border:1px solid var(--dabo-line);border-radius:23px;box-shadow:0 22px 70px rgba(0,0,0,.2);padding:20px}
+.dabo-search-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}.dabo-search-head h2{font-family:Georgia,serif;font-size:25px;font-weight:600}.dabo-search-close{min-width:44px;min-height:44px;display:grid;place-items:center;border-radius:50%;background:var(--dabo-bg,var(--dabo-surface))}
+.dabo-search-field{display:flex;align-items:center;gap:11px;border:1px solid var(--dabo-line);border-radius:13px;padding:0 13px;min-height:52px}.dabo-search-field input{flex:1;min-width:0;background:transparent;color:var(--dabo-text);outline:none;font-size:15px}.dabo-search-field:focus-within{outline:2px solid var(--dabo-text);outline-offset:2px}
+.dabo-search-results{overflow-y:auto;overscroll-behavior:contain;padding:5px 0 0}.dabo-search-results h3{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dabo-muted);font-weight:700;margin:19px 0 7px}.dabo-search-result{width:100%;display:flex;align-items:center;text-align:left;gap:13px;padding:11px 7px;border-bottom:1px solid var(--dabo-line);min-height:50px}.dabo-search-result>span{flex:1;font-size:14px}.dabo-search-result small{display:block;font-size:11px;color:var(--dabo-muted);margin-top:3px}.dabo-search-result:hover{background:color-mix(in srgb,var(--dabo-surface) 85%,#adc4ac)}.dabo-search-result:focus-visible,.dabo-search-close:focus-visible{outline:2px solid var(--dabo-text);outline-offset:-2px}.dabo-search-empty{color:var(--dabo-muted);padding:20px 4px}
+.dabo-secondary-shortcuts{margin:0 0 14px;min-width:0}.dabo-secondary-track{display:flex;gap:14px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none;padding:5px 1px 10px}.dabo-secondary-track::-webkit-scrollbar{display:none}.dabo-secondary-item{flex:0 0 90px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;scroll-snap-align:start;color:var(--dabo-text);font-size:11px;font-weight:600}.dabo-secondary-icon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--dabo-line);background:color-mix(in srgb,var(--dabo-surface) 80%,#afc5ae)}.dabo-secondary-item:focus-visible{outline:2px solid var(--dabo-text);outline-offset:2px;border-radius:8px}
+@media(max-width:520px){.dabo-search-backdrop{padding:12px 9px}.dabo-search-dialog{padding:16px;border-radius:19px;max-height:calc(100dvh - 24px)}.dabo-premium-top-actions{gap:4px}.dabo-premium-top-actions>.dabo-premium-bell{width:43px;min-height:43px}}
+@media(prefers-reduced-motion:reduce){.dabo-search-dialog,.dabo-secondary-icon{transition:none}}
+
+/* Premium UX V2.1: secondary access is always a single, horizontally scrollable rail. */
+.dabo-secondary-shortcuts{position:relative;max-width:min(100%,470px);margin:5px 0 18px}
+.dabo-secondary-track{width:100%;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:13px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;touch-action:pan-x;mask-image:linear-gradient(to right,#000 0%,#000 calc(100% - 24px),transparent 100%);padding-right:34px}
+.dabo-secondary-item{flex:0 0 100px;max-width:100px;min-height:80px;scroll-snap-align:start}
+.dabo-secondary-icon{width:43px;height:43px}
+@media(min-width:900px){.dabo-today-v2{max-width:1000px}.dabo-search-dialog{width:min(100%,540px);max-height:min(72vh,640px)}.dabo-search-results{padding-right:5px}}
+@media(max-width:520px){.dabo-secondary-shortcuts{max-width:100%}.dabo-secondary-item{flex-basis:94px;max-width:94px}.dabo-search-backdrop{align-items:flex-start;padding:10px}.dabo-search-dialog{max-height:calc(100dvh - 20px)}}
+
+/* DABO Premium V2.2 — unobtrusive horizontal access rail and distinct suggestions. */
+.dabo-secondary-shortcuts{max-width:min(100%,520px)}
+.dabo-secondary-track{mask-image:linear-gradient(to right,#000 0%,#000 89%,transparent 100%);padding-right:38px;scroll-padding-inline:4px}
+.dabo-secondary-track:focus-visible{outline:2px solid var(--dabo-text);outline-offset:2px;border-radius:12px}
+.dabo-secondary-shortcuts::after{content:"›";position:absolute;right:0;top:12px;display:grid;place-items:center;width:24px;height:35px;pointer-events:none;color:var(--dabo-text);font-size:27px;opacity:.7}
+.dabo-v22-suggestion-line>svg:first-child{flex:none;color:var(--dabo-muted);opacity:.9}
+.dabo-v22-suggestion-line .dabo-v3-line-copy small{font-style:italic}
+@media(max-width:520px){.dabo-secondary-shortcuts{max-width:100%}}
+
+/* DABO Premium UX V2.3: a single swipeable shortcut rail on every screen size. */
+.dabo-today-v2 .dabo-quick-carousel{position:relative;margin:9px 0 22px;min-width:0}
+.dabo-today-v2 .dabo-quick-track{display:flex;flex-wrap:nowrap;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 1px 9px;scroll-padding-inline:2px}
+.dabo-today-v2 .dabo-quick-track::-webkit-scrollbar{display:none}
+.dabo-today-v2 .dabo-quick-track .dabo-v32-shortcut{flex:0 0 100px;width:100px;min-width:100px;min-height:80px;gap:7px;scroll-snap-align:start;font-size:11px;line-height:1.25;white-space:normal}
+.dabo-today-v2 .dabo-quick-track .dabo-v32-shortcut-icon{width:48px;height:48px}
+.dabo-today-v2 .dabo-quick-track:focus-visible{outline:2px solid var(--dabo-text);outline-offset:2px;border-radius:10px}
+.dabo-today-v2 .dabo-quick-carousel-controls{display:flex;justify-content:flex-end;gap:7px;margin-bottom:1px}
+.dabo-today-v2 .dabo-quick-arrow{display:grid;place-items:center;width:31px;height:31px;border:1px solid var(--dabo-line);background:var(--dabo-surface);color:var(--dabo-text);border-radius:50%;cursor:pointer}
+.dabo-today-v2 .dabo-quick-arrow:disabled{opacity:.27;cursor:default}
+.dabo-today-v2 .dabo-quick-arrow:focus-visible{outline:2px solid var(--dabo-text);outline-offset:2px}
+.dabo-today-v2 .dabo-quick-arrow-left{transform:rotate(180deg)}
+@media(max-width:600px){.dabo-today-v2 .dabo-quick-track .dabo-v32-shortcut{flex-basis:83px;min-width:83px;width:83px;font-size:10px}.dabo-today-v2 .dabo-quick-track .dabo-v32-shortcut-icon{width:44px;height:44px}.dabo-today-v2 .dabo-quick-carousel-controls{display:none}.dabo-today-v2 .dabo-quick-track{padding-right:26px;mask-image:linear-gradient(to right,#000 0%,#000 92%,transparent 100%)}}
+@media(prefers-reduced-motion:reduce){.dabo-today-v2 .dabo-quick-track{scroll-behavior:auto}}
