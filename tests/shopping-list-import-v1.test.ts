@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
@@ -37,7 +37,7 @@ const coursesPage = fs.readFileSync("app/app/courses/page.tsx", "utf8");
 test("Fluidité 4 — Courses importe le parseur de liste", () => {
   assert.match(
     coursesPage,
-    /import\s+\{\s*parseShoppingListImport\s*\}\s+from\s+["']@\/lib\/shopping-list-import["']/
+    /import\s+\{\s*parseShoppingMemo[^}]*\}\s+from\s+["']@\/lib\/shopping-memo-v5["']/
   );
 });
 
@@ -48,7 +48,7 @@ test("Fluidité 4 — Courses possède un mode dédié pour coller une liste", (
 });
 
 test("Fluidité 4 — l'import utilise le parseur et une insertion groupée dans shopping_items", () => {
-  assert.match(coursesPage, /parseShoppingListImport\(bulkImportText\)/);
+  assert.match(coursesPage, /parseShoppingMemo\(bulkImportText\)/);
   assert.match(
     coursesPage,
     /from\(["']shopping_items["']\)\.insert\(/

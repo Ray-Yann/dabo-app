@@ -23,7 +23,7 @@ import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
 import { NearbyStoresPanel } from "@/components/NearbyStoresPanel";
 import { recordContextualShareSuccess } from "@/lib/contextual-share";
 import { ContextualShareNudge } from "@/components/ContextualShareNudge";
-import { parseShoppingListImport } from "@/lib/shopping-list-import";
+import { parseShoppingMemo, normalizeMemoName, type MemoArticle } from "@/lib/shopping-memo-v5";
 import { readShoppingInboxPrefill } from "@/lib/household-inbox";
 import {
   applyOfflineShoppingStatus,
@@ -117,6 +117,7 @@ export default function CoursesPage() {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportBusy, setBulkImportBusy] = useState(false);
+  const [memoPreview, setMemoPreview] = useState<MemoArticle[] | null>(null);
   const [bulkImportError, setBulkImportError] = useState("");
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -561,17 +562,23 @@ export default function CoursesPage() {
   async function importShoppingList() {
     if (!household || bulkImportBusy) return;
 
-    const names = parseShoppingListImport(bulkImportText);
-    if (names.length === 0) return;
+    const articles = memoPreview;
+    if (!articles || articles.length === 0 || articles.some((article) => !article.name.trim())) return;
+    const names = articles.map((article) => article.name.trim());
+    const existing = new Set(items.filter((item) => item.status !== "bought").map((item) => normalizeMemoName(item.name)));
+    if (names.some((name) => existing.has(normalizeMemoName(name))) || new Set(names.map(normalizeMemoName)).size !== names.length) {
+      setBulkImportError(t("courses_memo_duplicate_warning"));
+      return;
+    }
 
     setBulkImportBusy(true);
     setBulkImportError("");
 
     const { error } = await supabase.from("shopping_items").insert(
-      names.map((name) => ({
+      articles.map((article) => ({
         household_id: household.id,
-        name,
-        quantity: null,
+        name: article.name.trim(),
+        quantity: article.quantity.trim() || null,
         urgent: false,
         assigned_to: null,
         due_date: null,
@@ -598,6 +605,7 @@ export default function CoursesPage() {
     }
 
     setBulkImportText("");
+    setMemoPreview(null);
     setShowBulkImport(false);
     setAddConfirmation(true);
     window.setTimeout(() => setAddConfirmation(false), 2200);
@@ -1304,6 +1312,7 @@ export default function CoursesPage() {
                 type="button"
                 onClick={() => {
                   setShowBulkImport(true);
+                  setMemoPreview(null);
                   setBulkImportError("");
                 }}
                 className="text-xs font-medium text-muted underline underline-offset-2"
@@ -1321,27 +1330,40 @@ export default function CoursesPage() {
                 autoFocus
                 rows={6}
                 value={bulkImportText}
-                onChange={(event) => setBulkImportText(event.target.value)}
+                onChange={(event) => { setBulkImportText(event.target.value); setMemoPreview(null); setBulkImportError(""); }}
                 placeholder={t("courses_bulk_import_placeholder")}
                 className="w-full resize-y rounded-xl border border-border bg-white2 px-3 py-2.5 text-sm text-ink outline-none focus:border-ink"
               />
+              {memoPreview && (
+                <div className="space-y-2 rounded-xl border border-border bg-paper/50 p-3" aria-live="polite">
+                  <p className="text-xs font-medium text-ink">{t("courses_memo_preview_title")}</p>
+                  {memoPreview.map((article, index) => (
+                    <div key={article.id} className="flex items-center gap-2">
+                      <input aria-label={`${t("item_name_placeholder")} ${index + 1}`} value={article.name} onChange={(event) => setMemoPreview((current) => current?.map((entry) => entry.id === article.id ? { ...entry, name: event.target.value } : entry) ?? null)} className="min-w-0 flex-1 rounded-lg border border-border bg-white2 px-2 py-2 text-sm" />
+                      <input aria-label={`${t("quantity_placeholder")} ${index + 1}`} value={article.quantity} onChange={(event) => setMemoPreview((current) => current?.map((entry) => entry.id === article.id ? { ...entry, quantity: event.target.value } : entry) ?? null)} className="w-24 rounded-lg border border-border bg-white2 px-2 py-2 text-sm" />
+                      <button type="button" aria-label={t("delete")} onClick={() => setMemoPreview((current) => current?.filter((entry) => entry.id !== article.id) ?? null)} className="p-2 text-muted"><Trash2 size={15} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {bulkImportError && (
-                <div className="text-xs text-red-600">{bulkImportError}</div>
+                <div className="text-xs text-red-600" role="alert">{bulkImportError}</div>
               )}
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={bulkImportBusy || parseShoppingListImport(bulkImportText).length === 0}
-                  onClick={importShoppingList}
+                  disabled={bulkImportBusy || (memoPreview ? memoPreview.length === 0 || memoPreview.some((article) => !article.name.trim()) : !bulkImportText.trim())}
+                  onClick={() => { if (!memoPreview) { setMemoPreview(parseShoppingMemo(bulkImportText)); setBulkImportError(""); } else { void importShoppingList(); } }}
                   className="flex-1 rounded-xl bg-ink py-2 text-sm font-medium text-paper disabled:opacity-50"
                 >
-                  {bulkImportBusy ? t("loading") : t("courses_bulk_import_add")}
+                  {bulkImportBusy ? t("loading") : memoPreview ? t("courses_bulk_import_add") : t("courses_memo_preview_action")}
                 </button>
                 <button
                   type="button"
                   disabled={bulkImportBusy}
                   onClick={() => {
                     setShowBulkImport(false);
+                    setMemoPreview(null);
                     setBulkImportText("");
                     setBulkImportError("");
                   }}
