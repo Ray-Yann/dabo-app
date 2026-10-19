@@ -9,10 +9,10 @@ const i18n = fs.readFileSync("lib/i18n.ts", "utf8");
 
 test("Navigation V2 fixe les cinq destinations validées", () => {
   assert.match(nav, /key: "today"/);
-  assert.match(nav, /key: "planning"/);
+  assert.match(nav, /key: "apps"/);
   assert.match(nav, /key: "add"/);
-  assert.match(nav, /key: "household"/);
-  assert.match(nav, /key: "more"/);
+  assert.match(nav, /key: "spaces"/);
+  assert.match(nav, /key: "me"/);
   assert.match(nav, /grid-cols-5/);
 });
 

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
@@ -36,7 +36,7 @@ test("UX Light V1.2 allÃ¨ge l'aide Calendrier et explicite l'annÃ©e d'une pr
 });
 
 test("UX V2 remplace Calendrier par Planning dans la navigation principale", () => {
-  assert.match(nav, /tab_planning/);
+  assert.match(nav, /universal_tab_apps/);assert.match(fs.readFileSync("app/app/apps/page.tsx","utf8"),/tab_planning/);
   assert.match(nav, /grid-cols-5/);
 });
 
