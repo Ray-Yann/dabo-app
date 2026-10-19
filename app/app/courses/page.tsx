@@ -1055,6 +1055,9 @@ export default function CoursesPage() {
                 onClick={() => {
                   setShowAddChoice(false);
                   setEditingId(null);
+                  setShowBulkImport(false);
+                  setMemoPreview(null);
+                  setBulkImportError("");
                   setShowAdd(true);
                 }}
                 className="flex w-full items-center gap-4 rounded-2xl border border-borderLight bg-paper/60 p-4 text-left transition hover:bg-paper"
@@ -1065,6 +1068,30 @@ export default function CoursesPage() {
                 <span>
                   <span className="block text-sm font-semibold text-ink">{t("courses_add_manual")}</span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-muted">{t("courses_add_manual_help")}</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddChoice(false);
+                  setView("to_buy");
+                  setEditingId(null);
+                  setShowScanV3(false);
+                  setShowAdd(true);
+                  setShowBulkImport(true);
+                  setBulkImportText("");
+                  setMemoPreview(null);
+                  setBulkImportError("");
+                }}
+                className="flex w-full items-center gap-4 rounded-2xl border border-borderLight bg-paper/60 p-4 text-left transition hover:bg-paper"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-paper">
+                  <Sparkles size={20} />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-ink">{t("courses_bulk_import_title")}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-muted">{t("courses_bulk_import_hint")}</span>
                 </span>
               </button>
 
@@ -1377,7 +1404,7 @@ export default function CoursesPage() {
           {!showBulkImport && (
           <div className="flex gap-2">
             <button onClick={addItem} className="flex-1 bg-ink text-paper rounded-xl py-2 text-sm font-medium">{t("add")}</button>
-            <button onClick={() => { setShowAdd(false); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
+            <button onClick={() => { setShowAdd(false); setShowBulkImport(false); setMemoPreview(null); setBulkImportError(""); setAddForm(EMPTY_FORM); }} className="px-4 text-sm text-muted">{t("cancel")}</button>
           </div>
           )}
         </div>

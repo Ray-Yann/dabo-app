@@ -17,15 +17,14 @@ test("Courses action chooser offers manual entry and receipt scanning", () => {
   assert.ok(coursesSource.includes('t("courses_add_manual")'));
   assert.ok(coursesSource.includes('t("courses_scan_receipt")'));
 
-  assert.ok(
-    coursesSource.includes(`setShowAddChoice(false);
-                  setEditingId(null);
-                  setShowAdd(true);`),
+  assert.match(
+    coursesSource,
+    /setShowAddChoice\(false\);\s*setEditingId\(null\);[\s\S]*?setShowAdd\(true\);/,
   );
 
-  assert.ok(
-    coursesSource.includes(`setShowAddChoice(false);
-                    setShowScanV3(true);`),
+  assert.match(
+    coursesSource,
+    /setShowAddChoice\(false\);\s*setShowScanV3\(true\);/,
   );
 });
 
