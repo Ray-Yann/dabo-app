@@ -1263,12 +1263,24 @@ export default function CoursesPage() {
 
       {!offlineShoppingMode && (
       <div className="px-5 mb-5">
-        <label className="block text-sm font-medium text-muted mb-2">{t("ux_view_label")}</label>
-        <select value={view} onChange={(e) => setView(e.target.value as "to_buy" | "suggestions" | "history")} className="w-full rounded-2xl border border-borderLight bg-paper px-4 py-3 text-base font-semibold text-ink outline-none focus:border-ink">
-          <option value="to_buy">{t("ux_courses_to_buy")}</option>
-          <option value="suggestions">{t("ux_courses_suggestions")}</option>
-          <option value="history">{t("ux_history")}</option>
-        </select>
+        <div className="mb-2 text-sm font-medium text-muted" id="courses-view-label">{t("ux_view_label")}</div>
+        <div role="group" aria-labelledby="courses-view-label" className="grid grid-cols-3 gap-1 rounded-2xl border border-borderLight bg-paper p-1">
+          {([
+            ["to_buy", "ux_courses_to_buy"],
+            ["suggestions", "ux_courses_suggestions"],
+            ["history", "ux_history"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={view === key}
+              onClick={() => setView(key)}
+              className={`min-w-0 rounded-xl px-2 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${view === key ? "bg-ink text-paper" : "text-ink hover:bg-white2"}`}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
       </div>
       )}
 
