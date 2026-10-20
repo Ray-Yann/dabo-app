@@ -1286,3 +1286,218 @@ input, select, textarea {
 .dabo-today-v2 .dabo-quick-arrow-left{transform:rotate(180deg)}
 @media(max-width:600px){.dabo-today-v2 .dabo-quick-track .dabo-v32-shortcut{flex-basis:83px;min-width:83px;width:83px;font-size:10px}.dabo-today-v2 .dabo-quick-track .dabo-v32-shortcut-icon{width:44px;height:44px}.dabo-today-v2 .dabo-quick-carousel-controls{display:none}.dabo-today-v2 .dabo-quick-track{padding-right:26px;mask-image:linear-gradient(to right,#000 0%,#000 92%,transparent 100%)}}
 @media(prefers-reduced-motion:reduce){.dabo-today-v2 .dabo-quick-track{scroll-behavior:auto}}
+
+
+/* Courses V6 — progressive enhancement; existing interactions remain authoritative. */
+.dabo-courses-v6 { max-width: 1160px; margin-inline: auto; padding-bottom: 1.5rem; }
+.dabo-courses-v6 .dabo-organic-header { padding-top: 2rem; padding-bottom: 1rem; }
+.dabo-courses-subtitle { color: var(--color-muted); font-size: .83rem; margin-top: .35rem; }
+.dabo-courses-overview { position: relative; display: flex; align-items: center; gap: 1rem; overflow: hidden; padding: 1.1rem 1.35rem; border-radius: 1.5rem; border: 1px solid var(--color-borderLight); background: linear-gradient(120deg, var(--color-white2), var(--color-paper)); }
+.dabo-courses-overview-copy { display: flex; flex-direction: column; gap: .3rem; flex: 1; min-width: 0; }
+.dabo-courses-overview-eyebrow { display: flex; align-items: center; gap: .4rem; font-size: .73rem; color: var(--color-muted); }
+.dabo-courses-overview-copy strong { font-family: var(--font-serif), Georgia, serif; font-size: 1.6rem; font-weight: 600; }
+.dabo-courses-overview-copy > span { font-size: .78rem; color: var(--color-muted); }
+.dabo-courses-progress { height: 7px; width: 100%; overflow: hidden; background: var(--color-borderLight); border-radius: 99px; }
+.dabo-courses-progress > span { display: block; height: 100%; border-radius: inherit; background: #31704b; transition: width .2s ease; }
+.dabo-dark .dabo-courses-progress > span { background: #83b894; }
+.dabo-courses-overview-copy .dabo-courses-progress { margin-top: .55rem; max-width: 250px; }
+.dabo-courses-basket { position: relative; flex: 0 0 108px; display: grid; place-items: center; height: 96px; color: #376a47; border-radius: 1.25rem; background: #e7ead9; }
+.dabo-courses-basket > span { position: absolute; font-size: 1.5rem; }
+.dabo-courses-basket > span:nth-child(2) { top: 2px; left: 19px; transform: rotate(-18deg); }
+.dabo-courses-basket > span:nth-child(3) { top: -2px; right: 18px; transform: rotate(17deg); }
+.dabo-courses-basket > span:nth-child(4) { top: 9px; left: 45px; }
+.dabo-courses-progress-number { position: absolute; right: 1.2rem; bottom: .7rem; font-weight: 700; font-size: .75rem; color: #376a47; }
+.dabo-courses-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; }
+.dabo-courses-search { display: flex; align-items: center; gap: .55rem; min-width: 170px; flex: 1 1 220px; border: 1px solid var(--color-border); background: var(--color-white2); padding: .68rem .9rem; border-radius: .85rem; color: var(--color-muted); }
+.dabo-courses-search:focus-within { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+.dabo-courses-search input { width: 100%; min-width: 0; outline: none; color: var(--color-ink); background: transparent; font-size: .85rem; }
+.dabo-courses-toolbar-actions { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.dabo-courses-group-toggle { display: flex; padding: 3px; border-radius: .85rem; background: var(--color-white2); border: 1px solid var(--color-borderLight); }
+.dabo-courses-group-toggle button { display: inline-flex; align-items: center; gap: .35rem; padding: .55rem .65rem; border-radius: .65rem; font-size: .73rem; color: var(--color-muted); }
+.dabo-courses-group-toggle button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }
+.dabo-courses-mode-button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; padding: .72rem .85rem; border-radius: .85rem; background: #24583a; color: #fff; font-size: .8rem; font-weight: 600; }
+.dabo-courses-mode-button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }
+.dabo-courses-mode-progress { display: flex; align-items: center; gap: .8rem; padding: .85rem 1rem; border: 1px solid var(--color-borderLight); background: var(--color-white2); border-radius: .9rem; font-size: .8rem; }
+.dabo-courses-mode-progress .dabo-courses-progress { flex: 1; }
+.dabo-courses-store-group { border-radius: 1.1rem; overflow: clip; background: var(--color-white2); border: 1px solid var(--color-borderLight); padding: 0 .8rem .25rem; }
+.dabo-courses-v6 .dabo-store-heading { position: relative; top: auto; margin: 0 -.8rem .25rem; padding: .85rem 1rem; background: var(--color-paper); }
+.dabo-courses-item:last-child { border-bottom: 0; }
+.dabo-courses-item { padding-inline: .2rem; }
+.dabo-courses-check { min-width: 24px; min-height: 24px; }
+.dabo-courses-check:focus-visible, .dabo-courses-mode-button:focus-visible, .dabo-courses-group-toggle button:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+@media (min-width: 1000px) { .dabo-courses-v6 { padding-inline: 1.5rem; } .dabo-courses-v6 .dabo-organic-header { padding-top: 2.5rem; } .dabo-courses-v6 .dabo-organic-header h1 { font-size: 2.2rem; } .dabo-courses-overview { min-height: 135px; } }
+@media (max-width: 540px) { .dabo-courses-basket { flex-basis: 76px; height: 82px; } .dabo-courses-basket > span { font-size: 1.15rem; } .dabo-courses-basket > span:nth-child(2) { left: 10px; } .dabo-courses-basket > span:nth-child(3) { right: 10px; } .dabo-courses-basket > span:nth-child(4) { left: 30px; } .dabo-courses-overview { padding: 1rem; } .dabo-courses-overview-copy strong { font-size: 1.35rem; } .dabo-courses-toolbar-actions { width: 100%; justify-content: space-between; } .dabo-courses-group-toggle button span { display: none; } }
+
+/* Courses V6.2: locally hosted artwork, compact shopping rows, neutral store identity */
+.dabo-courses-v6 .dabo-courses-product-image { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 14px; object-fit: contain; background: #f4f0e6; border: 1px solid rgba(75,76,58,.08); }
+.dabo-courses-v6 .dabo-courses-item { padding-block: .58rem; }
+.dabo-courses-v6 .dabo-store-heading { padding-block: .6rem; }
+.dabo-courses-v6 .dabo-courses-store-monogram { font-size: 11px; font-weight: 800; color: var(--color-ink); }
+.dabo-courses-v6 .dabo-courses-basket img { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 540px) { .dabo-courses-v6 .dabo-courses-product-image { width: 46px; height: 46px; flex-basis: 46px; border-radius: 12px; } }
+
+/* Courses V6.3 — route-scoped desktop canvas, imagery and progressive discovery. */
+@media (min-width: 1024px) {
+  .dabo-app-content-courses { max-width: 1240px !important; }
+  .dabo-app-content-courses .dabo-courses-v6 { max-width: 1180px; }
+  .dabo-app-content-courses .dabo-courses-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 1.1rem; }
+  .dabo-app-content-courses .dabo-courses-list .dabo-courses-store-group { margin-bottom: 0; min-width: 0; }
+}
+.dabo-courses-v6 .dabo-courses-product-image { display: block !important; visibility: visible !important; opacity: 1 !important; }
+.dabo-courses-v6 .dabo-courses-nearby { border: 1px solid var(--color-borderLight); border-radius: 1rem; background: var(--color-white2); }
+.dabo-courses-v6 .dabo-courses-nearby-trigger { padding: .8rem 1rem; cursor: pointer; color: var(--color-muted); font-size: .82rem; font-weight: 600; list-style-position: inside; }
+.dabo-courses-v6 .dabo-courses-nearby[open] > .dabo-courses-nearby-trigger { border-bottom: 1px solid var(--color-borderLight); }
+.dabo-courses-v6 .dabo-courses-nearby > :not(summary) { margin: .5rem; }
+.dabo-courses-v6 .dabo-courses-store-group { box-shadow: 0 6px 24px rgba(25,40,25,.035); }
+.dabo-courses-v6 .dabo-courses-item .dabo-courses-product-image { background: #f4f0e6; }
+@media (max-width: 540px) { .dabo-courses-v6 .dabo-courses-item .dabo-courses-product-image { width: 44px; height: 44px; flex-basis: 44px; } }
+
+
+/* Courses V7 — independent, photographic presentation; domain logic unchanged. */
+.dabo-courses-v7 { --courses-forest:#174c34; max-width:1280px; padding-bottom:3rem; }
+.dabo-courses-v7 .dabo-organic-header { padding-top:1.25rem; padding-bottom:1rem; align-items:center; }
+.dabo-courses-v7 .dabo-organic-header h1 { font-family:var(--font-serif),Georgia,serif; font-size:clamp(2rem,3vw,2.65rem); letter-spacing:-.035em; line-height:1.1; }
+.dabo-courses-v7 .dabo-courses-overview { min-height:210px; isolation:isolate; padding:1.6rem; align-items:flex-end; border:0; background:#d3c3a4; box-shadow:0 12px 36px rgba(33,37,25,.08); }
+.dabo-courses-v7 .dabo-courses-hero-photo { position:absolute; z-index:-2; inset:0; background-image:linear-gradient(90deg,rgba(17,28,20,.35),rgba(17,28,20,.02)),url('/courses-art/photographic-groceries.webp'); background-size:cover; background-position:center 48%; }
+.dabo-courses-v7 .dabo-courses-overview-copy { max-width:320px; flex:0 1 320px; padding:1rem 1.2rem; border-radius:1.1rem; background:rgba(250,247,238,.95); color:#173b2c; box-shadow:0 8px 24px rgba(0,0,0,.08); }
+.dabo-courses-v7 .dabo-courses-overview-eyebrow,.dabo-courses-v7 .dabo-courses-overview-copy>span { color:#4c6155; }
+.dabo-courses-v7 .dabo-courses-overview-copy strong { color:#143e2c; font-family:var(--font-serif),Georgia,serif; }
+.dabo-courses-v7 .dabo-courses-progress-number { position:relative; align-self:flex-end; margin-left:auto; color:#fff; padding:.7rem; background:rgba(18,50,35,.8); border-radius:50%; }
+.dabo-courses-v7 .dabo-courses-category-rail { display:flex; gap:.7rem; overflow-x:auto; scrollbar-width:thin; padding:0 0 .45rem; scroll-snap-type:x proximity; }
+.dabo-courses-v7 .dabo-courses-category-card { display:flex; flex:0 0 205px; min-height:78px; align-items:center; gap:.75rem; text-align:left; padding:.8rem; border-radius:1rem; border:1px solid var(--color-borderLight); background:var(--color-white2); color:var(--color-ink); scroll-snap-align:start; }
+.dabo-courses-v7 .dabo-courses-category-card:hover,.dabo-courses-v7 .dabo-courses-category-card:focus-visible { outline:2px solid #598a6a; outline-offset:1px; }
+.dabo-courses-v7 .dabo-courses-category-symbol { display:grid; place-items:center; width:42px; height:42px; flex:none; border-radius:.7rem; background:color-mix(in srgb,var(--color-paper) 70%,#a4bba4); color:#2f6a49; font-size:1.3rem; }
+.dabo-courses-v7 .dabo-courses-category-label { min-width:0; flex:1; font-size:.79rem; font-weight:650; line-height:1.25; }
+.dabo-courses-v7 .dabo-courses-category-label small { display:block; margin-top:.28rem; color:var(--color-muted); font-size:.7rem; font-weight:400; }
+.dabo-courses-v7 .dabo-courses-category-card>svg { color:var(--color-muted); flex:none; }
+.dabo-courses-v7 .dabo-courses-product-mark { display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px; border-radius:.65rem; background:color-mix(in srgb,var(--color-white2) 65%,#a2b6a4); color:var(--color-ink); font-family:var(--font-serif),Georgia,serif; font-size:1.05rem; font-weight:700; }
+.dabo-courses-v7 .dabo-courses-store-group { border-radius:1rem; box-shadow:0 8px 28px rgba(16,36,24,.035); }
+.dabo-courses-v7 .dabo-store-heading { background:var(--color-paper); font-size:.77rem; letter-spacing:.03em; padding:.85rem 1rem; }
+.dabo-courses-v7 .dabo-courses-store-monogram { display:grid; place-items:center; width:30px; height:30px; border-radius:.55rem; background:color-mix(in srgb,var(--color-white2) 70%,#afc3b1); }
+.dabo-courses-v7 .dabo-courses-item { padding-block:.72rem; }
+.dabo-courses-v7 .dabo-courses-toolbar { gap:.8rem; }
+.dabo-courses-v7 .dabo-courses-mode-button { background:var(--courses-forest); }
+.dabo-courses-v7 .dabo-courses-search { border-radius:1rem; }
+@media(min-width:1024px){.dabo-app-content-courses{max-width:1380px!important}.dabo-courses-v7{max-width:1280px}.dabo-courses-v7 .dabo-courses-list{gap:.85rem}.dabo-courses-v7 .dabo-courses-overview{min-height:220px}}
+@media(max-width:640px){.dabo-courses-v7 .dabo-organic-header{padding-top:1rem}.dabo-courses-v7 .dabo-courses-overview{min-height:170px;padding:.8rem;border-radius:1.2rem}.dabo-courses-v7 .dabo-courses-overview-copy{padding:.75rem;max-width:220px}.dabo-courses-v7 .dabo-courses-overview-copy strong{font-size:1.25rem}.dabo-courses-v7 .dabo-courses-category-card{flex-basis:155px;min-height:70px;padding:.55rem}.dabo-courses-v7 .dabo-courses-category-symbol{width:32px;height:32px}.dabo-courses-v7 .dabo-courses-category-label{font-size:.71rem}.dabo-courses-v7 .dabo-courses-product-mark{width:31px;height:31px;flex-basis:31px}.dabo-courses-v7 .dabo-courses-store-group{padding-inline:.55rem}.dabo-courses-v7 .dabo-courses-item{gap:.4rem}}
+
+
+/* Courses V7.1 — photo-led compact category rail, clear shopping-first hierarchy. */
+.dabo-courses-v71 .dabo-organic-header { padding-bottom:.7rem; }
+.dabo-courses-v71 .dabo-courses-overview { min-height:158px; margin-bottom:1.1rem; border-radius:1.15rem; }
+.dabo-courses-v71 .dabo-courses-overview-copy { max-width:275px; flex-basis:275px; padding:.85rem 1rem; }
+.dabo-courses-v71 .dabo-courses-category-rail { gap:.65rem; margin-bottom:1rem; }
+.dabo-courses-v71 .dabo-courses-category-card { flex:0 0 170px; min-height:116px; padding:0; display:flex; flex-direction:column; align-items:stretch; gap:0; overflow:hidden; border-radius:.9rem; box-shadow:0 5px 14px rgba(26,36,22,.045); }
+.dabo-courses-v71 .dabo-courses-category-photo { display:block; height:68px; width:100%; background-size:cover; background-position:center; flex:none; }
+.dabo-courses-v71 .dabo-courses-category-photo-produce { background-image:url('/courses-art/photo-produce.webp'); }
+.dabo-courses-v71 .dabo-courses-category-photo-dairy { background-image:url('/courses-art/photo-dairy.webp'); }
+.dabo-courses-v71 .dabo-courses-category-photo-pantry { background-image:url('/courses-art/photo-pantry.webp'); }
+.dabo-courses-v71 .dabo-courses-category-photo-protein { background-image:url('/courses-art/photo-protein.webp'); }
+.dabo-courses-v71 .dabo-courses-category-photo-home { background-image:url('/courses-art/photo-home.webp'); }
+.dabo-courses-v71 .dabo-courses-category-photo-other { background-image:url('/courses-art/photo-other.webp'); }
+.dabo-courses-v71 .dabo-courses-category-label { padding:.5rem .65rem; font-size:.76rem; line-height:1.2; }
+.dabo-courses-v71 .dabo-courses-category-label small { margin-top:.1rem; }
+.dabo-courses-v71 .dabo-courses-category-card>svg { display:none; }
+.dabo-courses-v71 .dabo-courses-product-photo,.dabo-courses-v71 .dabo-courses-product-placeholder { width:42px; height:42px; flex:0 0 42px; border-radius:.65rem; object-fit:cover; background:var(--color-paper); }
+.dabo-courses-v71 .dabo-courses-product-placeholder { display:grid; place-items:center; color:var(--color-muted); border:1px solid var(--color-borderLight); }
+.dabo-courses-v71 .dabo-courses-item { padding-block:.63rem; }
+.dabo-courses-v71 .dabo-courses-store-group { box-shadow:0 7px 22px rgba(16,36,24,.025); }
+.dabo-courses-v71 .dabo-store-heading { padding-block:.67rem; }
+.dabo-courses-v71 .dabo-courses-toolbar { margin-bottom:.8rem; }
+.dabo-courses-v71 .dabo-courses-nearby { margin-bottom:.8rem; }
+@media(max-width:640px) {
+ .dabo-courses-v71 .dabo-courses-overview { min-height:140px; }
+ .dabo-courses-v71 .dabo-courses-category-card { flex-basis:136px; min-height:101px; }
+ .dabo-courses-v71 .dabo-courses-category-photo { height:56px; }
+ .dabo-courses-v71 .dabo-courses-product-photo,.dabo-courses-v71 .dabo-courses-product-placeholder { width:36px; height:36px; flex-basis:36px; }
+}
+
+
+/* Courses V7.2 — selectable photographic categories, restrained hierarchy, accessible product fallbacks. */
+.dabo-courses-v72 .dabo-courses-category-card[aria-pressed="true"] { outline: 2px solid var(--color-ink); outline-offset: -2px; box-shadow: 0 0 0 3px color-mix(in srgb,var(--color-ink) 12%,transparent); }
+.dabo-courses-v72 .dabo-courses-category-card[aria-pressed="true"] .dabo-courses-category-label { font-weight: 800; }
+.dabo-courses-v72 .dabo-courses-clear-filter { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; border: 1px solid var(--color-borderLight); padding: .65rem .8rem; background: var(--color-white2); color: var(--color-ink); font-size: .76rem; font-weight: 650; }
+.dabo-courses-v72 .dabo-courses-clear-filter:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+.dabo-courses-v72 .dabo-courses-product-placeholder { color: var(--color-ink); background: color-mix(in srgb,var(--color-white2) 80%,#b5c4b1); }
+.dabo-courses-v72 .dabo-courses-store-group { border-color: var(--color-borderLight); }
+.dabo-courses-v72 .dabo-store-heading { font-weight: 700; }
+.dabo-courses-v72 .dabo-courses-item { padding-block: .55rem; }
+.dabo-courses-v72 .dabo-courses-overview-copy { max-width: 250px; flex-basis: 250px; }
+@media (max-width: 640px) { .dabo-courses-v72 .dabo-courses-category-card { flex-basis: 142px; } .dabo-courses-v72 .dabo-courses-clear-filter { font-size: .7rem; } }
+
+/* Courses V7.3.1: keep the compact identity distinct from the readable store name.
+   A letter is a fallback, not an official brand logo. */
+.dabo-courses-v7 .dabo-store-heading-icon { width:30px; height:30px; flex:0 0 30px; overflow:hidden; }
+.dabo-courses-v7 .dabo-courses-store-monogram { width:100%; height:100%; min-width:0; font-size:12px; font-weight:750; line-height:1; white-space:nowrap; }
+.dabo-courses-v7 .dabo-store-heading > span:nth-child(2) { min-width:0; overflow-wrap:anywhere; }
+
+/* Courses visual catalogue: consistent decorative artwork and fallback sizing. */
+.dabo-courses-v7 .dabo-courses-product-photo { display:block; object-fit:cover; }
+.dabo-courses-v7 .dabo-courses-product-placeholder { display:grid; place-items:center; }
+
+/* Courses Premium local refinement — brand-aware identifiers, not official logos. */
+.dabo-courses-v7 .dabo-courses-store-group { overflow: hidden; border: 1px solid var(--color-borderLight); border-radius: 17px; box-shadow: 0 4px 16px rgba(22,32,24,.035); }
+.dabo-courses-v7 .dabo-store-heading { border-bottom: 1px solid var(--color-borderLight); padding: .67rem .85rem; gap: .65rem; background: color-mix(in srgb, var(--color-paper) 88%, var(--color-white2)); letter-spacing: .045em; }
+.dabo-courses-v7 .dabo-store-heading-icon { width: 33px; height: 33px; flex-basis: 33px; }
+.dabo-courses-v7 .dabo-courses-store-monogram { border-radius: 10px; font-size: 12px; font-weight: 800; }
+.dabo-courses-v7 .dabo-courses-store-recognized { color: #fff; background: #355c47; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="action"] { background: #1468b5; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="carrefour"] { background: #195ca7; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="delhaize"] { background: #bd252e; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="lidl"] { background: #17469b; color: #ffe052; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="aldi"] { background: #164d9b; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="colruyt"] { background: #cf292b; }
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="albert-heijn"] { background: #169ad2; }
+.dabo-courses-v7 .dabo-courses-item { padding-inline: .82rem; }
+.dabo-courses-v7 .dabo-courses-product-photo, .dabo-courses-v7 .dabo-courses-product-placeholder { border: 1px solid color-mix(in srgb, var(--color-borderLight) 78%, transparent); background: color-mix(in srgb, var(--color-paper) 92%, var(--color-white2)); border-radius: 11px; }
+.dabo-courses-v7 .dabo-courses-product-photo { object-fit: contain; }
+@media(max-width:640px) { .dabo-courses-v7 .dabo-store-heading { padding-inline: .65rem; } .dabo-courses-v7 .dabo-courses-item { padding-inline: .65rem; } }
+
+/* Courses Premium — visual refinement, local-only and theme-aware.
+   Store names are typographic identifiers, not representations of official logos. */
+.dabo-courses-v7 .dabo-store-heading-icon:has(.dabo-courses-store-recognized) {
+  width: auto; flex: 0 0 auto; max-width: 112px; height: 34px; overflow: visible;
+}
+.dabo-courses-v7 .dabo-courses-store-recognized:has(.dabo-courses-store-wordmark) {
+  width: auto; min-width: 55px; max-width: 112px; height: 34px;
+  padding: 0 9px; border-radius: 9px; background: var(--color-white2);
+  border: 1px solid var(--color-borderLight); color: var(--color-ink);
+}
+.dabo-courses-v7 .dabo-courses-store-wordmark {
+  display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 10px; letter-spacing: -.02em;
+  font-weight: 850; line-height: 1.1; text-transform: none;
+}
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="action"],
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="carrefour"],
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="delhaize"],
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="lidl"],
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="aldi"],
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="colruyt"],
+.dabo-courses-v7 .dabo-courses-store-recognized[data-store="albert-heijn"] {
+  background: var(--color-white2); color: var(--color-ink);
+}
+.dabo-courses-v7 .dabo-courses-product-placeholder {
+  color: var(--color-ink); background: color-mix(in srgb,var(--color-white2) 75%,var(--color-paper));
+}
+.dabo-courses-v7 .dabo-courses-product-placeholder svg { opacity: .8; }
+.dabo-courses-v7 .dabo-courses-item .text-muted {
+  color: color-mix(in srgb,var(--color-muted) 80%,var(--color-ink));
+}
+.dabo-courses-v7 .dabo-courses-category-card[aria-pressed="true"] {
+  outline: 2px solid var(--color-ink); outline-offset: 2px;
+}
+@media (min-width: 1024px) {
+  /* Two balanced vertical streams instead of row-paired unequal card heights. */
+  .dabo-app-content-courses .dabo-courses-v7 .dabo-courses-list {
+    display: block; columns: 2; column-gap: 1rem;
+  }
+  .dabo-app-content-courses .dabo-courses-v7 .dabo-courses-store-group {
+    display: inline-block; width: 100%; vertical-align: top;
+    break-inside: avoid; margin: 0 0 1rem;
+  }
+}
+@media (max-width: 640px) {
+  .dabo-courses-v7 .dabo-store-heading-icon:has(.dabo-courses-store-recognized) { max-width: 95px; }
+  .dabo-courses-v7 .dabo-courses-store-wordmark { font-size: 9px; }
+}

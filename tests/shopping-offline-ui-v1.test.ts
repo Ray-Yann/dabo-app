@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
@@ -61,8 +61,10 @@ test("shopping item check action remains available in offline mode", () => {
 test("offline mode does not render nearby stores", () => {
   assert.ok(
     source.includes(
-      'effectiveView === "to_buy" && !offlineShoppingMode && <NearbyStoresPanel'
-    )
+      'effectiveView === "to_buy" && !offlineShoppingMode && !shoppingMode && ('
+    ) &&
+    source.includes('<details className="dabo-courses-nearby') &&
+    source.includes('<NearbyStoresPanel')
   );
 });
 

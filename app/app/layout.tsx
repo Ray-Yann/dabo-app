@@ -12,10 +12,10 @@ import { detectAvailableLanguageFromDevice } from "@/lib/languages";
 import type { Lang } from "@/lib/i18n";
 import { APPEARANCE_EVENT, APPEARANCE_KEY, isAppearance, resolveDark } from "@/lib/dabo-appearance";
 
-function AppShell({ children, dark }: { children: React.ReactNode; dark: boolean }) {
+function AppShell({ children, dark, wide = false }: { children: React.ReactNode; dark: boolean; wide?: boolean }) {
   return (
     <div className={`${dark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
-      <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
+      <div className={`dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto ${wide ? "dabo-app-content-courses" : ""}`}>{children}</div>
       <DaboMainNav />
     </div>
   );
@@ -93,13 +93,13 @@ function AppShellWithLanguage({ children }: { children: React.ReactNode }) {
       ) : offlineFallback ? (
         pathname === "/app/courses" ? (
           <div className={`${effectiveDark ? "dabo-dark" : "dabo-light"} dabo-user-app dabo-app-frame min-h-[100dvh] bg-paper text-ink flex flex-col`}>
-            <div className="dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto">{children}</div>
+            <div className={`dabo-app-content flex-1 w-full max-w-lg md:max-w-3xl mx-auto ${pathname.startsWith("/app/courses") ? "dabo-app-content-courses" : ""}`}>{children}</div>
           </div>
         ) : (
           <div className="min-h-[100dvh] bg-paper flex items-center justify-center"><LoadingState /></div>
         )
       ) : (
-        <AppShell dark={effectiveDark}>{children}</AppShell>
+        <AppShell dark={effectiveDark} wide={pathname.startsWith("/app/courses")}>{children}</AppShell>
       )}
     </LanguageProvider>
   );

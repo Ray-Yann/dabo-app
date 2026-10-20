@@ -1,5 +1,7 @@
 "use client";
 
+import { CoursesSectionNav } from "@/components/CoursesSectionNav";
+import { recognizeCourseStore, courseProductPhoto, courseProductSymbol } from "@/lib/courses-visual-catalog";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
@@ -9,7 +11,7 @@ import { relativeDate, dueDateLabel, todayCivilDate } from "@/lib/utils";
 import { notifyHousehold, notifyMembers } from "@/lib/notifications";
 import { newlyAssignedMemberIds } from "@/lib/notification-assignment-targeting";
 import { commentNotificationRecipientIds } from "@/lib/notification-comment-targeting";
-import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal, Store } from "lucide-react";
+import { Check, Plus, Trash2, MessageCircle, X, Pencil, Sparkles, MoreHorizontal, Store, ShoppingBasket, ShoppingCart, LayoutGrid, List as ListIcon, Search, ArrowRight, PackageCheck, Milk, Apple, Beef, SprayCan, CookingPot, Package, Scissors, Shirt, Wheat, Droplets, Layers, Waves } from "lucide-react";
 import { IntroTip } from "@/components/IntroTip";
 import { Avatar } from "@/components/Avatar";
 import { useT } from "@/lib/language-context";
@@ -43,6 +45,54 @@ type HouseholdStore = { id: string; name: string };
 type ItemForm = { name: string; quantity: string; urgent: boolean; assignedTo: string; dueDate: string; store: string; customStore: string };
 const EMPTY_FORM: ItemForm = { name: "", quantity: "", urgent: false, assignedTo: "", dueDate: "", store: "", customStore: "" };
 const OTHER_STORE = "__other__";
+
+const SHOPPING_CATEGORY_RULES = [
+  /\b(lait|milk|melk|milch|leche|latte|leite|yaourt|yogurt|yoghurt|fromage|cheese|kaas|käse|queso|formaggio|queijo|beurre|butter|mantequilla)\b/i,
+  /\b(pain|bread|brood|brot|pan|pane|pão|riz|rice|rijst|reis|arroz|riso|pâte|pasta|pâtes|noodle|farine|flour|meel|mehl|harina|farinha)\b/i,
+  /\b(tomate|tomates|tomato|tomatoes|tomaat|tomaten|tomate[n]?|pomme|apple|appel|apfel|manzana|mela|maçã|banane|banana|banaan|bananen|carotte|carrot|wortel|zanahoria|cenoura|oignon|onion|ui|zwiebel|cebolla|cebola|salade|lettuce|sla|salat|lechuga|alface|orange|oranje|naranja|laranja)\b/i,
+  /\b(oeuf|oeufs|œuf|œufs|egg|eggs|ei|eieren|eier|huevo|huevos|uovo|uova|ovo|ovos|viande|meat|vlees|fleisch|carne|poisson|fish|vis|fisch|pescado|pesce|peixe|poulet|chicken|kip|huhn|pollo|frango)\b/i,
+  /\b(savon|soap|zeep|seife|jabón|sapone|sabão|lessive|detergent|wasmiddel|waschmittel|detergente|papier toilette|toilet paper|toiletpapier|toilettenpapier|papel higiénico|carta igienica|papel higiênico|shampo[o]?|dentifrice|toothpaste|tandpasta|zahnpasta|pasta de dientes)\b/i,
+];
+
+function storeMark(name: string): string {
+  return recognizeCourseStore(name) || name.trim() || "•";
+}
+
+function coursePhoto(name: string): string | null {
+  return courseProductPhoto(name);
+}
+
+/** Neutral fallback for products without an exact generic photograph. */
+function CourseFallback({ name }: { name: string }) {
+  const symbol = courseProductSymbol(name);
+  const props = { size: 19, strokeWidth: 1.5, "aria-hidden": true as const };
+  const icon = symbol === "scissors" ? <Scissors {...props} />
+    : symbol === "hygiene" ? <Layers {...props} />
+    : symbol === "cloth" ? <Waves {...props} />
+    : symbol === "cleaning" ? <SprayCan {...props} />
+    : symbol === "cotton" ? <Droplets {...props} />
+    : symbol === "milk" ? <Milk {...props} />
+    : symbol === "produce" ? <Apple {...props} />
+    : symbol === "protein" ? <Beef {...props} />
+    : symbol === "pantry" || symbol === "rice" ? <CookingPot {...props} />
+    : <Package {...props} />;
+  return <span className="dabo-courses-product-placeholder" aria-hidden="true">{icon}</span>;
+}
+
+/** Product artwork remains decorative; an unavailable asset gets an accessible-safe icon. */
+function CourseProductVisual({ name }: { name: string }) {
+  const photo = coursePhoto(name);
+  const [failedPath, setFailedPath] = useState<string | null>(null);
+  if (!photo || photo === failedPath) return <CourseFallback name={name} />;
+  return <img className="dabo-courses-product-photo" src={photo} alt="" loading="lazy" decoding="async" onError={() => setFailedPath(photo)} />;
+}
+
+function shoppingCategory(name: string, t: (key: string) => string): string {
+  const keys = ["courses_v6_dairy", "courses_v6_pantry", "courses_v6_produce", "courses_v6_protein", "courses_v6_home"];
+  const index = SHOPPING_CATEGORY_RULES.findIndex((pattern) => pattern.test(name.normalize("NFC")));
+  return t(index >= 0 ? keys[index] : "courses_v6_other");
+}
+
 
 function ItemFormFields({
   form,
@@ -95,6 +145,11 @@ export default function CoursesPage() {
   const { loading, household, me, members, supabase, offlineFallback } = useHousehold();
   const t = useT();
   const [view, setView] = useState<"to_buy" | "suggestions" | "history">("to_buy");
+  const [shoppingMode, setShoppingMode] = useState(false);
+  const [shoppingSessionIds, setShoppingSessionIds] = useState<string[]>([]);
+  const [shoppingSearch, setShoppingSearch] = useState("");
+  const [shoppingGrouping, setShoppingGrouping] = useState<"store" | "category">("store");
+  const [selectedShoppingCategory, setSelectedShoppingCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const requestedView = new URL(window.location.href).searchParams.get("view");
@@ -937,19 +992,24 @@ export default function CoursesPage() {
   const shoppingDataMatchesHousehold = loadedShoppingHouseholdId === household?.id;
   const visibleItems = shoppingDataMatchesHousehold ? items : [];
   const toBuy = [...visibleItems.filter((i) => i.status === "to_buy")].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+  const filteredToBuy = toBuy.filter((item) => (!selectedShoppingCategory || shoppingCategory(item.name, t) === t(selectedShoppingCategory)) && `${item.name} ${item.quantity || ""} ${item.store_name || ""}`.toLocaleLowerCase().includes(shoppingSearch.trim().toLocaleLowerCase()));
   const toBuyGroups = (() => {
     const groups = new Map<string, ShoppingItem[]>();
-    for (const item of toBuy) {
-      const label = item.store_name?.trim() || t("courses_store_none_group");
+    for (const item of filteredToBuy) {
+      const label = shoppingGrouping === "category" ? shoppingCategory(item.name, t) : (item.store_name?.trim() || t("courses_store_none_group"));
       groups.set(label, [...(groups.get(label) || []), item]);
     }
     return [...groups.entries()].sort(([a], [b]) => {
+      if (shoppingGrouping === "category") return a.localeCompare(b);
       if (a === t("courses_store_none_group")) return 1;
       if (b === t("courses_store_none_group")) return -1;
       return a.localeCompare(b, undefined, { sensitivity: "base" });
     });
   })();
   const hasBoughtItems = visibleItems.some((i) => i.status === "bought");
+  const purchasedCount = shoppingSessionIds.filter((id) => visibleItems.some((item) => item.id === id && item.status === "bought")).length;
+  const shoppingTotal = shoppingMode ? shoppingSessionIds.length : toBuy.length;
+  const shoppingProgress = shoppingMode && shoppingTotal ? Math.round((purchasedCount / shoppingTotal) * 100) : 0;
   const allBought = visibleItems
     .filter((i) => i.status === "bought")
     .filter((i) => i.name.toLowerCase().includes(deferredBoughtSearch.toLowerCase()))
@@ -993,12 +1053,13 @@ export default function CoursesPage() {
   }
 
   return (
-    <div>
+    <div className="dabo-courses-v6 dabo-courses-v7 dabo-courses-v71 dabo-courses-v72">
       <div className="dabo-organic-header flex items-start justify-between px-5 pt-8 pb-4">
         <div className="relative z-[1]">
           <div className="dabo-brand-orbit" aria-hidden="true"><span className="dabo-brand-leaf dabo-brand-leaf-a" /><span className="dabo-brand-leaf dabo-brand-leaf-b" /><span className="dabo-brand-sun" /></div>
           <div className="text-[11px] uppercase tracking-wide text-muted mb-1">{toBuy.length} {t("courses_remaining")}</div>
-          <h1 className="font-serif text-2xl text-ink">{t("courses_title")}</h1>
+          <h1 className="font-serif text-3xl text-ink">{t("courses_title")}</h1>
+          <p className="dabo-courses-subtitle">{t("courses_v6_intro")}</p>
         </div>
         {!offlineShoppingMode && (
           <div className="relative z-[1] flex flex-col items-end gap-2">
@@ -1015,6 +1076,21 @@ export default function CoursesPage() {
           </div>
         )}
       </div>
+
+      {!offlineShoppingMode && <CoursesSectionNav />}
+
+      {!offlineShoppingMode && (
+        <section className="dabo-courses-overview mx-5 mb-5" aria-label={t("courses_v6_overview")}>
+          <div className="dabo-courses-overview-copy">
+            <div className="dabo-courses-overview-eyebrow"><ShoppingBasket size={15} /> {t("courses_v6_overview")}</div>
+            <strong>{shoppingTotal} {t("courses_v6_articles")}</strong>
+            {shoppingMode && <span>{`${purchasedCount} / ${shoppingTotal} · ${t("courses_bought")}`}</span>}
+            {shoppingMode && <div className="dabo-courses-progress" role="progressbar" aria-valuenow={shoppingProgress} aria-valuemin={0} aria-valuemax={100} aria-label={t("courses_v6_progress")}><span style={{ width: `${shoppingProgress}%` }} /></div>}
+          </div>
+          <div className="dabo-courses-hero-photo" aria-hidden="true" />
+          {shoppingMode && <span className="dabo-courses-progress-number">{shoppingProgress}%</span>}
+        </section>
+      )}
 
       {showAddChoice && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -1319,14 +1395,53 @@ export default function CoursesPage() {
       </div>
       )}
 
-      {effectiveView === "to_buy" && !offlineShoppingMode && <NearbyStoresPanel supabase={supabase} t={t} onUseStore={useNearbyStore} />}
+      {effectiveView === "to_buy" && !shoppingMode && (
+        <section className="dabo-courses-category-rail mx-5 mb-5" aria-label={t("courses_v6_by_category")}>
+          {selectedShoppingCategory && <button type="button" className="dabo-courses-clear-filter" onClick={() => setSelectedShoppingCategory(null)} aria-label={`${t("courses_v6_by_category")}: ${t("courses_v6_articles")}`}><X size={15} /> {t("courses_v6_articles")} · {toBuy.length}</button>}
+          {(["courses_v6_produce", "courses_v6_dairy", "courses_v6_pantry", "courses_v6_protein", "courses_v6_home", "courses_v6_other"] as const).map((categoryKey) => {
+            const count = toBuy.filter((item) => shoppingCategory(item.name, t) === t(categoryKey)).length;
+            if (count === 0) return null;
+            return (
+              <button key={categoryKey} type="button" className="dabo-courses-category-card" aria-pressed={selectedShoppingCategory === categoryKey} onClick={() => { setSelectedShoppingCategory((current) => current === categoryKey ? null : categoryKey); setShoppingGrouping("category"); }} aria-label={`${t(categoryKey)} · ${count} ${t("courses_v6_articles")}`}>
+                <span className={`dabo-courses-category-photo dabo-courses-category-photo-${categoryKey === "courses_v6_produce" ? "produce" : categoryKey === "courses_v6_dairy" ? "dairy" : categoryKey === "courses_v6_pantry" ? "pantry" : categoryKey === "courses_v6_protein" ? "protein" : categoryKey === "courses_v6_home" ? "home" : "other"}`} aria-hidden="true" />
+                <span className="dabo-courses-category-label">{t(categoryKey)}<small>{count} {t("courses_v6_articles")}</small></span>
+                <ArrowRight size={14} aria-hidden="true" />
+              </button>
+            );
+          })}
+        </section>
+      )}
+
+      {effectiveView === "to_buy" && (
+        <section className="dabo-courses-toolbar mx-5 mb-4" aria-label={t("courses_v6_tools")}>
+          <label className="dabo-courses-search"><Search size={17} aria-hidden="true" /><span className="sr-only">{t("courses_v6_search")}</span><input value={shoppingSearch} onChange={(event) => setShoppingSearch(event.target.value)} placeholder={t("courses_v6_search")} /></label>
+          <div className="dabo-courses-toolbar-actions">
+            <div className="dabo-courses-group-toggle" role="group" aria-label={t("courses_v6_group") }>
+              <button type="button" onClick={() => setShoppingGrouping("store")} aria-pressed={shoppingGrouping === "store"} title={t("courses_v6_by_store")}><Store size={17} /><span>{t("courses_v6_by_store")}</span></button>
+              <button type="button" onClick={() => setShoppingGrouping("category")} aria-pressed={shoppingGrouping === "category"} title={t("courses_v6_by_category")}><LayoutGrid size={17} /><span>{t("courses_v6_by_category")}</span></button>
+            </div>
+            <button type="button" className="dabo-courses-mode-button" onClick={() => { if (!shoppingMode) setShoppingSessionIds(toBuy.map((item) => item.id)); setShoppingMode((current) => !current); }} aria-pressed={shoppingMode}><ShoppingCart size={17} />{shoppingMode ? t("courses_v6_leave_mode") : t("courses_v6_shop_mode")}</button>
+          </div>
+        </section>
+      )}
+      {effectiveView === "to_buy" && shoppingMode && (
+        <div className="dabo-courses-mode-progress mx-5 mb-4" role="status"><PackageCheck size={18} /> <span>{purchasedCount} / {shoppingTotal} · {shoppingProgress}%</span><div className="dabo-courses-progress"><span style={{ width: `${shoppingProgress}%` }} /></div></div>
+      )}
+      {effectiveView === "to_buy" && shoppingSearch.trim() && filteredToBuy.length === 0 && <p className="mx-5 mb-4 text-sm text-muted">{t("courses_v6_no_results")}</p>}
+
+      {effectiveView === "to_buy" && !offlineShoppingMode && !shoppingMode && (
+        <details className="dabo-courses-nearby mx-5 mb-4">
+          <summary className="dabo-courses-nearby-trigger">{t("courses_nearby_title")}</summary>
+          <NearbyStoresPanel supabase={supabase} t={t} onUseStore={useNearbyStore} />
+        </details>
+      )}
 
       {!offlineShoppingMode && effectiveView === "suggestions" && !shoppingSuggestion && (
         <div className="mx-5 rounded-3xl border border-borderLight bg-white2 p-6 text-center text-sm text-muted">{t("courses_empty")}</div>
       )}
 
       {effectiveView === "to_buy" && (<>
-      {!offlineShoppingMode && showAdd && (
+      {!offlineShoppingMode && showAdd && !shoppingMode && (
         <div className="mx-5 mb-4 bg-white2 rounded-2xl p-4 space-y-3">
           <div>
             <div className="text-sm font-semibold text-ink">{t("courses_add_question")}</div>
@@ -1412,12 +1527,12 @@ export default function CoursesPage() {
 
       <div className="px-5">
         {toBuy.length === 0 && !showAdd && !offlineShoppingMode && <EmptyState message={`${t("courses_empty_title")} ${t("courses_empty")}`} actionLabel={t("courses_add_first")} onAction={() => setShowAdd(true)} />}
-        <div className="space-y-1 mb-6">
+        <div className="dabo-courses-list space-y-1 mb-6">
           {toBuyGroups.map(([storeLabel, storeItems]) => (
-            <div key={storeLabel} className="mb-4">
-              <div className="dabo-store-heading sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-paper/95 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted"><span className="dabo-store-heading-icon"><Store size={13} /></span><span>{storeLabel}</span></div>
+            <div key={storeLabel} className="dabo-courses-store-group mb-4">
+              <div className="dabo-store-heading sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-paper/95 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted"><span className="dabo-store-heading-icon">{shoppingGrouping === "category" ? <LayoutGrid size={13} /> : <span className={`dabo-courses-store-monogram${recognizeCourseStore(storeLabel) ? " dabo-courses-store-recognized" : ""}`} data-store={recognizeCourseStore(storeLabel)?.toLowerCase().replace(/[^a-z]+/g, "-") || "custom"} aria-hidden="true">{recognizeCourseStore(storeLabel) ? <span className="dabo-courses-store-wordmark">{recognizeCourseStore(storeLabel)}</span> : storeMark(storeLabel).slice(0, 1).toLocaleUpperCase()}</span>}</span><span>{storeLabel}</span><span className="ml-auto font-normal normal-case">{storeItems.length}</span></div>
               {storeItems.map((item) => (
-            <div key={item.id} className="border-b border-borderLight py-3">
+            <div key={item.id} className="dabo-courses-item border-b border-borderLight py-3">
               {editingId === item.id ? (
                 <div className="bg-white2 rounded-xl p-3 space-y-2">
                   <ItemFormFields form={editForm} setForm={setEditForm} members={members} t={t} stores={availableStores()} />
@@ -1428,13 +1543,14 @@ export default function CoursesPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div onClick={() => toggle(item)} className={`w-5 h-5 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === item.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
+                  <button type="button" onClick={() => toggle(item)} aria-label={`${t("courses_bought")}: ${item.name}`} className={`dabo-courses-check w-6 h-6 rounded-full border-2 border-border shrink-0 cursor-pointer ${animatingId === item.id ? "bg-ink border-ink animate-check-pop" : ""}`} />
+                  {<CourseProductVisual name={item.name} />}
                   <div className="flex-1 min-w-0" onClick={() => toggle(item)}>
                     <div className="text-sm text-ink cursor-pointer flex flex-wrap items-center gap-1.5">
                       <span>{item.name}</span>
                       {item.quantity && <span className="text-muted">· {item.quantity}</span>}
                       {item.urgent && <span className="rounded-full bg-mustardBg px-2 py-0.5 text-[10px] font-semibold text-mustard">{t("urgent_label")}</span>}
-                      {item.store_name && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] font-medium text-muted">{item.store_name}</span>}
+                      {item.store_name && shoppingGrouping !== "store" && <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] font-medium text-muted">{item.store_name}</span>}
                     </div>
                     {(item.assigned_to || item.due_date) && (
                       <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
@@ -1449,7 +1565,7 @@ export default function CoursesPage() {
                       </div>
                     )}
                   </div>
-                  {!offlineShoppingMode && (
+                  {!offlineShoppingMode && !shoppingMode && (
                     <>
                       <button onClick={() => startEdit(item)} className="text-muted" aria-label={t("edit")}><Pencil size={16} /></button>
                       <button onClick={() => setActionItemId(item.id)} className="text-muted" aria-label={t("courses_item_more_actions")}><MoreHorizontal size={18} /></button>
@@ -1457,7 +1573,7 @@ export default function CoursesPage() {
                   )}
                 </div>
               )}
-              {!offlineShoppingMode && openComments === item.id && (
+              {!offlineShoppingMode && !shoppingMode && openComments === item.id && (
                 <div className="mt-2 ml-8 bg-white2 rounded-xl p-3">
                   {comments.length === 0 && <p className="text-xs text-muted italic">{t("comments_none")}</p>}
                   {comments.map((c) => (
@@ -1652,16 +1768,6 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {!offlineShoppingMode && effectiveView === "to_buy" && !showAdd && !headerAddButtonVisible && (
-        <button
-          type="button"
-          onClick={(event) => { addChoiceTriggerRef.current = event.currentTarget; setShowAddChoice(true); }}
-          className="md:hidden fixed right-5 bottom-24 z-20 rounded-full bg-ink px-4 py-3 text-sm font-medium text-paper shadow-lg"
-          aria-haspopup="dialog"
-        >
-          <Plus size={15} className="inline mr-1" />{t("add")}
-        </button>
-      )}
     </div>
   );
 }

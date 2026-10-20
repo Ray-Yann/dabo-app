@@ -1,0 +1,92 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { Refrigerator, Snowflake, Archive, Package, Plus, Minus, ArrowRightLeft, } from "lucide-react";
+import { CoursesSectionNav } from "@/components/CoursesSectionNav";
+import { useHousehold } from "@/lib/use-household";
+import { useLanguage } from "@/lib/language-context";
+
+type Location = { id: string; name: string; kind: "fridge" | "freezer" | "cupboard" | "other" };
+type Stock = { id: string; name: string; location_id: string; quantity: number; unit: string; expires_on: string | null };
+const words = {
+ fr: ["Mes réserves", "Votre inventaire partagé, sans stock supposé.", "Ajouter un emplacement", "Nom de l'emplacement", "Réfrigérateur", "Congélateur", "Placard", "Autre", "Créer", "Ajouter un produit", "Nom du produit", "Quantité", "Unité", "Date limite (facultatif)", "Enregistrer", "Aucun produit enregistré", "Ajouter", "Consommer", "Déplacer", "Choisir une destination", "Confirmer", "Quantité à modifier", "Historique des mouvements", "Stock épuisé", "Date dépassée", "À consommer bientôt", "Chargement…", "Impossible de charger les réserves", "Installer d'abord la migration Supabase Mes réserves V1.", "Réessayer", "Retour aux courses", "Choisir un emplacement", "Aucun emplacement", "Opération enregistrée", "Erreur :", "Entrée", "Sortie", "Transfert"],
+ nl: ["Mijn voorraad", "Gedeelde voorraad, zonder aannames.", "Locatie toevoegen", "Naam van locatie", "Koelkast", "Diepvries", "Kast", "Overig", "Aanmaken", "Product toevoegen", "Productnaam", "Hoeveelheid", "Eenheid", "Houdbaar tot (optioneel)", "Opslaan", "Nog geen producten", "Toevoegen", "Verbruiken", "Verplaatsen", "Bestemming kiezen", "Bevestigen", "Hoeveelheid aanpassen", "Voorraadgeschiedenis", "Op", "Datum verstreken", "Binnenkort gebruiken", "Laden…", "Kan voorraad niet laden", "Installeer eerst de Supabase-migratie voor voorraad V1.", "Opnieuw proberen", "Terug naar boodschappen", "Locatie kiezen", "Geen locaties", "Opgeslagen", "Fout:", "Toegevoegd", "Verbruikt", "Verplaatst"],
+ en: ["My pantry", "Shared inventory, with no assumed stock.", "Add location", "Location name", "Fridge", "Freezer", "Cupboard", "Other", "Create", "Add product", "Product name", "Quantity", "Unit", "Best before (optional)", "Save", "No products recorded", "Add", "Consume", "Move", "Choose destination", "Confirm", "Quantity to change", "Stock history", "Out of stock", "Date passed", "Use soon", "Loading…", "Could not load pantry", "Install the Pantry V1 Supabase migration first.", "Retry", "Back to groceries", "Choose location", "No locations", "Saved", "Error:", "Added", "Consumed", "Moved"],
+ de: ["Meine Vorräte", "Gemeinsamer Bestand ohne Vermutungen.", "Lagerort hinzufügen", "Name des Lagerorts", "Kühlschrank", "Gefrierschrank", "Schrank", "Sonstiges", "Erstellen", "Produkt hinzufügen", "Produktname", "Menge", "Einheit", "Haltbar bis (optional)", "Speichern", "Keine Produkte erfasst", "Hinzufügen", "Verbrauchen", "Verschieben", "Ziel auswählen", "Bestätigen", "Menge ändern", "Bestandsverlauf", "Aufgebraucht", "Datum überschritten", "Bald verbrauchen", "Laden…", "Vorräte konnten nicht geladen werden", "Zuerst die Supabase-Migration Vorräte V1 installieren.", "Erneut versuchen", "Zurück zu Einkäufen", "Lagerort auswählen", "Keine Lagerorte", "Gespeichert", "Fehler:", "Zugang", "Verbrauch", "Transfer"],
+ es: ["Mis reservas", "Inventario compartido sin existencias supuestas.", "Añadir ubicación", "Nombre de ubicación", "Nevera", "Congelador", "Armario", "Otro", "Crear", "Añadir producto", "Nombre del producto", "Cantidad", "Unidad", "Fecha de caducidad (opcional)", "Guardar", "No hay productos registrados", "Añadir", "Consumir", "Mover", "Elegir destino", "Confirmar", "Cantidad a modificar", "Historial de movimientos", "Agotado", "Fecha superada", "Consumir pronto", "Cargando…", "No se pudo cargar el inventario", "Instala primero la migración Supabase Reservas V1.", "Reintentar", "Volver a compras", "Elegir ubicación", "Sin ubicaciones", "Guardado", "Error:", "Entrada", "Salida", "Traslado"],
+ it: ["Le mie scorte", "Inventario condiviso senza scorte presunte.", "Aggiungi posizione", "Nome posizione", "Frigorifero", "Congelatore", "Dispensa", "Altro", "Crea", "Aggiungi prodotto", "Nome prodotto", "Quantità", "Unità", "Scadenza (facoltativa)", "Salva", "Nessun prodotto registrato", "Aggiungi", "Consuma", "Sposta", "Scegli destinazione", "Conferma", "Quantità da modificare", "Cronologia scorte", "Esaurito", "Data superata", "Da consumare presto", "Caricamento…", "Impossibile caricare le scorte", "Installa prima la migrazione Supabase Scorte V1.", "Riprova", "Torna alla spesa", "Scegli posizione", "Nessuna posizione", "Salvato", "Errore:", "Entrata", "Uscita", "Trasferimento"],
+ pt: ["As minhas reservas", "Inventário partilhado sem stocks presumidos.", "Adicionar local", "Nome do local", "Frigorífico", "Congelador", "Armário", "Outro", "Criar", "Adicionar produto", "Nome do produto", "Quantidade", "Unidade", "Validade (opcional)", "Guardar", "Nenhum produto registado", "Adicionar", "Consumir", "Mover", "Escolher destino", "Confirmar", "Quantidade a alterar", "Histórico de movimentos", "Esgotado", "Data ultrapassada", "Consumir em breve", "A carregar…", "Não foi possível carregar as reservas", "Instale primeiro a migração Supabase Reservas V1.", "Tentar novamente", "Voltar às compras", "Escolher local", "Sem locais", "Guardado", "Erro:", "Entrada", "Saída", "Transferência"],
+} as const;
+
+const kinds = ["fridge", "freezer", "cupboard", "other"] as const;
+const units = ["piece", "g", "kg", "ml", "l"] as const;
+const icons = { fridge: Refrigerator, freezer: Snowflake, cupboard: Archive, other: Package };
+const safeQuantity = (s: string) => { const n = Number(s.replace(",", ".")); return Number.isFinite(n) && n > 0 && n <= 1000000 && Math.round(n * 1000) === n * 1000 ? n : null; };
+
+export default function ReservesPage() {
+ const { household, loading: householdLoading, offlineFallback, supabase } = useHousehold();
+ const language = useLanguage();
+ const w = words[language] ?? words.fr;
+ const t = (i: number) => w[i];
+ const [locations, setLocations] = useState<Location[]>([]);
+ const [stocks, setStocks] = useState<Stock[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [error, setError] = useState("");
+ const [notice, setNotice] = useState("");
+ const [busy, setBusy] = useState(false);
+ const [locationName, setLocationName] = useState("");
+ const [locationKind, setLocationKind] = useState<Location["kind"]>("fridge");
+ const [showLocation, setShowLocation] = useState(false);
+ const [showProduct, setShowProduct] = useState(false);
+ const [productName, setProductName] = useState("");
+ const [productLocation, setProductLocation] = useState("");
+ const [quantity, setQuantity] = useState("1");
+ const [unit, setUnit] = useState("piece");
+ const [expiry, setExpiry] = useState("");
+ const [editing, setEditing] = useState<{ stock: Stock; action: "added" | "consumed" | "transferred" } | null>(null);
+ const [destination, setDestination] = useState("");
+ const [changeAmount, setChangeAmount] = useState("1");
+ const [historyStock, setHistoryStock] = useState<Stock | null>(null);
+ const [movements, setMovements] = useState<{id:string;action:string;delta:number;quantity_after:number;created_at:string}[]>([]);
+
+ const reload = useCallback(async () => {
+  if (!household?.id || offlineFallback) { setLoading(false); return; }
+  setLoading(true); setError("");
+  const [a,b] = await Promise.all([
+   supabase.from("pantry_locations").select("id,name,kind").eq("household_id", household.id).order("created_at"),
+   supabase.from("pantry_stocks").select("id,name,location_id,quantity,unit,expires_on").eq("household_id", household.id).order("created_at", {ascending:false}),
+  ]);
+  if (a.error || b.error) setError(`${t(27)}. ${a.error?.message ?? b.error?.message ?? ""}`);
+  else { setLocations((a.data ?? []) as Location[]); setStocks((b.data ?? []) as Stock[]); }
+  setLoading(false);
+ }, [household?.id, offlineFallback, supabase, language]);
+ useEffect(() => { void reload(); }, [reload]);
+ useEffect(() => { setLocations([]); setStocks([]); setEditing(null); setHistoryStock(null); setNotice(""); }, [household?.id]);
+
+ async function run(operation: () => PromiseLike<{error: {message:string}|null}>, close: () => void) {
+  if (busy || !household || offlineFallback) return;
+  setBusy(true); setError(""); setNotice("");
+  try { const result = await operation(); if (result.error) throw result.error; close(); setNotice(t(33)); await reload(); }
+  catch(e) { setError(`${t(34)} ${e instanceof Error ? e.message : String(e)}`); }
+  finally { setBusy(false); }
+ }
+ const today = new Date(); const day = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+ const soonDate = new Date(today.getFullYear(),today.getMonth(),today.getDate()+3);
+ const soon = `${soonDate.getFullYear()}-${String(soonDate.getMonth()+1).padStart(2,"0")}-${String(soonDate.getDate()).padStart(2,"0")}`;
+ return <main className="mx-auto min-h-[75dvh] max-w-6xl pb-32 pt-8">
+  <header className="px-5 pb-4"><Link href="/app/courses" className="text-sm text-muted underline underline-offset-4">← {t(30)}</Link><h1 className="mt-4 font-serif text-3xl text-ink">{t(0)}</h1><p className="mt-2 text-sm text-muted">{t(1)}</p></header>
+  <CoursesSectionNav />
+  <div className="px-5">
+   {error && <div role="alert" className="mb-4 rounded-xl border border-red-500 p-3 text-sm text-ink">{error} <button className="ml-2 underline" onClick={() => void reload()}>{t(29)}</button></div>}
+   {notice && <p role="status" className="mb-3 text-sm text-ink">{notice}</p>}
+   {offlineFallback && <p role="status" className="mb-3 text-sm text-muted">{t(27)}</p>}
+   <div className="mb-5 flex flex-wrap gap-2"><button disabled={offlineFallback} onClick={() => setShowLocation(v=>!v)} className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"><Plus size={16} className="mr-1 inline"/>{t(2)}</button><button disabled={!locations.length || offlineFallback} onClick={() => {setProductLocation(locations[0]?.id ?? "");setShowProduct(v=>!v);}} className="rounded-xl bg-ink px-4 py-3 text-sm text-paper"><Plus size={16} className="mr-1 inline"/>{t(9)}</button></div>
+   {showLocation && <form className="mb-5 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-3" onSubmit={e=>{e.preventDefault();if(!locationName.trim()||!household)return;void run(()=>supabase.rpc("pantry_location_create",{p_household:household.id,p_name:locationName.trim(),p_kind:locationKind}),()=>{setShowLocation(false);setLocationName("");});}}><label className="text-sm text-ink">{t(3)}<input required maxLength={70} value={locationName} onChange={e=>setLocationName(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink"/></label><label className="text-sm text-ink">{t(31)}<select value={locationKind} onChange={e=>setLocationKind(e.target.value as Location["kind"])} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink">{kinds.map((k,i)=><option key={k} value={k}>{t(i+4)}</option>)}</select></label><button disabled={busy} className="self-end rounded-lg bg-ink p-2.5 text-paper">{t(8)}</button></form>}
+   {showProduct && <form className="mb-5 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-3" onSubmit={e=>{e.preventDefault();const n=safeQuantity(quantity);if(!household||!n||!productName.trim()||!productLocation)return;void run(()=>supabase.rpc("pantry_stock_create",{p_household:household.id,p_location:productLocation,p_name:productName.trim(),p_quantity:n,p_unit:unit,p_expires:expiry||null}),()=>{setShowProduct(false);setProductName("");setExpiry("");});}}><label className="text-sm text-ink">{t(10)}<input required maxLength={120} value={productName} onChange={e=>setProductName(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink"/></label><label className="text-sm text-ink">{t(31)}<select required value={productLocation} onChange={e=>setProductLocation(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink">{locations.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label><label className="text-sm text-ink">{t(11)}<input required inputMode="decimal" value={quantity} onChange={e=>setQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink"/></label><label className="text-sm text-ink">{t(12)}<select value={unit} onChange={e=>setUnit(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink">{units.map(u=><option key={u} value={u}>{u}</option>)}</select></label><label className="text-sm text-ink">{t(13)}<input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper p-2 text-ink"/></label><button disabled={busy} className="self-end rounded-lg bg-ink p-2.5 text-paper">{t(14)}</button></form>}
+   {loading||householdLoading?<p className="text-sm text-muted">{t(26)}</p>:locations.length===0?<p className="rounded-2xl border border-line bg-surface p-5 text-sm text-muted">{t(32)}</p>:<div className="grid items-start gap-4 md:grid-cols-2">{locations.map(l=>{const Icon=icons[l.kind];return <section key={l.id} className="overflow-hidden rounded-2xl border border-line bg-surface"><header className="flex items-center gap-2 border-b border-line p-4 text-ink"><Icon size={19}/><h2 className="font-semibold">{l.name}</h2><span className="ml-auto text-xs text-muted">{stocks.filter(s=>s.location_id===l.id).length}</span></header><div className="divide-y divide-line">{stocks.filter(s=>s.location_id===l.id).length===0?<p className="p-4 text-sm text-muted">{t(15)}</p>:stocks.filter(s=>s.location_id===l.id).map(s=><div key={s.id} className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-medium text-ink">{s.name}</p><p className="text-sm text-muted">{s.quantity} {s.unit}{s.expires_on?` · ${s.expires_on}`:""}</p>{s.quantity===0?<p className="text-xs text-muted">{t(23)}</p>:s.expires_on&&s.expires_on<day?<p className="text-xs text-red-500">{t(24)}</p>:s.expires_on&&s.expires_on<=soon?<p className="text-xs text-amber-600">{t(25)}</p>:null}</div><button onClick={async()=>{setHistoryStock(s);const r=await supabase.from("pantry_movements").select("id,action,delta,quantity_after,created_at").eq("household_id",household!.id).eq("stock_id",s.id).order("created_at",{ascending:false}).limit(30);setMovements((r.data??[]) as typeof movements);}} className="text-xs text-muted underline">{t(22)}</button></div><div className="mt-3 flex flex-wrap gap-2">{(["added","consumed","transferred"] as const).map((action,i)=>{const I=i===0?Plus:i===1?Minus:ArrowRightLeft;return <button key={action} disabled={busy||offlineFallback||(i===1&&s.quantity===0)|| (i===2&&locations.length<2)} onClick={()=>{setEditing({stock:s,action});setChangeAmount("1");setDestination(locations.find(x=>x.id!==s.location_id)?.id??"");}} className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-2 text-xs text-ink disabled:opacity-40"><I size={13}/>{t(i===0?16:i===1?17:18)}</button>;})}</div></div>)}</div></section>;})}</div>}
+   {editing&&<div className="mt-5 rounded-2xl border border-line bg-surface p-4"><h2 className="mb-3 font-semibold text-ink">{editing.stock.name} · {t(editing.action==="added"?16:editing.action==="consumed"?17:18)}</h2><form className="flex flex-wrap items-end gap-3" onSubmit={e=>{e.preventDefault();if(!household)return;const n=editing.action==="transferred"?0:safeQuantity(changeAmount);if(n===null)return;const delta=editing.action==="consumed"?-n:n;void run(()=>supabase.rpc("pantry_stock_change",{p_household:household.id,p_stock:editing.stock.id,p_delta:delta,p_destination:editing.action==="transferred"?destination:null}),()=>setEditing(null));}}>{editing.action!=="transferred"&&<label className="text-sm text-ink">{t(21)}<input required inputMode="decimal" value={changeAmount} onChange={e=>setChangeAmount(e.target.value)} className="mt-1 block rounded-lg border border-line bg-paper p-2 text-ink"/></label>}{editing.action==="transferred"&&<label className="text-sm text-ink">{t(19)}<select required value={destination} onChange={e=>setDestination(e.target.value)} className="mt-1 block rounded-lg border border-line bg-paper p-2 text-ink">{locations.filter(l=>l.id!==editing.stock.location_id).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>}<button disabled={busy} className="rounded-lg bg-ink px-4 py-2.5 text-paper">{t(20)}</button><button type="button" onClick={()=>setEditing(null)} className="rounded-lg border border-line px-4 py-2.5 text-ink">×</button></form></div>}
+   {historyStock&&<section className="mt-5 rounded-2xl border border-line bg-surface p-4"><div className="flex justify-between gap-2"><h2 className="font-semibold text-ink">{t(22)} · {historyStock.name}</h2><button onClick={()=>setHistoryStock(null)} aria-label="Fermer" className="text-ink">×</button></div><ul className="mt-3 divide-y divide-line">{movements.map(m=><li key={m.id} className="flex justify-between gap-2 py-2 text-sm text-muted"><span>{m.action==="consumed"?t(36):m.action==="transferred"?t(37):t(35)} · {m.delta>0?"+":""}{m.delta}</span><span>{new Date(m.created_at).toLocaleDateString(language)}</span></li>)}</ul></section>}
+  </div>
+ </main>;
+}
