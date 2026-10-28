@@ -154,3 +154,62 @@ export function courseProductSymbol(name: string): CourseProductSymbol {
   if (/\b(pate|pasta|farine|flour|meel|harina|pain|bread|brood|brot)\b/.test(n)) return 'pantry';
   return 'generic';
 }
+
+
+/** V3.2: conservative generic artwork for frequently entered products.
+ * Emoji are rendered by the device: no network, third-party assets or licenses.
+ * More specific terms take precedence over generic ones; branded names are excluded.
+ */
+const GENERIC_PRODUCT_ART: ReadonlyArray<{ emoji: string; names: readonly string[] }> = [
+  { emoji: '🥣', names: ['flocons de riz','flocon de riz','rice flakes','rijstvlokken','reisflocken','copos de arroz','fiocchi di riso','flocos de arroz','flocons d avoine','oat flakes','havervlokken','haferflocken'] },
+  { emoji: '🧴', names: ['anticalcaire','anti calcaire','antical','detartrant','limescale remover','ontkalker','kalkreiniger','antical','anticalcare','descalcificador','removedor de calcario','gel hydroalcoolique','hand sanitizer'] },
+  { emoji: '🌸', names: ['senteurs','senteur','parfum maison','parfum d interieur','home fragrance','room fragrance','huisparfum','raumduft','ambientador','profumatore ambiente','aromatizador'] },
+  { emoji: '🍞', names: ['pain','baguette','bread','brood','brot','pan','pane','pao','toast','pain de mie'] },
+  { emoji: '🥐', names: ['croissant','croissants','viennoiserie','pastry','gebak','geback'] },
+  { emoji: '🧈', names: ['beurre','butter','boter','mantequilla','burro','manteiga'] },
+  { emoji: '🧀', names: ['fromage','cheese','kaas','kase','queso','formaggio','queijo'] },
+  { emoji: '🥛', names: ['yaourt','yogourt','yogurt','yoghurt','joghurt','yogur','iogurte','creme fraiche','cream','room','sahne','nata'] },
+  { emoji: '🍎', names: ['pomme','pommes','apple','apples','appel','appels','apfel','manzana','mela','maca'] },
+  { emoji: '🍊', names: ['orange','oranges','sinaasappel','orangen','naranja','arancia','laranja','mandarine','mandarijn','tangerine'] },
+  { emoji: '🍋', names: ['citron','citron jaune','lemon','citroen','zitrone','limon','limone','limao'] },
+  { emoji: '🍓', names: ['fraise','fraises','strawberry','strawberries','aardbei','erdbeere','fresa','fragola','morango'] },
+  { emoji: '🍇', names: ['raisin','raisins','grapes','druiven','trauben','uvas','uva'] },
+  { emoji: '🥑', names: ['avocat','avocats','avocado','avocados','aguacate','abacate'] },
+  { emoji: '🥒', names: ['concombre','cucumber','komkommer','gurke','pepino','cetriolo'] },
+  { emoji: '🥬', names: ['salade','laitue','lettuce','sla','salat','lechuga','lattuga','alface','epinards','spinach','spinazie','spinat','espinacas','spinaci','espinafre'] },
+  { emoji: '🥦', names: ['brocoli','broccoli','brokkoli','brocolis','broculos'] },
+  { emoji: '🫑', names: ['poivron','poivrons','bell pepper','paprika','pimiento','peperone','pimentao'] },
+  { emoji: '🍄', names: ['champignon','champignons','mushroom','mushrooms','paddenstoelen','pilze','setas','funghi','cogumelos'] },
+  { emoji: '🧄', names: ['ail','garlic','knoflook','knoblauch','ajo','aglio','alho'] },
+  { emoji: '🍗', names: ['cuisses de poulet','cuisse de poulet','chicken legs','chicken drumsticks','kippenbouten','hahnchenkeulen','muslos de pollo','cosce di pollo','coxas de frango'] },
+  { emoji: '🥩', names: ['steak','steaks','boeuf','beef','rundvlees','rindfleisch','ternera','manzo','carne bovina'] },
+  { emoji: '🍤', names: ['crevettes','crevette','shrimp','prawns','garnalen','garnelen','gambas','gamberetti','camarao'] },
+  { emoji: '🍕', names: ['pizza','pizzas'] },
+  { emoji: '🥫', names: ['conserve','conserves','canned food','blikvoer','konserven','conservas','scatolame'] },
+  { emoji: '🧂', names: ['sel','salt','zout','salz','sale','sale fino','sal de cozinha','poivre','pepper','peper','pfeffer','pimienta','pepe','pimenta'] },
+  { emoji: '🍯', names: ['miel','honey','honing','honig','miel de abeja','miele','mel'] },
+  { emoji: '🍫', names: ['chocolat','chocolate','chocolade','schokolade','cioccolato'] },
+  { emoji: '☕', names: ['cafe','coffee','koffie','kaffee','caffe','cafe moulu','ground coffee'] },
+  { emoji: '🍵', names: ['the','tea','thee','tee','te','cha','tisane','infusion'] },
+  { emoji: '💧', names: ['eau','water','wasser','agua','acqua','eau minerale','mineral water','mineraalwater'] },
+  { emoji: '🧃', names: ['jus de fruits','jus orange','orange juice','fruit juice','vruchtensap','fruchtsaft','zumo','succo','suco'] },
+  { emoji: '🧻', names: ['essuie tout','papier cuisine','paper towels','keukenpapier','kuchenrolle','papel de cocina','carta cucina','papel toalha','mouchoirs','tissues','zakdoekjes','taschentucher','panuelos','fazzoletti','lencos'] },
+  { emoji: '🪥', names: ['brosse a dents','toothbrush','tandenborstel','zahnburste','cepillo de dientes','spazzolino','escova de dentes'] },
+  { emoji: '🧽', names: ['eponge','eponges','sponge','sponges','spons','schwamm','esponja','spugna'] },
+  { emoji: '🧹', names: ['balai','broom','bezem','besen','escoba','scopa','vassoura'] },
+  { emoji: '🧤', names: ['gants','gants menage','gloves','handschoenen','handschuhe','guantes','guanti','luvas'] },
+  { emoji: '🔋', names: ['pile','piles','batterie','batteries','battery','batterij','batterijen','batterie aa','pilas','pile stilo','pilhas'] },
+  { emoji: '💡', names: ['ampoule','ampoules','light bulb','lamp','gloeilamp','gluhbirne','bombilla','lampadina','lampada'] },
+  { emoji: '🕯️', names: ['bougie','bougies','candle','candles','kaars','kerze','vela','candele'] },
+  { emoji: '🪒', names: ['rasoir','razor','scheermes','rasierer','maquinilla de afeitar','rasoio','navalha'] },
+  { emoji: '🧦', names: ['chaussettes','chaussette','socks','sokken','socken','calcetines','calzini','meias'] },
+];
+const GENERIC_ART_LOOKUP = new Map(GENERIC_PRODUCT_ART.flatMap(item => item.names.map(name => [normalizeCourseVisualName(name), item.emoji] as const)));
+const GENERIC_ART_TYPO = new Map([['contons tiges','cotons tiges'], ['cotons tige','cotons tiges'], ['coton tiges','cotons tiges']]);
+export function courseGenericArtwork(name: string): string | null {
+  const normalized = stripCourseQuantity(normalizeCourseVisualName(name));
+  if (!normalized || RESERVED_BRANDS.test(normalized)) return null;
+  const canonical = GENERIC_ART_TYPO.get(normalized) ?? normalized;
+  if (canonical === 'cotons tiges') return null; // the exact V3 cotton-buds illustration takes precedence
+  return GENERIC_ART_LOOKUP.get(canonical) ?? null;
+}

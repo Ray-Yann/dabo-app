@@ -1,7 +1,7 @@
 "use client";
 
 import { CoursesSectionNav } from "@/components/CoursesSectionNav";
-import { recognizeCourseStore, courseProductPhoto, courseProductSymbol } from "@/lib/courses-visual-catalog";
+import { recognizeCourseStore, courseProductPhoto, courseProductSymbol, courseGenericArtwork } from "@/lib/courses-visual-catalog";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import { useHousehold } from "@/lib/use-household";
@@ -19,6 +19,7 @@ import { trackAcquisitionEvent } from "@/lib/acquisition";
 import { completeFirstValueGuidance } from "@/lib/first-value-guidance";
 import { generateShoppingSuggestions, type ShoppingSuggestionPreference } from "@/lib/dabo-shopping-engine";
 import { NativeNameInput } from "@/components/NativeNameInput";
+import { CourseNamePreviewInput } from "@/components/CourseNamePreviewInput";
 import { DaboScanView } from "@/components/DaboScanView";
 import { parseShoppingFinanceAmount, shoppingSessionPromptEligible, type ShoppingFinanceSession } from "@/lib/shopping-finance";
 import { VERIFIED_STORE_SUPPLEMENTS } from "@/lib/world-store-catalog";
@@ -83,7 +84,10 @@ function CourseFallback({ name }: { name: string }) {
 function CourseProductVisual({ name }: { name: string }) {
   const photo = coursePhoto(name);
   const [failedPath, setFailedPath] = useState<string | null>(null);
-  if (!photo || photo === failedPath) return <CourseFallback name={name} />;
+  if (!photo || photo === failedPath) {
+    const artwork = courseGenericArtwork(name);
+    return artwork ? <span className="dabo-courses-product-placeholder" role="img" aria-label={name} style={{ fontSize: 27, lineHeight: 1 }}>{artwork}</span> : <CourseFallback name={name} />;
+  }
   return <img className="dabo-courses-product-photo" src={photo} alt="" loading="lazy" decoding="async" onError={() => setFailedPath(photo)} />;
 }
 
@@ -107,9 +111,16 @@ function ItemFormFields({
   t: (key: string) => string;
   stores: string[];
 }) {
+
   return (
     <>
-      <NativeNameInput autoFocus placeholder={t("item_name_placeholder")} value={form.name} onCommit={(name) => setForm({ ...form, name })} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink" />
+      <CourseNamePreviewInput
+        value={form.name}
+        placeholder={t("item_name_placeholder")}
+        onCommit={(name) => setForm({ ...form, name })}
+        className="min-w-0 flex-1 border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-ink bg-white2 text-ink"
+        renderPreview={(name) => <CourseProductVisual name={name} />}
+      />
       <div className="rounded-xl bg-paper/60 p-3 space-y-2">
         <div className="text-[11px] font-medium text-muted">{t("courses_optional_details")}</div>
         <input placeholder={t("quantity_placeholder")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ink bg-white2 text-ink" />
