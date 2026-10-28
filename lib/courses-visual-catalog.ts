@@ -97,6 +97,19 @@ const SAFE_MODIFIERS: ReadonlyArray<{ base: string; qualifiers: readonly string[
   { base: 'zalm', qualifiers: ['filet van'] },
 ];
 
+/** V3: unbranded, original editorial illustrations for products without an approved photo.
+ * Kept separate from photographic catalog so the existing 33 photos remain unchanged.
+ */
+const V3_EDITORIAL_VISUALS: ReadonlyArray<{ path: string; names: readonly string[] }> = [
+  { path: '/courses-art/v3-cotton-buds.svg', names: ['coton tige', 'cotons tiges', 'coton tiges', 'cotton bud', 'cotton buds', 'cotton swab', 'cotton swabs', 'wattenstaafje', 'wattenstaafjes', 'wattestabchen', 'wattestabchen', 'bastoncillo de algodon', 'bastoncillos de algodon', 'cotton fioc', 'bastoncini cotonati', 'cotonete', 'cotonetes'] },
+  { path: '/courses-art/v3-scissors.svg', names: ['ciseaux', 'ciseau', 'scissors', 'schaar', 'schaaren', 'schere', 'scheren', 'tijeras', 'forbici', 'tesoura', 'tesouras'] },
+  { path: '/courses-art/v3-air-freshener.svg', names: ['desodorisant', 'desodorisant interieur', 'desodorisant maison', 'parfum d ambiance', 'air freshener', 'room freshener', 'luchtverfrisser', 'raumduft', 'ambientador', 'profumatore ambiente', 'ambientador de casa'] },
+];
+const NORMALIZED_V3_VISUALS = V3_EDITORIAL_VISUALS.map(visual => ({
+  path: visual.path,
+  names: new Set(visual.names.map(normalizeCourseVisualName)),
+}));
+
 const NORMALIZED_VISUALS = CATALOG_VISUALS.map(visual => ({
   path: visual.path,
   names: new Set(visual.names.map(normalizeCourseVisualName)),
@@ -109,6 +122,8 @@ export function courseProductPhoto(name: string): string | null {
   if (!normalized || RESERVED_BRANDS.test(normalized)) return null;
   const exact = NORMALIZED_VISUALS.find(visual => visual.names.has(normalized));
   if (exact) return exact.path;
+  const editorial = NORMALIZED_V3_VISUALS.find(visual => visual.names.has(normalized));
+  if (editorial) return editorial.path;
 
   for (const { base, qualifiers } of SAFE_MODIFIERS) {
     for (const qualifier of qualifiers) {
