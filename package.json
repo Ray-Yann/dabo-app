@@ -8,7 +8,7 @@
     "build": "node scripts/check-i18n.mjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --import ./scripts/register-test-loader.mjs --test tests/*.test.ts",
+    "test": "node --experimental-strip-types --import ./scripts/register-test-loader.mjs --test tests/*.test.ts tests/*.test.mjs",
     "check:env": "node scripts/check-environment.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "typecheck": "tsc --noEmit",

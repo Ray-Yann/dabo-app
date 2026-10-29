@@ -1,0 +1,12 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const root = new URL('../', import.meta.url);
+const page = readFileSync(new URL('app/app/courses/repas/page.tsx',root),'utf8');
+const sql = readFileSync(new URL('supabase/migrations/20261106_dabo_meal_shopping_weekly_v1.sql',root),'utf8');
+test('meal UI calls secure server-side shopping bridge',()=>assert.match(page,/rpc\("dabo_meal_shopping_add_for_period"/));
+test('meal UI never directly inserts shopping items',()=>assert.doesNotMatch(page,/from\(["']shopping_items["']\)\.insert/));
+test('selected ingredient names and units are sent, not client quantities',()=>assert.match(page,/map\(n=>\(\{name:n\.ingredient_name,unit:n\.unit\}\)\)/));
+test('bridge recomputes missing amounts on server',()=>assert.match(sql,/dabo_meal_needs_for_period\(p_household, p_from, p_to\)/));
+test('bridge delegates insertion to shared shopping function',()=>assert.match(sql,/public\.dabo_shopping_add_items\(p_household, v_items, true\)/));
+test('bridge checks active household membership',()=>assert.match(sql,/m\.left_at is null/));
